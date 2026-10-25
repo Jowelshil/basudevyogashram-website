@@ -76,9 +76,11 @@ nav a:hover{border-bottom-color:var(--gold)}
 
 /* hero */
 .hero{position:relative;color:#fff;background:#1a1410}
-.hero img{width:100%;height:clamp(340px,62vw,560px);object-fit:cover;opacity:.92}
+.hero img{width:100%;height:clamp(360px,46vw,760px);object-fit:cover;object-position:center 6%;opacity:.95}
 .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,15,40,.15) 0%,rgba(20,15,40,.25) 40%,rgba(20,12,8,.82) 100%)}
-.hero .copy{position:absolute;inset:auto 0 0 0;z-index:1;padding-block:32px}
+.hero-copy{position:absolute;inset:auto 0 0 0;z-index:1;padding-block:28px}
+.hero-panel{display:inline-block;max-width:100%;background:rgba(31,42,92,.86);border-radius:14px;padding:24px 28px;backdrop-filter:blur(2px)}
+@media (max-width:640px){.hero img{height:auto;min-height:0;aspect-ratio:3/2}.hero::after{display:none}.hero-copy{position:static;padding-block:0}.hero-copy .wrap{padding-left:0;padding-right:0}.hero-panel{display:block;border-radius:0;background:var(--indigo);padding:22px max(16px,env(safe-area-inset-left,0px))}}
 .hero h1{font-size:clamp(30px,5.6vw,58px);text-shadow:0 2px 18px rgba(0,0,0,.45)}
 .hero h1 span{display:block;font-size:.62em;color:#FFD9A8}
 .hero .meta{margin-top:10px;font-size:15px;opacity:.92}
@@ -392,14 +394,14 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
 <main id="top">
   <div class="hero">
     <img src="images/ashram-pond-temple.jpg" alt="বাসুদেব যোগাশ্রমের পুকুর, দোতলা খিলান-বারান্দা ও মন্দিরের চূড়া">
-    <div class="copy"><div class="wrap">
+    <div class="hero-copy"><div class="wrap"><div class="hero-panel">
       <h1>শ্রীশ্রী বাসুদেব যোগাশ্রম<span>ও বাসুদেব অনাথ আশ্রম</span></h1>
       <p class="meta">নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম · স্থাপিত ১৯৬৫ · রেজি: নং-১২১৮২ চট্ট/হাট/২৬</p>
       <div class="cta">
         <a class="btn btn-primary" href="#donate">সেবায় দান করুন</a>
         <a class="btn btn-ghost" href="#contact">আশ্রমে আসুন</a>
       </div>
-    </div></div>
+    </div></div></div>
   </div>
 
   <section id="karmayagya" class="column"><div class="wrap">
