@@ -169,6 +169,17 @@ blockquote cite{display:block;margin-top:8px;font-family:var(--body);font-style:
 .anath-head{display:grid;grid-template-columns:1.1fr 1fr;gap:36px;align-items:center;margin-bottom:36px}
 .anath-head > *{min-width:0}
 .anath-head .sec-head{margin-bottom:0}
+.upasana{margin-top:28px;background:var(--indigo);color:var(--on-indigo);border-radius:14px;padding:28px 30px;display:grid;gap:12px}
+.upasana .eyebrow{color:var(--gold)}.upasana .eyebrow::before{background:var(--gold)}
+.upasana h3{font-size:clamp(22px,3vw,28px)}
+.upasana p:not(.eyebrow){max-width:70ch;opacity:.9;font-size:16px}
+.pranam{margin:28px 0 0;display:grid;grid-template-columns:120px 1fr;gap:24px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 26px}
+.pranam > *{min-width:0}
+.pranam img{width:120px;aspect-ratio:3/4;object-fit:cover;object-position:top;border-radius:60px 60px 10px 10px;border:3px solid var(--gold)}
+.pranam blockquote{margin:0;padding:0;background:none;font-family:var(--display);font-size:19px;line-height:1.7}
+.pranam cite{display:block;margin-top:10px;font-style:normal;font-family:var(--body);font-size:15px;color:var(--saffron)}
+.pranam cite small{color:var(--muted);font-size:13px}
+@media (max-width:620px){.pranam{grid-template-columns:1fr;justify-items:center;text-align:center}}
 .anath-photo{width:100%;border-radius:14px;box-shadow:0 10px 30px rgba(60,30,10,.18)}
 .pillars{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
 .pillar{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px 26px;display:grid;gap:8px;align-content:start;min-width:0}
@@ -488,17 +499,33 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
     <div class="anath-head">
       <div class="sec-head">
         <p class="eyebrow">শ্রীশ্রী বাসুদেব অনাথ আশ্রম · Basudeb Orphanage</p>
-        <h2>মানবসেবা ও সামাজিক দায়িত্ববোধের এক উজ্জ্বল দৃষ্টান্ত</h2>
-        <p class="lede">অবহেলিত, পিতৃহীন ও আশ্রয়হীন শিশুদের নিরাপদ ভবিষ্যৎ গড়ে তোলাই বাসুদেব অনাথ আশ্রমের লক্ষ্য। ২০০৪ সাল থেকে গুরুদেবের স্নেহচ্ছায়ায় এখানে বেড়ে উঠছে প্রায় ৪৫০–৫০০ শিশু।</p>
+        <h2>স্নেহ, সেবা ও দিব্য আলোয় জীবন গড়ার মহান ব্রত</h2>
+        <p class="lede">শ্রীশ্রী বাসুদেব অনাথ আশ্রম শ্রদ্ধা, ভালোবাসা ও মানবিকতার এক অনন্য তীর্থভূমি। পরমারাধ্য গুরুদেব শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজের ঐশ্বরিক নির্দেশনা, অসীম কৃপা এবং স্নেহের স্পর্শে এই আশ্রমের প্রতিটি বিদ্যার্থী আজ গড়ে উঠছে সৎ, চরিত্রবান ও আদর্শ মানুষ হিসেবে।</p>
+        <p class="lede">অনাথ ও বঞ্চিত শিশুদের পরম মমতায় বুকে টেনে নিয়ে তাদের সুশিক্ষায় শিক্ষিত করা এবং সুনাগরিক হিসেবে গড়ে তোলাই পরম গুরুদেবের মূল জীবনব্রত। তাঁর প্রত্যক্ষ তত্ত্বাবধানে ও সুযোগ্য পরিচালনায় আশ্রমে চলছে বিদ্যাদান, নীতিশিক্ষা ও আত্মিক পরিচর্যার এক অপূর্ব মেলবন্ধন।</p>
       </div>
       <img class="anath-photo" src="images/anath-bhaban.jpg" alt="শ্রীশ্রী বাসুদেব অনাথ আশ্রম ভবনের সামনে আশ্রমের শিশুরা" loading="lazy">
     </div>
+    <h3 class="sub-h">যেসব মূল স্তম্ভের ওপর বিদ্যার্থীদের লালন-পালন করা হয়</h3>
     <div class="pillars">
-      <article class="pillar"><span class="p-num">১</span><h3>স্নেহের পরশ ও নিরাপদ আশ্রয়</h3><p>পিতৃ-মাতৃহীন বা আশ্রয়হীন শিশুদের জন্য এই আশ্রম কেবল একটি বাসস্থান নয়, বরং একটি নিরাপদ ঘর। এখানে তারা পায় স্নেহের পরশ, খাদ্যের নিশ্চয়তা এবং একটি ভালোবাসাময় পরিবেশ, যা তাদের জীবনের অনিশ্চয়তা দূর করে।</p></article>
-      <article class="pillar"><span class="p-num">২</span><h3>শিক্ষার আলো ও ব্যক্তিত্ব বিকাশ</h3><p>প্রতিটি শিশুকে সুশিক্ষায় শিক্ষিত করে তোলাই আশ্রমের মূল উদ্দেশ্য। সাধারণ শিক্ষার পাশাপাশি নৈতিক শিক্ষা, ধর্মীয় মূল্যবোধ ও শৃঙ্খলা শেখানো হয়, যাতে তারা ভবিষ্যতে চরিত্রবান ও আদর্শ নাগরিক হিসেবে গড়ে উঠতে পারে।</p></article>
-      <article class="pillar"><span class="p-num">৩</span><h3>আত্মনির্ভরশীলতার পথপ্রদর্শক</h3><p>শিশুদের কেবল অক্ষরজ্ঞান দেওয়াই শেষ কথা নয়। বড় হয়ে যাতে তারা সমাজে নিজের পায়ে দাঁড়াতে পারে, সে জন্য আশ্রমে বিভিন্ন ধরনের কারিগরি ও বাস্তবমুখী প্রশিক্ষণ দেওয়া হয়। এতে তারা আত্মবিশ্বাসী ও আত্মনির্ভরশীল হয়ে ওঠে।</p></article>
-      <article class="pillar"><span class="p-num">৪</span><h3>মানবিকতা ও সামাজিক দায়বদ্ধতা</h3><p>বাসুদেব অনাথ আশ্রম সমাজের সর্বস্তরের মানুষের সহমর্মিতা ও সহযোগিতায় পরিচালিত হয়। এটি আমাদের মনে করিয়ে দেয়, সুবিধাবঞ্চিত শিশুদের পাশে দাঁড়ানো সমাজের প্রতিটি সামর্থ্যবান মানুষের নৈতিক দায়িত্ব।</p></article>
+      <article class="pillar"><span class="p-num">১</span><h3>সুশিক্ষার আলো</h3><p>সাধারণ শিক্ষার পাশাপাশি ধর্মীয় ও নৈতিক শিক্ষার মেলবন্ধনে শিক্ষার্থীদের মানসিকভাবে শক্তিশালী ও আলোকিত করে তোলা।</p></article>
+      <article class="pillar"><span class="p-num">২</span><h3>চরিত্র গঠন ও শৃঙ্খলা</h3><p>প্রাত্যহিক প্রার্থনা, যোগাভ্যাস ও সুশৃঙ্খল জীবনযাত্রার মাধ্যমে শিক্ষার্থীদের মনকে পবিত্র ও সংকল্পবদ্ধ রাখা।</p></article>
+      <article class="pillar"><span class="p-num">৩</span><h3>মমতা ও আশ্রয়ের কোল</h3><p>পরম গুরুদেবের পিতৃসুলভ স্নেহ ও সান্নিধ্যে প্রতিটি শিশু খুঁজে পায় এক নিরাপদ নীড় ও নিশ্চিত ভবিষ্যৎ।</p></article>
+      <article class="pillar"><span class="p-num">৪</span><h3>সেবাব্রত ও সংস্কার</h3><p>সনাতন সংস্কৃতি, আধ্যাত্মিক চেতনা এবং মানবসেবার চেতনায় উদ্বুদ্ধ করে এক একজন আদর্শ ও স্বাবলম্বী মানুষ হিসেবে গড়ে তোলা।</p></article>
     </div>
+    <article class="upasana">
+      <p class="eyebrow">উপাসনার মুহূর্ত</p>
+      <h3>প্রদীপের আলো আর ধূপের সুবাসে বিদ্যার্থীদের প্রার্থনা</h3>
+      <p>শান্ত, স্নিগ্ধ পরিবেশ। প্রদীপের মৃদু আলো আর ধূপের সুবাসে চারপাশ এক পবিত্র আবহে ভেসে যাচ্ছে। ঠিক এমনই এক সুন্দর মুহূর্তে বাসুদেব অনাথ আশ্রমের কচি-কাঁচা বিদ্যার্থীরা সারিবদ্ধভাবে উপাসনায় নিমগ্ন।</p>
+      <p>তাদের নিষ্পাপ চোখ, ভক্তিভরা মুখাবয়ব আর জোড়হাতে প্রার্থনার দৃশ্যটি যেন স্বর্গের এক টুকরো দৃশ্যকে মর্ত্যে নামিয়ে এনেছে। পরিবার বা আপনজনের অভাব যাদের জীবনে রয়েছে, তারা এক পরম পিতার চরণে নিজেদের সমর্পণ করে খুঁজে পায় পরম শান্তি ও আশ্রয়। সমবেত কণ্ঠে তাদের সুমধুর প্রার্থনা ও জপ কেবল আশ্রমে নয়, যেন প্রতিটি হৃদয়ে এক অলৌকিক প্রশান্তি ছড়িয়ে দেয়।</p>
+      <p>তাদের এই সরল ও একনিষ্ঠ ভক্তি আমাদের শেখায়, জীবনের আলো কিংবা শক্তি বাহ্যিক জাঁকজমকে নয়, বরং অন্তরের বিশুদ্ধ বিশ্বাস ও শ্রদ্ধায় লুকিয়ে থাকে। বিদ্যা অর্জনের পাশাপাশি এমন সংস্কার ও আধ্যাত্মিক চর্চার মধ্য দিয়ে এই শিশুরা সুনাগরিক ও আলোকিত মানুষ হিসেবে গড়ে উঠুক, বাসুদেবের কাছে এই আমাদের বিনীত প্রার্থনা।</p>
+    </article>
+    <figure class="pranam">
+      <img src="images/guru-biplob-chaitanya.jpg" alt="শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ" loading="lazy">
+      <blockquote>
+        <p>পবিত্র এই সাধনপীঠ ও আশ্রমের মাধ্যমে শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ সমাজের পিছিয়ে পড়া ও সহায়-সম্বলহীন শিশুদের জীবনের দিশা দেখাচ্ছেন। তাঁর এই মহান কর্মযজ্ঞ ও অপার করুণার প্রতি জানাই কোটি কোটি প্রণাম।</p>
+        <cite>গুরুদেবের চরণপ্রান্তে নিবেদিত আমাদের বিনম্র শ্রদ্ধা ও ভক্তি।<br><small>শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ, অধ্যক্ষ, শ্রীশ্রী বাসুদেব যোগাশ্রম ও শ্রীশ্রী বাসুদেব অনাথ আশ্রম</small></cite>
+      </blockquote>
+    </figure>
     <div class="anath-cta">
       <p>একটি শিশুর পাশে দাঁড়ান। আপনার দান, শুভদিনে অন্নসেবা কিংবা মাসিক প্রণামী, সবই পৌঁছায় শিশুদের কাছে।</p>
       <div class="cta-row">
