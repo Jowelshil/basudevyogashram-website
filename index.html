@@ -164,6 +164,23 @@ blockquote cite{display:block;margin-top:8px;font-family:var(--body);font-style:
 @media (max-width:900px){.seva-grid{grid-template-columns:1fr 1fr}}
 @media (max-width:620px){.seva-grid{grid-template-columns:1fr}}
 
+/* anath */
+.anath{background:var(--saffron-soft)}
+.anath-head{display:grid;grid-template-columns:1.1fr 1fr;gap:36px;align-items:center;margin-bottom:36px}
+.anath-head > *{min-width:0}
+.anath-head .sec-head{margin-bottom:0}
+.anath-photo{width:100%;border-radius:14px;box-shadow:0 10px 30px rgba(60,30,10,.18)}
+.pillars{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.pillar{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px 26px;display:grid;gap:8px;align-content:start;min-width:0}
+.p-num{width:36px;height:36px;border-radius:50%;background:var(--saffron);color:#fff;display:grid;place-items:center;font-weight:600}
+.pillar h3{font-size:21px;color:var(--indigo)}
+.pillar p{font-size:15px;color:var(--muted)}
+.anath-cta{margin-top:28px;background:var(--indigo);color:var(--on-indigo);border-radius:14px;padding:24px 26px;display:grid;gap:14px}
+.anath-cta p{font-family:var(--display);font-size:19px}
+.cta-row{display:flex;flex-wrap:wrap;gap:10px}
+.btn-outline{border-color:var(--on-indigo);color:var(--on-indigo)}
+@media (max-width:820px){.anath-head,.pillars{grid-template-columns:1fr}}
+
 /* shubhodin booking */
 .shubho{background:var(--surface);border-block:1px solid var(--line)}
 .shubho-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:36px;align-items:start}
@@ -310,6 +327,7 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
         <li><a href="#shakha">শাখা</a></li>
         <li><a href="#parampara">পরম্পরা</a></li>
         <li><a href="#seva">সেবা</a></li>
+        <li><a href="#anath">অনাথ আশ্রম</a></li>
         <li><a href="#shubhodin">শুভদিন বুকিং</a></li>
         <li><a href="#utsav">উৎসব</a></li>
         <li><a href="#unnoyon">উন্নয়ন</a></li>
@@ -444,6 +462,7 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
           <h3>বাসুদেব অনাথ আশ্রম</h3>
           <p>২০০৪ সালে গুরু মহারাজের হাতে শুরু হওয়া এই আবাসিক আশ্রমে বর্তমানে প্রায় ৪৫০–৫০০ অনাথ ছেলে থাকে।</p>
           <ul><li>আহার ও বাসস্থান</li><li>শিক্ষা ও বইপত্র</li><li>চিকিৎসা ও যত্ন</li></ul>
+          <p><a href="#anath">অনাথ আশ্রম সম্পর্কে বিস্তারিত →</a></p>
         </div>
       </article>
       <article class="card">
@@ -462,6 +481,31 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
           <ul><li>গুরুপূজা ও শ্রীশ্রী চণ্ডীপাঠ</li><li>বিশ্বশান্তি গীতাযজ্ঞ ও মহতী ধর্মসভা</li><li>সাধু সম্মেলন</li><li>বস্ত্র বিতরণ ও ফ্রি চিকিৎসা সেবা</li></ul>
         </div>
       </article>
+    </div>
+  </div></section>
+
+  <section id="anath" class="anath"><div class="wrap">
+    <div class="anath-head">
+      <div class="sec-head">
+        <p class="eyebrow">শ্রীশ্রী বাসুদেব অনাথ আশ্রম · Basudeb Orphanage</p>
+        <h2>মানবসেবা ও সামাজিক দায়িত্ববোধের এক উজ্জ্বল দৃষ্টান্ত</h2>
+        <p class="lede">অবহেলিত, পিতৃহীন ও আশ্রয়হীন শিশুদের নিরাপদ ভবিষ্যৎ গড়ে তোলাই বাসুদেব অনাথ আশ্রমের লক্ষ্য। ২০০৪ সাল থেকে গুরুদেবের স্নেহচ্ছায়ায় এখানে বেড়ে উঠছে প্রায় ৪৫০–৫০০ শিশু।</p>
+      </div>
+      <img class="anath-photo" src="images/anath-bhaban.jpg" alt="শ্রীশ্রী বাসুদেব অনাথ আশ্রম ভবনের সামনে আশ্রমের শিশুরা" loading="lazy">
+    </div>
+    <div class="pillars">
+      <article class="pillar"><span class="p-num">১</span><h3>স্নেহের পরশ ও নিরাপদ আশ্রয়</h3><p>পিতৃ-মাতৃহীন বা আশ্রয়হীন শিশুদের জন্য এই আশ্রম কেবল একটি বাসস্থান নয়, বরং একটি নিরাপদ ঘর। এখানে তারা পায় স্নেহের পরশ, খাদ্যের নিশ্চয়তা এবং একটি ভালোবাসাময় পরিবেশ, যা তাদের জীবনের অনিশ্চয়তা দূর করে।</p></article>
+      <article class="pillar"><span class="p-num">২</span><h3>শিক্ষার আলো ও ব্যক্তিত্ব বিকাশ</h3><p>প্রতিটি শিশুকে সুশিক্ষায় শিক্ষিত করে তোলাই আশ্রমের মূল উদ্দেশ্য। সাধারণ শিক্ষার পাশাপাশি নৈতিক শিক্ষা, ধর্মীয় মূল্যবোধ ও শৃঙ্খলা শেখানো হয়, যাতে তারা ভবিষ্যতে চরিত্রবান ও আদর্শ নাগরিক হিসেবে গড়ে উঠতে পারে।</p></article>
+      <article class="pillar"><span class="p-num">৩</span><h3>আত্মনির্ভরশীলতার পথপ্রদর্শক</h3><p>শিশুদের কেবল অক্ষরজ্ঞান দেওয়াই শেষ কথা নয়। বড় হয়ে যাতে তারা সমাজে নিজের পায়ে দাঁড়াতে পারে, সে জন্য আশ্রমে বিভিন্ন ধরনের কারিগরি ও বাস্তবমুখী প্রশিক্ষণ দেওয়া হয়। এতে তারা আত্মবিশ্বাসী ও আত্মনির্ভরশীল হয়ে ওঠে।</p></article>
+      <article class="pillar"><span class="p-num">৪</span><h3>মানবিকতা ও সামাজিক দায়বদ্ধতা</h3><p>বাসুদেব অনাথ আশ্রম সমাজের সর্বস্তরের মানুষের সহমর্মিতা ও সহযোগিতায় পরিচালিত হয়। এটি আমাদের মনে করিয়ে দেয়, সুবিধাবঞ্চিত শিশুদের পাশে দাঁড়ানো সমাজের প্রতিটি সামর্থ্যবান মানুষের নৈতিক দায়িত্ব।</p></article>
+    </div>
+    <div class="anath-cta">
+      <p>একটি শিশুর পাশে দাঁড়ান। আপনার দান, শুভদিনে অন্নসেবা কিংবা মাসিক প্রণামী, সবই পৌঁছায় শিশুদের কাছে।</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#donate">দান করুন</a>
+        <a class="btn btn-outline" href="#shubhodin">শুভদিন বুকিং</a>
+        <a class="btn btn-outline" href="#sadasya">সদস্য হোন</a>
+      </div>
     </div>
   </div></section>
 
