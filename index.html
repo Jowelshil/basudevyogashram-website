@@ -88,6 +88,28 @@ nav a:hover{border-bottom-color:var(--gold)}
 .btn-ghost{border-color:rgba(255,255,255,.7);color:#fff}
 .btn-primary:hover{filter:brightness(1.08)}
 
+/* column */
+.column{background:var(--surface);border-bottom:1px solid var(--line)}
+.col-grid{display:grid;grid-template-columns:240px 1fr;gap:48px;align-items:start}
+.col-grid > *{min-width:0}
+.col-side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 110px);display:grid;gap:8px;justify-items:center;text-align:center}
+.col-frame{width:200px;max-width:100%;aspect-ratio:3/4;border-radius:120px 120px 14px 14px;overflow:hidden;border:3px solid var(--gold);box-shadow:0 0 0 6px var(--saffron-soft)}
+.col-frame img{width:100%;height:100%;object-fit:cover;object-position:top}
+.col-name{font-family:var(--display);font-size:19px;color:var(--saffron);margin-top:8px}
+.col-role{font-size:13px;color:var(--muted)}
+.col-body{display:grid;gap:18px;max-width:68ch}
+.col-body h2{font-size:clamp(28px,4.2vw,42px);color:var(--indigo)}
+.col-body p{font-size:17.5px;line-height:1.85}
+.dropcap::first-letter{font-family:var(--display);float:left;font-size:3.4em;line-height:.9;padding:6px 10px 0 0;color:var(--saffron)}
+.col-close{font-family:var(--display);font-size:20px!important;color:var(--saffron);border-top:1px solid var(--line);padding-top:16px}
+.visit{margin-top:48px;background:var(--indigo);color:var(--on-indigo);border-radius:16px;padding:28px 30px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center}
+.visit > *{min-width:0}
+.visit h3{font-size:clamp(24px,3.2vw,30px);margin-bottom:10px}
+.visit-text p{font-size:16px;opacity:.92;max-width:70ch}
+.visit-addr{margin-top:12px;font-size:15px!important}
+.visit-actions{display:grid;gap:10px}
+@media (max-width:860px){.col-grid{grid-template-columns:1fr;gap:28px}.col-side{position:static}.visit{grid-template-columns:1fr}}
+
 /* about */
 .about-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:48px;align-items:start}
 .about-grid > *{min-width:0}
@@ -365,6 +387,37 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
       </div>
     </div></div>
   </div>
+
+  <section id="karmayagya" class="column"><div class="wrap">
+    <article class="col-grid">
+      <aside class="col-side">
+        <div class="col-frame"><img src="images/guru-biplob-chaitanya.jpg" alt="শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ"></div>
+        <p class="col-name">শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ</p>
+        <p class="col-role">অধ্যক্ষ, শ্রীশ্রী বাসুদেব যোগাশ্রম ও শ্রীশ্রী বাসুদেব অনাথ আশ্রম</p>
+      </aside>
+      <div class="col-body">
+        <p class="eyebrow">গুরুদেবের কর্মযজ্ঞ</p>
+        <h2>এক সন্ন্যাসীর ব্রত, শত শিশুর আশ্রয়</h2>
+        <p>১৯৬৫ সালে নেহালপুরের এক নির্জন পুকুরপাড়ে মাত্র দুই কড়া জমিতে স্বামী বাসুদেবানন্দ গিরি মহারাজ যে “অযাচক আশ্রম” কুটির গড়েছিলেন, আজ তা হাজারো ভক্তের তীর্থধাম। এই ধামের বর্তমান রূপের পেছনে রয়েছে এক নিরলস সাধকের দুই দশকের তপস্যা ও সেবা। ২০০৪ সালে গুরুদেব স্বামী কৃষ্ণানন্দ গিরি মহারাজ অসংখ্য ভক্তের সম্মুখে যাঁর হাতে আশ্রমের দায়িত্বভার অর্পণ করেছিলেন, তিনি শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ।</p>
+        <p>দায়িত্ব গ্রহণের পর গুরুদেব প্রথমেই হাত বাড়িয়েছিলেন সমাজের সবচেয়ে অসহায় মানুষদের দিকে, পিতৃ-মাতৃহীন শিশুদের দিকে। সেই বছরই শুরু হয় বাসুদেব অনাথ আশ্রম। আজ প্রায় ৪৫০ থেকে ৫০০ বিদ্যার্থী এখানে থাকে। তাদের আহার, বাসস্থান, চিকিৎসা ও লেখাপড়াসহ সব মৌলিক চাহিদার দায়িত্ব আশ্রমের। গুরুদেব তাদের কাছে কেবল অধ্যক্ষ নন, পিতৃসুলভ আশ্রয়। প্রাত্যহিক প্রার্থনা, যোগাভ্যাস ও বিদ্যালয়ের পাঠের মধ্য দিয়ে প্রতিদিন গড়ে উঠছে একেকটি সৎ ও চরিত্রবান জীবন।</p>
+        <p>শিশুদের শিক্ষার জন্য গড়ে উঠেছে সরকার অনুমোদিত বাসুদেব স্কুল এন্ড কলেজ, যেখানে আশ্রমের ছেলেরা বিনা খরচে পড়াশোনা করে। পাশাপাশি চলছে নিত্যপূজা, প্রতি অমাবস্যায় রাত্রিকালীন শ্রীশ্রী চণ্ডীযজ্ঞ, গুরুদেবদের আবির্ভাব ও তিরোধান তিথিতে বিশ্বশান্তি গীতাযজ্ঞ, সাধু সম্মেলন, বস্ত্র বিতরণ ও বিনামূল্যে চিকিৎসা সেবা। নেহালপুরের প্রধান আশ্রমের সাথে মীরসরাইয়ের গোপালপুরে আদি আশ্রমটিও একই পরম্পরায় পরিচালিত হচ্ছে।</p>
+        <p>এই বিশাল কর্মযজ্ঞ চলছে ভক্ত-শিষ্যদের ভালোবাসা ও দানে। কেউ দিয়েছেন ভূমি, কেউ মাসিক প্রণামী, কেউ নিজের শুভদিনে শিশুদের মুখে তুলে দিয়েছেন এক বেলার অন্ন। এখন নির্মাণ চলছে প্রসাদ ভবন ও স্কুল এন্ড কলেজের নতুন ভবনের। আর গুরুদেবের চোখে ভবিষ্যতের স্বপ্ন আরও বড়: বাসুদেব মেডিকেল কলেজ, বাসুদেব টেকনিক্যাল কলেজ এবং সাধু-সন্ত ও ভক্তদের মহামিলন বাসুদেব কুম্ভ মেলা।</p>
+        <p class="col-close">গুরুর কৃপা আর ভক্তের সেবা, এই দুইয়ের মিলনেই বাসুদেব ধাম আজ এক জীবন্ত তীর্থ। এই মহান কর্মযজ্ঞে আমরা সবাই অংশীদার হতে পারি।</p>
+      </div>
+    </article>
+
+    <div class="visit">
+      <div class="visit-text">
+        <h3>আশ্রমে আসুন, নিজের চোখে দেখুন</h3>
+        <p>গুরুধামের প্রকৃত অনুভূতি কোনো লেখা বা ছবিতে ধরা যায় না। সময় পেলেই সপরিবারে চলে আসুন নেহালপুরে। গুরুদেবের দর্শন নিন, সমাধিক্ষেত্রে প্রণাম জানান, পুণ্য পুকুরঘাটে কিছুক্ষণ বসুন, আর আশ্রমের শিশুদের সাথে কাটান কিছুটা সময়। তাদের হাসিমুখই এই আশ্রমের সবচেয়ে বড় পরিচয়। অমাবস্যার রাতের চণ্ডীযজ্ঞ কিংবা বার্ষিক উৎসবের দিনগুলোতে এলে পাবেন এক অন্যরকম আধ্যাত্মিক আবহ।</p>
+        <p class="visit-addr"><b>ঠিকানা:</b> শ্রীশ্রী বাসুদেব যোগাশ্রম, নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম · <b>ফোন:</b> ০১৭১১-৯৪১৭৫৬</p>
+      </div>
+      <div class="visit-actions">
+        <a class="btn btn-primary" href="https://www.google.com/maps/search/?api=1&query=Basudev+Yogashram+Nehalpur+Nandirhat+Hathazari+Chattogram" target="_blank" rel="noopener">পথ দেখুন (গুগল ম্যাপ) ↗</a>
+        <a class="btn btn-outline" href="#utsav">উৎসবসূচি দেখুন</a>
+      </div>
+    </div>
+  </div></section>
 
   <section id="about"><div class="wrap about-grid">
     <div class="about-text">
