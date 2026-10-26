@@ -169,6 +169,30 @@ blockquote cite{display:block;margin-top:8px;font-family:var(--body);font-style:
 .invite p{font-size:16px}
 @media (max-width:820px){.projects,.projects.three{grid-template-columns:1fr}}
 
+/* biography dialog */
+.bio-btn{margin-top:4px;justify-self:center;background:none;border:1px solid var(--gold);color:var(--gold);font:inherit;font-size:15px;font-weight:600;border-radius:99px;padding:7px 18px;cursor:pointer}
+.bio-btn:hover{background:var(--gold);color:var(--indigo)}
+.frame-btn{padding:0;cursor:pointer;display:block;width:100%}
+.frame-btn:hover img{transform:scale(1.03)}
+.frame-btn img{transition:transform .3s}
+dialog.bio{width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;border:0;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog.bio::backdrop{background:rgba(15,18,40,.7)}
+.bio-inner{padding:28px clamp(18px,4vw,40px) 32px;display:grid;gap:14px;position:relative}
+.bio-close{position:sticky;top:0;justify-self:end;margin-bottom:-40px;z-index:2;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:18px;cursor:pointer}
+.bio-head{display:grid;grid-template-columns:110px 1fr;gap:20px;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.bio-head img{width:110px;aspect-ratio:3/4;object-fit:cover;object-position:top;border-radius:60px 60px 10px 10px;border:3px solid var(--gold)}
+.bio-head h2{font-size:clamp(22px,3.2vw,30px);color:var(--saffron)}
+.bio-sub{font-size:14px;color:var(--muted);margin-top:4px}
+.bio-head .eyebrow{flex-wrap:wrap;font-size:13px;padding-right:40px}
+.bio h3{font-size:20px;color:var(--indigo);margin-top:8px}
+:root[data-theme="dark"] .bio h3{color:var(--gold)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .bio h3{color:var(--gold)}}
+.bio p{font-size:16.5px;line-height:1.85;max-width:65ch}
+.bio-quote{margin:6px 0;padding:16px 20px;border-left:4px solid var(--saffron);background:var(--saffron-soft);border-radius:0 10px 10px 0;font-family:var(--display);font-size:18px}
+.bio-pending{font-family:var(--display);color:var(--muted);text-align:center;padding:40px 0}
+.bio-src{font-size:13px!important;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;margin-top:6px}
+@media (max-width:520px){.bio-head{grid-template-columns:80px 1fr}.bio-head img{width:80px}}
+
 /* lineage */
 .lineage{background:var(--indigo);color:var(--on-indigo)}
 .lineage .sec-head h2{color:var(--on-indigo)!important}
@@ -515,16 +539,18 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
     </div>
     <div class="gurus">
       <article class="guru">
-        <div class="frame"><img src="images/guru-basudevananda.jpg" alt="শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজ"></div>
+        <button class="frame frame-btn" type="button" data-bio="bio-basudevananda" aria-label="শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজের জীবনী পড়ুন"><img src="images/guru-basudevananda.jpg" alt="শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজ"></button>
         <p class="step">প্রতিষ্ঠাতা অধ্যক্ষ</p>
         <h3>শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজ</h3>
         <p>গৌর দোল পূর্ণিমা তিথিতে মীরসরাইয়ের মুরাদনগর গ্রামে আবির্ভাব। স্বামী সত্যানন্দ ও স্বামী ব্রহ্মানন্দের চরণে হঠযোগ ও রাজযোগ শিক্ষা। ১৯৮৫ সালে মহাসমাধি।</p>
+        <button class="bio-btn" type="button" data-bio="bio-basudevananda">সংক্ষিপ্ত জীবনী পড়ুন →</button>
       </article>
       <article class="guru">
-        <div class="frame"><img src="images/guru-krishnananda.jpg" alt="শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজ"></div>
+        <button class="frame frame-btn" type="button" data-bio="bio-krishnananda" aria-label="শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজের জীবনী পড়ুন"><img src="images/guru-krishnananda.jpg" alt="শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজ"></button>
         <p class="step">উত্তরসূরি অধ্যক্ষ</p>
         <h3>শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজ</h3>
         <p>রাউজানের কেউটিয়া গ্রামের সন্তান, পিতা তেজেন্দ্র ভট্টাচার্য্য, মাতা সুখদা দেবী। গুরুর প্রাণপ্রিয় শিষ্য ও উত্তরাধিকারী। ২০ সেপ্টেম্বর ২০০৪ দিব্যধামবাসী।</p>
+        <button class="bio-btn" type="button" data-bio="bio-krishnananda">সংক্ষিপ্ত জীবনী পড়ুন →</button>
       </article>
       <article class="guru">
         <div class="frame"><img src="images/guru-biplob-chaitanya.jpg" alt="শ্রীশ্রী বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ"></div>
@@ -904,6 +930,64 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
   <span>basudevyogashram.org · ॥ জয় গুরু ॥</span>
 </div></footer>
 
+<dialog class="bio" id="bio-basudevananda" aria-labelledby="bio-b-title">
+  <div class="bio-inner">
+    <button class="bio-close" type="button" aria-label="বন্ধ করুন">✕</button>
+    <div class="bio-head">
+      <img src="images/guru-basudevananda.jpg" alt="">
+      <div>
+        <p class="eyebrow">সংক্ষিপ্ত জীবনী · প্রতিষ্ঠাতা অধ্যক্ষ</p>
+        <h2 id="bio-b-title">পরমহংস শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজ</h2>
+        <p class="bio-sub">বিশ্বপরিব্রাজক, অষ্টাঙ্গ যোগক্রিয়াবিদ, সর্বত্যাগী সন্ন্যাসী, পরিব্রাজকাচার্য</p>
+      </div>
+    </div>
+
+    <h3>জন্ম ও শৈশব</h3>
+    <p>চট্টগ্রামের মীরসরাই থানার ৭নং কাটাছড়া ইউনিয়নের মুরাদনগর গ্রামে এক দরিদ্র পরিবারে গৌর দোল পূর্ণিমা তিথিতে তাঁর আবির্ভাব। পিতা শ্রী রামগোবিন্দ কৃষিকাজ ও নাপিতের কাজ করতেন, মাতা শ্রীমতি কুসুম বালা শীল ছিলেন গৃহিণী। তিন ভাইয়ের মধ্যে বাসুদেব ছিলেন সবার ছোট, মা-বাবার সবচেয়ে আদরের সন্তান। শৈশব থেকেই তাঁর মধ্যে আধ্যাত্মিক ভাব, সংযম ও সততার পরিচয় পাওয়া যেত।</p>
+    <p>কথিত আছে, অন্নপ্রাশনের দিন গ্রামে মৎস্য ভোজনের আয়োজন হয়েছিল। শিশু বাসুদেবের মুখে মাছ ছোঁয়াতেই তিনি মৃতপ্রায় হয়ে পড়েন, সবাই কান্নায় ভেঙে পড়েন। হাসপাতাল থেকে সুস্থ হয়ে ফিরলেও সেদিন আর অন্নপ্রাশন হয়নি। যেন জীবনের শুরুতেই তিনি বুঝিয়ে দিয়েছিলেন, তাঁর পথ ভোগের নয়, ত্যাগের।</p>
+
+    <h3>নিরুদ্দেশ যাত্রা</h3>
+    <p>আট বছর বয়সে একদিন খেলা শেষে সন্ধ্যা নামলেও বাসুদেব আর ঘরে ফেরেননি। তন্ন তন্ন করে খোঁজা হলো, পুকুরে জাল ফেলা হলো, কিন্তু কোনো হদিস মিলল না। সবাই ভাবলেন হয়তো পুকুরে ডুবে গেছেন। মায়ের মন মানল না; ছেলের জন্য কাঁদতে কাঁদতে তাঁর দুচোখ অন্ধ হয়ে গিয়েছিল।</p>
+
+    <h3>সন্ন্যাস ও হিমালয়ে সাধনা</h3>
+    <p>যৌবনেই তিনি সংসারের মায়া ত্যাগ করে সন্ন্যাস গ্রহণ করেন। আধ্যাত্মিক মহাসাধক শ্রীমৎ ব্রহ্মানন্দ মহারাজের কাছে হঠযোগ ও রাজযোগ শিক্ষা নেন, এবং গুরুর দেখানো পথে কঠোর তপস্যা, যোগাভ্যাস ও সাধনায় আত্মোন্নতির পথে অগ্রসর হন। কেদার, বদ্রী, হরিদ্বার, হৃষীকেশ, নেপাল, ভুটান ও বার্মাসহ অসংখ্য তীর্থ ও পর্বত পায়ে হেঁটে পরিভ্রমণ করেন। দীর্ঘকাল হিমালয়ের কঠিন সাধনায় মগ্ন থেকে তিনি সিদ্ধিলাভ করেন।</p>
+
+    <h3>জন্মভূমিতে প্রত্যাবর্তন</h3>
+    <p>প্রায় ত্রিশ বছর পর একদিন গেরুয়া বস্ত্রধারী, হাতে কমণ্ডলু, পায়ে খড়ম, লম্বা দাড়ির এক দীর্ঘদেহী দিব্য সন্ন্যাসী গ্রামের মেঠো পথ ধরে ধীরে হেঁটে চলেছেন। গ্রামবাসী অবাক হয়ে ভাবছে, কে এই সাধু? তৎকালীন পূর্ব পাকিস্তানের অবহেলিত, অসহায় সনাতনী মানুষের কল্যাণে তিনি ফিরে এসেছিলেন। জন্মভূমির পাশে গোপালপুর গ্রামে ভক্তদের আকুল অনুরোধে প্রথম কুটির স্থাপন করেন, যা আজ শ্রীশ্রী বাসুদেব যোগাশ্রম, গোপালপুর।</p>
+
+    <h3>অযাচক আশ্রম, নেহালপুর</h3>
+    <p>পরবর্তীতে বিভিন্ন মঠ ও মিশনের দায়িত্ব তাঁর কাছে এলেও বাসনাত্যাগী এই সন্ন্যাসী সব ছেড়ে গভীর সাধনার জন্য ১৯৬৫ সালে হাটহাজারীর প্রত্যন্ত গ্রাম নেহালপুরে এক পুকুরপাড়ে মাত্র দুই কড়া জমিতে একটি কুটির নির্মাণ করে কঠোর সাধনায় মগ্ন হন। নাম দেন <b>“অযাচক আশ্রম”</b>: কারো কাছে কিছু চাওয়া হবে না, ভক্তরা স্বেচ্ছায় যা দেবেন তাতেই আশ্রম চলবে। আধা-সেদ্ধ খাবারে দিনে এক বেলা আহার করা এই সদাচারী যোগীরাজ ছিলেন অসংখ্য যোগবিভূতির অধিকারী।</p>
+
+    <h3>গীতার বাণী প্রচার</h3>
+    <p>রাউজান, রাঙ্গুনিয়াসহ চট্টগ্রামের যেসব প্রত্যন্ত অঞ্চলে দিনের বেলাও মানুষ পথে বের হতে ভয় পেত, সেখানে তিনি পায়ে হেঁটে গিয়ে অবহেলিত সনাতনীদের মাঝে গীতার বাণী প্রচার করেছেন এবং আত্মশুদ্ধির জন্য দীক্ষা দিয়েছেন। মুক্তিযুদ্ধের সময় শরণার্থী শিবিরে আশ্রয় নেওয়া ভক্তদের কাছেও তিনি পৌঁছে যেতেন। তাঁর জীবনের বহু অলৌকিক ঘটনার সাক্ষী আজও অনেক ভক্ত।</p>
+
+    <blockquote class="bio-quote">শরণার্থী শিবিরে দুশ্চিন্তায় ডুবে থাকা এক ভক্ত মাকে পেছন থেকে ডেকে তিনি বলেছিলেন, “তুমি বাসুদেবকে স্মরণ করো না? আমিই সেই বাসুদেব।”</blockquote>
+
+    <h3>উত্তরসূরি ও মহাসমাধি</h3>
+    <p>জীবনের শেষ পর্বে, ১৯৮১ সালে, তিনি তাঁর তেজোদীপ্ত তরুণ শিষ্য শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজের হাতে আশ্রমের দায়িত্ব অর্পণ করেন। ১৯৮৫ সালে শ্রীকৃষ্ণ জন্মাষ্টমীর পরের দশমী তিথিতে নেহালপুরের যে কুটিরে তিনি দেহত্যাগ করেন, সেখানেই আজ তাঁর সমাধিক্ষেত্র। সেই দুই কড়া জমির অযাচক আশ্রমই আজ হাজারো ভক্তের তীর্থধাম শ্রীশ্রী বাসুদেব যোগাশ্রম।</p>
+
+    <p class="bio-src">তথ্যসূত্র: আশ্রমে সংরক্ষিত হাতে লেখা জীবনী ও “উপাসনা পদ্ধতি” গ্রন্থ</p>
+  </div>
+</dialog>
+
+<dialog class="bio" id="bio-krishnananda" aria-labelledby="bio-k-title">
+  <div class="bio-inner">
+    <button class="bio-close" type="button" aria-label="বন্ধ করুন">✕</button>
+    <div class="bio-head">
+      <img src="images/guru-krishnananda.jpg" alt="">
+      <div>
+        <p class="eyebrow">সংক্ষিপ্ত জীবনী · উত্তরসূরি অধ্যক্ষ</p>
+        <h2 id="bio-k-title">শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজ</h2>
+        <p class="bio-sub">স্বামী বাসুদেবানন্দ গিরি মহারাজের প্রাণপ্রিয় শিষ্য ও উত্তরাধিকারী</p>
+      </div>
+    </div>
+    <!-- KRISHNANANDA_BIO: জীবনী এখানে বসবে -->
+    <p class="bio-pending">জীবনী শীঘ্রই যোগ করা হবে।</p>
+    <p class="bio-src">তথ্যসূত্র: আশ্রমে সংরক্ষিত জীবনী</p>
+  </div>
+</dialog>
+
+
 <script>
 (function(){
   var btn=document.getElementById('menuBtn'),nav=document.getElementById('mainNav');
@@ -934,6 +1018,15 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
   document.getElementById('bookForm').addEventListener('input',upd);
   document.getElementById('bookForm').addEventListener('submit',function(e){e.preventDefault();});
   upd();
+
+  // biography dialogs
+  document.querySelectorAll('[data-bio]').forEach(function(b){
+    b.addEventListener('click',function(){var d=document.getElementById(b.dataset.bio);if(d&&d.showModal){d.showModal();d.scrollTop=0;}});
+  });
+  document.querySelectorAll('dialog.bio').forEach(function(d){
+    d.querySelector('.bio-close').addEventListener('click',function(){d.close();});
+    d.addEventListener('click',function(e){if(e.target===d)d.close();});
+  });
   document.querySelectorAll('.copy').forEach(function(b){
     b.addEventListener('click',function(){
       var t=document.getElementById(b.dataset.copy).textContent, orig=b.textContent;
