@@ -1,0 +1,515 @@
+[
+ {
+  "id": "cd7f02500c",
+  "group": "guru",
+  "photo": "images/guru-basudevananda.jpg",
+  "name": "পরমহংস শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজ",
+  "address": "প্রতিষ্ঠাতা অধ্যক্ষ, শ্রীশ্রী বাসুদেব যোগাশ্রম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "bbf27e3b04",
+  "group": "guru",
+  "photo": "images/guru-krishnananda.jpg",
+  "name": "শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজ",
+  "address": "নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম",
+  "paksha": "শ্রী স্বপন দাশগুপ্ত",
+  "section": "ashram"
+ },
+ {
+  "id": "77ae7aa068",
+  "group": "guru",
+  "photo": "images/bhumidata/new/a1_3.jpg",
+  "name": "শ্রীমৎ দিলীপ চক্রবর্তী",
+  "address": "কৈবল্যধামের ৫ম মোহন্ত মহারাজ",
+  "paksha": "শ্রী অসীম সাহা",
+  "section": "ashram"
+ },
+ {
+  "id": "9232e80e4b",
+  "group": "guru",
+  "photo": "images/bhumidata/new/a1_2.jpg",
+  "name": "শ্রী শ্রীমৎ স্বামী মাধবানন্দ মহারাজ",
+  "address": "সীতাকুণ্ড, চট্টগ্রাম",
+  "paksha": "শ্রী মধুসূদন ধর (আমেরিকা প্রবাসী)",
+  "section": "ashram"
+ },
+ {
+  "id": "f825485e2e",
+  "group": "main",
+  "photo": "images/bhumidata/new/a1_0.jpg",
+  "name": "শ্রীশ্রী মা চণ্ডী",
+  "address": "",
+  "paksha": "শ্রী পুলক ভট্টাচার্য",
+  "section": "ashram"
+ },
+ {
+  "id": "a1fb056eb5",
+  "group": "main",
+  "photo": "images/bhumidata/new/b1_3.jpg",
+  "name": "শ্রী প্রবাল ভট্টাচার্য",
+  "address": "কেউটিয়া, রাউজান, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "a879299ff9",
+  "group": "main",
+  "photo": "images/bhumidata/d05.jpg",
+  "name": "শ্রী শ্যামল কান্তি দে",
+  "address": "চিকদাইর, রাউজান, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "b93d3b0bc8",
+  "group": "main",
+  "photo": "images/bhumidata/new/a1_5.jpg",
+  "name": "শ্রী জুটন সাহা",
+  "address": "খাতুনগঞ্জ, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "14d48ffd7b",
+  "group": "main",
+  "photo": "images/bhumidata/new/poli-biswas.jpg",
+  "name": "শ্রীমতি পলি বিশ্বাস",
+  "address": "দেওয়ানজী পুকুর পাড়, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "385702a208",
+  "group": "main",
+  "photo": "images/bhumidata/new/ashutosh-mahajan.jpg",
+  "name": "শ্রী আশুতোষ মহাজন",
+  "address": "রাউজান, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "1795e7a0c4",
+  "group": "main",
+  "photo": "images/bhumidata/new/a1_4.jpg",
+  "name": "শ্রী রতন কুমার ঘোষ",
+  "address": "রামদয়াল মাঝির বাড়ি, পূর্ব ডাবুয়া, রাউজান, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "0219bf056c",
+  "group": "main",
+  "photo": "images/bhumidata/new/b1_1.jpg",
+  "name": "শ্রী ডাঃ জ্ঞান বিকাশ শীল",
+  "address": "শীলপাড়া, ধামাইরহাট, রাঙ্গুনিয়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "17df0280c7",
+  "group": "main",
+  "photo": "images/bhumidata/new/a1_6.jpg",
+  "name": "স্বর্গীয় নারায়ণ দাশগুপ্ত",
+  "address": "সাহাবীনগর, পারুয়া, রাঙ্গুনিয়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "88290cd726",
+  "group": "main",
+  "photo": "images/bhumidata/new/a2_0.jpg",
+  "name": "শ্রী প্রদীপ দাশগুপ্ত",
+  "address": "সাহাবীনগর, পারুয়া, রাঙ্গুনিয়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "f797b5d766",
+  "group": "main",
+  "photo": "images/bhumidata/new/a2_1.jpg",
+  "name": "শ্রী অনিল কান্তি দেবনাথ",
+  "address": "দক্ষিণ কাট্টলী, হালিশহর, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "eb80f0efb8",
+  "group": "main",
+  "photo": "images/bhumidata/new/a2_2.jpg",
+  "name": "শ্রী সুজিত তালুকদার",
+  "address": "বুড়ির দোকান, রাঙ্গুনিয়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "45ac317bd6",
+  "group": "main",
+  "photo": "images/bhumidata/new/a2_3.jpg",
+  "name": "স্বর্গীয় শংকর দে",
+  "address": "নেহালপুর, নন্দীরহাট, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "be74de579f",
+  "group": "main",
+  "photo": "images/bhumidata/new/a2_4.jpg",
+  "name": "শ্রী কেশব নাগ (মিন্টু)",
+  "address": "বাথুয়াপাড়া, পরৈকোড়া, আনোয়ারা, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "77c038fb71",
+  "group": "main",
+  "photo": "images/bhumidata/new/a2_5.jpg",
+  "name": "স্বর্গীয় কষ্ট মোহন শীল",
+  "address": "শীল পাড়া, ধামাইরহাট, রাঙ্গুনিয়া, চট্টগ্রাম",
+  "paksha": "শ্রী বিমল চন্দ্র শীল",
+  "section": "ashram"
+ },
+ {
+  "id": "6d792fd96b",
+  "group": "main",
+  "photo": "images/bhumidata/new/a2_6.jpg",
+  "name": "শ্রী দিলীপ কুমার চৌধুরী",
+  "address": "চক্রশালা, পটিয়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "d0a6405ed8",
+  "group": "main",
+  "photo": "images/bhumidata/new/b1_0.jpg",
+  "name": "স্বর্গীয় নিত্যগোপাল সরকার",
+  "address": "বিনাজুরী, রাউজান, চট্টগ্রাম",
+  "paksha": "শ্রী জয়তোষ সরকার",
+  "section": "ashram"
+ },
+ {
+  "id": "8f7c1cf7f0",
+  "group": "main",
+  "photo": "images/bhumidata/new/b1_2.jpg",
+  "name": "স্বর্গীয় মানিক শীল",
+  "address": "শীলপাড়া, শিলক, রাঙ্গুনিয়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "793733e4c1",
+  "group": "main",
+  "photo": "images/bhumidata/new/b1_4.jpg",
+  "name": "শ্রী প্রবীর দাশ (তপু)",
+  "address": "পি. কে. সেন লেইন, সদরঘাট, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "8f66aca0cf",
+  "group": "main",
+  "photo": "images/bhumidata/new/b1_5.jpg",
+  "name": "স্বর্গীয় শিবু প্রসাদ চক্রবর্তী",
+  "address": "চুনা ফ্যাক্টরী রোড, হালিশহর, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "2cfd56fe01",
+  "group": "main",
+  "photo": "images/bhumidata/new/b1_6.jpg",
+  "name": "শ্রী বাসুদেব চক্রবর্তী",
+  "address": "পোমরা, রাঙ্গুনিয়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "07f0a4d309",
+  "group": "main",
+  "photo": "images/bhumidata/new/b1_7.jpg",
+  "name": "শ্রী বাপন কান্তি ধর",
+  "address": "চৌধুরীহাট, হাটহাজারী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "1e5064182d",
+  "group": "main",
+  "photo": "images/bhumidata/new/b2_2.jpg",
+  "name": "শ্রী পলাশ দে",
+  "address": "",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "ea49f864b0",
+  "group": "main",
+  "photo": "images/bhumidata/new/b2_3.jpg",
+  "name": "শ্রী রাজীব দেব",
+  "address": "",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "662fcd1ba7",
+  "group": "main",
+  "photo": "images/bhumidata/new/b2_4.jpg",
+  "name": "শ্রী রাখাল ধর",
+  "address": "লোহাগাড়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "3992286797",
+  "group": "main",
+  "photo": "images/bhumidata/new/b2_5.jpg",
+  "name": "শ্রী সমীর কর",
+  "address": "ডাবুয়া, রাউজান, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "c9e033b232",
+  "group": "main",
+  "photo": "images/bhumidata/new/b2_6.jpg",
+  "name": "স্বর্গীয় শিব প্রসাদ সেন",
+  "address": "গুজরা, রাউজান, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "de331506f3",
+  "group": "main",
+  "photo": "images/bhumidata/new/b2_7.jpg",
+  "name": "শ্রী তাপস মহাজন",
+  "address": "কাজির দেউড়ী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "ceebeb5dc6",
+  "group": "main",
+  "photo": "images/bhumidata/d01.jpg",
+  "name": "শ্রী রনতোষ ধর",
+  "address": "চকবাজার, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "0a50680565",
+  "group": "main",
+  "photo": "images/bhumidata/d02.jpg",
+  "name": "শ্রী তপন দাশ",
+  "address": "লালানগর, রাঙ্গুনিয়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "2a245e496f",
+  "group": "main",
+  "photo": "images/bhumidata/d03.jpg",
+  "name": "স্বর্গীয় নিকুঞ্জ বিহারী শীল",
+  "address": "রাঙ্গুনিয়া, চট্টগ্রাম",
+  "paksha": "শ্রী বাদল কান্তি শীল (পুত্র)",
+  "section": "ashram"
+ },
+ {
+  "id": "38d3f74438",
+  "group": "main",
+  "photo": "images/bhumidata/d04.jpg",
+  "name": "স্বর্গীয় স্বপন মজুমদার",
+  "address": "দঃ পাহাড়তলী, চট্টগ্রাম",
+  "paksha": "শ্রীমতি ডলি মজুমদার",
+  "section": "ashram"
+ },
+ {
+  "id": "d30821450d",
+  "group": "main",
+  "photo": "images/bhumidata/d06.jpg",
+  "name": "শ্রী বিশ্বনাথ ধর",
+  "address": "সুলতানপুর, রাউজান, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "0ce25743c0",
+  "group": "main",
+  "photo": "images/bhumidata/d07.jpg",
+  "name": "স্বর্গীয় মনিন্দ্র লাল মহাজন",
+  "address": "বিনাজুরী, রাউজান, চট্টগ্রাম",
+  "paksha": "শ্রী মিঠু মহাজন (পুত্র)",
+  "section": "ashram"
+ },
+ {
+  "id": "54a8ca0fe6",
+  "group": "main",
+  "photo": "images/bhumidata/d08.jpg",
+  "name": "শ্রী হরিপদ চৌধুরী",
+  "address": "জামালখান, কোতোয়ালী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "621fca5607",
+  "group": "main",
+  "photo": "images/bhumidata/d09.jpg",
+  "name": "শ্রীমতি রমা রাণী ধর",
+  "address": "জামালখান, কোতোয়ালী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "7e78895978",
+  "group": "main",
+  "photo": "images/bhumidata/d10.jpg",
+  "name": "শ্রী দয়াল কান্তি সামন্ত",
+  "address": "চন্দনাইশ, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "ad28089b6e",
+  "group": "main",
+  "photo": "images/bhumidata/d11.jpg",
+  "name": "শ্রী সাগর শীল",
+  "address": "পশ্চিম গোমদন্ডী, বোয়ালখালী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "0ad4915343",
+  "group": "main",
+  "photo": "images/bhumidata/d12.jpg",
+  "name": "স্বর্গীয়া রীনা রাণী বণিক",
+  "address": "কোতোয়ালী, চট্টগ্রাম",
+  "paksha": "শ্রী সুমন বণিক (পুত্র)",
+  "section": "ashram"
+ },
+ {
+  "id": "abdb6f2175",
+  "group": "main",
+  "photo": "images/bhumidata/d13.jpg",
+  "name": "শ্রীমতি ইলা দাশ",
+  "address": "ডাবুয়া, রাউজান, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "148895785c",
+  "group": "main",
+  "photo": "images/bhumidata/d14.jpg",
+  "name": "শ্রী সাজু মহাজন",
+  "address": "মধ্যম মোহরা, কালুরঘাট, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "1de8ca58ee",
+  "group": "main",
+  "photo": "images/bhumidata/d15.jpg",
+  "name": "আনন্দময়ী মা",
+  "address": "লালখান বাজার, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "6ab2cf9d70",
+  "group": "main",
+  "photo": "images/bhumidata/d16.jpg",
+  "name": "স্বর্গীয় শশাঙ্ক দেওয়ানজী ও স্বর্গীয়া ইলা দেওয়ানজী",
+  "address": "মাছুয়াঝর্ণা লেইন, দেওয়ানবাজার, চট্টগ্রাম",
+  "paksha": "শ্রীমতি চম্পা দেওয়ানজী",
+  "section": "ashram"
+ },
+ {
+  "id": "49ba615e9d",
+  "group": "main",
+  "photo": "images/bhumidata/d17.jpg",
+  "name": "স্বর্গীয় প্রভাত চন্দ্র নন্দী ও স্বর্গীয়া কল্পনা নন্দী",
+  "address": "মাছুয়াঝর্ণা লেইন, দেওয়ানবাজার, চট্টগ্রাম",
+  "paksha": "শ্রী প্রকাশ নন্দী",
+  "section": "ashram"
+ },
+ {
+  "id": "1698a82044",
+  "group": "main",
+  "photo": "images/bhumidata/d18.jpg",
+  "name": "শ্রী দুলাল চৌধুরী ও শ্রীমতি গীতা চৌধুরী",
+  "address": "ভট্ট চৌধুরী বাড়ী, হাটহাজারী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "e9a6880eba",
+  "group": "main",
+  "photo": "images/bhumidata/d19.jpg",
+  "name": "শ্রী অর্ধেন্দু শেখর খাস্তগীর",
+  "address": "উত্তর কাট্টলী, আকবর শাহ, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "01fdfb088b",
+  "group": "main",
+  "photo": "images/bhumidata/d20.jpg",
+  "name": "স্বর্গীয় সুরেশ চন্দ্র বিশ্বাস ও স্বর্গীয়া পুষ্প রাণী বিশ্বাস",
+  "address": "দক্ষিণ মার্দাশা, হাটহাজারী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "d35cba8def",
+  "group": "main",
+  "photo": "images/bhumidata/d21.jpg",
+  "name": "বীর মুক্তিযোদ্ধা ক্যাপ্টেন রঞ্জিত দাশ (অব.) ও শ্রীমতি শিল্পী দাশ",
+  "address": "বালুছড়া, বায়েজিদ, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "2b92b023dd",
+  "group": "main",
+  "photo": "images/bhumidata/d22.jpg",
+  "name": "স্বর্গীয়া ডাঃ দিশা দাশ",
+  "address": "ধলঘাট, পটিয়া, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "cdc20a1566",
+  "group": "main",
+  "photo": "images/bhumidata/d23.jpg",
+  "name": "শ্রীমতি জয়শ্রী কর",
+  "address": "রহমতগঞ্জ, কোতোয়ালী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "c150e20f22",
+  "group": "main",
+  "photo": "images/bhumidata/d24.jpg",
+  "name": "বীর মুক্তিযোদ্ধা ক্যাপ্টেন (অব.) গোবিন্দ লাল সূত্রধর",
+  "address": "বালুছড়া, বায়েজিদ, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "d0d5ccd842",
+  "group": "main",
+  "photo": "images/bhumidata/d25.jpg",
+  "name": "শ্রী নারায়ণ দেব",
+  "address": "কোতোয়ালী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ },
+ {
+  "id": "46fe2fc39c",
+  "group": "main",
+  "photo": "images/bhumidata/d26.jpg",
+  "name": "শ্রী অজিত কুমার দত্ত",
+  "address": "আশীর্বাদ ভবন, হাজারী লেইন, কোতোয়ালী, চট্টগ্রাম",
+  "paksha": "",
+  "section": "ashram"
+ }
+]

@@ -1,4 +1,14 @@
-<!doctype html>
+<?php
+require __DIR__ . '/inc/lib.php';
+$S = load('settings');
+$events = load('events');
+usort($events, fn($a, $b) => strcmp($a['date'], $b['date']));
+$gallery = load('gallery');
+$donors = load('donors');
+$posts = array_values(array_filter(load('posts'), fn($p) => !empty($p['published'])));
+usort($posts, fn($a, $b) => strcmp($b['date'], $a['date']));
+$kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গুরু তিথি'], 'special' => ['s', 'বিশেষ তিথি'], 'utsav' => ['g', 'উৎসব']];
+?><!doctype html>
 <html lang="bn">
 <head>
 <meta charset="utf-8">
@@ -8,382 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600&display=swap">
-<style>
-/* Layout: a temple-front page — saffron and indigo bands like the ashram's own banners; one wide photo, then lineage, seva, utsav, offerings, contact */
-:root{
-  --bg:#FBF6EE;          /* lamp-lit plaster */
-  --surface:#FFFFFF;
-  --ink:#2A1F1A;
-  --muted:#6E5B4E;
-  --saffron:#D9600F;     /* gerua */
-  --saffron-soft:#FBE3CF;
-  --indigo:#1F2A5C;      /* banner blue */
-  --on-indigo:#FFF4E2;
-  --lotus:#C2477A;
-  --gold:#B88A1E;
-  --line:#E8D9C6;
-  --display:"Tiro Bangla","Noto Serif Bengali",serif;
-  --body:"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif;
-  --maxw:1120px;
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#17130F;--surface:#221C17;--ink:#F3E9DC;--muted:#C2AE9C;--saffron:#F08A3C;--saffron-soft:#3A2618;
-  --indigo:#141B3F;--on-indigo:#FFF1DC;--lotus:#E77FA9;--gold:#E0B44A;--line:#3A3027;color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#17130F;--surface:#221C17;--ink:#F3E9DC;--muted:#C2AE9C;--saffron:#F08A3C;--saffron-soft:#3A2618;
-  --indigo:#141B3F;--on-indigo:#FFF1DC;--lotus:#E77FA9;--gold:#E0B44A;--line:#3A3027;color-scheme:dark}
-
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.75}
-img{max-width:100%;display:block}
-a{color:var(--saffron)}
-a:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:4px}
-h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.3;text-wrap:balance;margin:0}
-p{margin:0}
-.wrap{max-width:var(--maxw);margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-section{padding-block:72px}
-.eyebrow{font-size:14px;letter-spacing:.06em;color:var(--saffron);font-weight:600;display:flex;align-items:center;gap:10px}
-.eyebrow::before{content:"";width:28px;height:2px;background:var(--saffron)}
-.sec-head{display:grid;gap:10px;margin-bottom:36px;max-width:720px}
-.sec-head h2{font-size:clamp(28px,4.4vw,40px);color:var(--indigo)}
-:root:not([data-theme="light"]) .sec-head h2{color:var(--ink)}
-:root[data-theme="light"] .sec-head h2{color:var(--indigo)}
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .sec-head h2{color:var(--indigo)}}
-.lede{color:var(--muted);max-width:65ch}
-
-/* top strip + header */
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--indigo)}
-.chant{background:var(--saffron);color:#fff;text-align:center;font-family:var(--display);font-size:15px;padding-block:6px;letter-spacing:.04em}
-header{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--indigo);color:var(--on-indigo)}
-header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:12px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none;min-width:0}
-.om{font-family:var(--display);font-size:34px;line-height:1;color:var(--gold)}
-.brand b{font-family:var(--display);font-weight:400;font-size:20px;display:block;line-height:1.25}
-.brand small{font-size:13px;opacity:.8}
-nav ul{list-style:none;margin:0;padding:0;display:flex;gap:4px 14px;flex-wrap:wrap}
-nav a{color:var(--on-indigo);text-decoration:none;font-size:15px;padding:4px 0;border-bottom:2px solid transparent}
-nav a:hover{border-bottom-color:var(--gold)}
-.menu-btn{display:none;background:none;border:1px solid rgba(255,255,255,.35);color:var(--on-indigo);font:inherit;font-size:15px;border-radius:6px;padding:4px 12px;cursor:pointer}
-@media (max-width:1180px){
-  .menu-btn{display:block}
-  nav{width:100%}
-  nav[data-open="false"]{display:none}
-  nav ul{flex-direction:column;gap:2px;padding-bottom:8px}
-  nav a{display:block;padding:8px 0}
-}
-
-/* hero */
-.hero{position:relative;color:#fff;background:#1a1410}
-.hero{display:grid;grid-template-columns:max(300px,26%) 1fr}
-.hero img{grid-column:2;width:100%;height:clamp(380px,42vw,720px);object-fit:cover;object-position:0% 30%;opacity:1}
-.hero{background:linear-gradient(160deg,#34479a 0%,#26357a 55%,#1f2a5c 100%)}
-.hero::after{content:"";position:absolute;top:0;bottom:0;left:max(300px,26%);width:3%;background:linear-gradient(90deg,#26357a,rgba(38,53,122,0));pointer-events:none}
-.hero-copy{grid-column:1;grid-row:1;position:relative;z-index:1;display:flex;align-items:center}
-.hero-copy .wrap{max-width:none;margin:0;padding-left:max(24px,2.6vw);padding-right:20px}
-.hero-panel{display:block;padding:0}
-.hero-panel .cta{flex-wrap:wrap}
-@media (max-width:640px){.hero{display:block}.hero::after{display:none}.hero img{height:auto;min-height:0;aspect-ratio:3/2}.hero::after{display:none}.hero-copy{position:static;padding-block:0;width:auto;display:block}.hero-copy .wrap{padding-left:0;padding-right:0}.hero-panel{display:block;border-radius:0;background:var(--indigo);padding:22px max(16px,env(safe-area-inset-left,0px))}}
-.hero h1{font-size:clamp(26px,2.4vw,46px);text-shadow:0 2px 18px rgba(0,0,0,.45)}
-.hero h1 span{display:block;font-size:.62em;color:#FFD9A8}
-.hero .meta{margin-top:10px;font-size:15px;opacity:.92}
-.cta{margin-top:20px;display:flex;gap:12px;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:999px;font-weight:600;font-size:16px;text-decoration:none;border:2px solid transparent;cursor:pointer;font-family:var(--body)}
-.btn-primary{background:var(--saffron);color:#fff}
-.btn-ghost{border-color:rgba(255,255,255,.7);color:#fff}
-.btn-primary:hover{filter:brightness(1.08)}
-
-/* column */
-.column{background:var(--surface);border-bottom:1px solid var(--line)}
-.col-grid{display:grid;grid-template-columns:240px 1fr;gap:48px;align-items:start}
-.col-grid > *{min-width:0}
-.col-side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 110px);display:grid;gap:8px;justify-items:center;text-align:center}
-.col-frame{width:200px;max-width:100%;aspect-ratio:3/4;border-radius:120px 120px 14px 14px;overflow:hidden;border:3px solid var(--gold);box-shadow:0 0 0 6px var(--saffron-soft)}
-.col-frame img{width:100%;height:100%;object-fit:cover;object-position:top}
-.col-name{font-family:var(--display);font-size:19px;color:var(--saffron);margin-top:8px}
-.col-role{font-size:13px;color:var(--muted)}
-.col-body{display:grid;gap:18px;max-width:68ch}
-.col-body h2{font-size:clamp(28px,4.2vw,42px);color:var(--indigo)}
-.col-body p{font-size:17.5px;line-height:1.85}
-.dropcap::first-letter{font-family:var(--display);float:left;font-size:3.4em;line-height:.9;padding:6px 10px 0 0;color:var(--saffron)}
-.col-close{font-family:var(--display);font-size:20px!important;color:var(--saffron);border-top:1px solid var(--line);padding-top:16px}
-.visit{margin-top:48px;background:var(--indigo);color:var(--on-indigo);border-radius:16px;padding:28px 30px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center}
-.visit > *{min-width:0}
-.visit h3{font-size:clamp(24px,3.2vw,30px);margin-bottom:10px}
-.visit-text p{font-size:16px;opacity:.92;max-width:70ch}
-.visit-addr{margin-top:12px;font-size:15px!important}
-.visit-open{display:inline-block;margin-top:14px;background:var(--saffron);color:#fff;border-radius:99px;padding:4px 14px;font-weight:600;font-size:14px!important;opacity:1!important}
-.visit-actions{display:grid;gap:10px}
-@media (max-width:860px){.col-grid{grid-template-columns:1fr;gap:28px}.col-side{position:static}.visit{grid-template-columns:1fr}}
-
-/* about */
-.about-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:48px;align-items:start}
-.about-grid > *{min-width:0}
-.about-text{display:grid;gap:18px}
-.facts{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.fact{background:var(--surface);padding:18px 20px}
-.fact strong{display:block;font-family:var(--display);font-size:28px;color:var(--saffron);font-weight:400;font-variant-numeric:tabular-nums}
-.fact span{font-size:14px;color:var(--muted)}
-blockquote{margin:0;padding:22px 24px;background:var(--saffron-soft);border-radius:12px;font-family:var(--display);font-size:19px;line-height:1.7}
-blockquote cite{display:block;margin-top:8px;font-family:var(--body);font-style:normal;font-size:14px;color:var(--muted)}
-@media (max-width:820px){.about-grid{grid-template-columns:1fr;gap:32px}}
-
-/* history timeline */
-.timeline{list-style:none;margin:0;padding:0;display:grid;gap:0;max-width:820px;border-left:2px solid var(--line);margin-left:6px}
-.timeline li{display:grid;grid-template-columns:150px 1fr;gap:20px;padding:0 0 28px 24px;position:relative}
-.timeline li > *{min-width:0}
-.timeline li::before{content:"";position:absolute;left:-8px;top:6px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:3px solid var(--saffron)}
-.when{font-family:var(--display);color:var(--saffron);font-size:18px;line-height:1.4}
-.timeline h3{font-size:20px;margin-bottom:4px}
-.timeline p{color:var(--muted);font-size:16px}
-.hist-quote{max-width:820px;margin-top:12px}
-.src{margin-top:14px;font-size:13px;color:var(--muted)}
-@media (max-width:620px){.timeline li{grid-template-columns:1fr;gap:4px}}
-
-/* shakha */
-.branches{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.branch{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:grid;grid-template-rows:auto 1fr;min-width:0}
-.branch img{width:100%;aspect-ratio:16/9;object-fit:cover}
-.b-mark{aspect-ratio:16/9;max-width:100%;background:linear-gradient(135deg,var(--saffron),var(--lotus));display:grid;place-items:center}
-.b-mark span{font-family:var(--display);font-size:clamp(28px,4vw,40px);color:#fff;letter-spacing:.02em}
-.b-body{padding:22px 24px 26px;display:grid;gap:8px;align-content:start}
-.b-kind{font-size:13px;font-weight:600;letter-spacing:.06em;color:var(--saffron)}
-.branch h3{font-size:22px}
-.b-addr{font-size:14px;color:var(--muted)}
-.branch p:last-child{font-size:15px;color:var(--muted)}
-@media (max-width:760px){.branches{grid-template-columns:1fr}}
-
-/* unnoyon */
-.unnoyon{background:var(--saffron-soft)}
-.sub-h{font-size:22px;color:var(--ink);margin:8px 0 14px}
-.projects{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:32px}
-.projects.three{grid-template-columns:repeat(3,1fr)}
-.proj{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;display:grid;gap:6px;align-content:start;min-width:0}
-.proj h4{font-family:var(--display);font-weight:400;font-size:21px;margin:0}
-.proj p{font-size:15px;color:var(--muted)}
-.chip{justify-self:start;font-size:12px;font-weight:600;padding:2px 10px;border-radius:99px}
-.chip.live{background:var(--saffron);color:#fff}
-.chip.plan{background:var(--indigo);color:var(--on-indigo)}
-.invite{background:var(--surface);border:1px dashed var(--saffron);border-radius:12px;padding:18px 22px;margin-top:8px}
-.invite p{font-size:16px}
-@media (max-width:820px){.projects,.projects.three{grid-template-columns:1fr}}
-
-/* biography dialog */
-.bio-btn{margin-top:4px;justify-self:center;background:none;border:1px solid var(--gold);color:var(--gold);font:inherit;font-size:15px;font-weight:600;border-radius:99px;padding:7px 18px;cursor:pointer}
-.bio-btn:hover{background:var(--gold);color:var(--indigo)}
-.frame-btn{padding:0;cursor:pointer;display:block;width:100%}
-.frame-btn:hover img{transform:scale(1.03)}
-.frame-btn img{transition:transform .3s}
-dialog.bio{width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;border:0;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
-dialog.bio::backdrop{background:rgba(15,18,40,.7)}
-.bio-inner{padding:28px clamp(18px,4vw,40px) 32px;display:grid;gap:14px;position:relative}
-.bio-close{position:sticky;top:0;justify-self:end;margin-bottom:-40px;z-index:2;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:18px;cursor:pointer}
-.bio-head{display:grid;grid-template-columns:110px 1fr;gap:20px;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--line)}
-.bio-head img{width:110px;aspect-ratio:3/4;object-fit:cover;object-position:top;border-radius:60px 60px 10px 10px;border:3px solid var(--gold)}
-.bio-head h2{font-size:clamp(22px,3.2vw,30px);color:var(--saffron)}
-.bio-sub{font-size:14px;color:var(--muted);margin-top:4px}
-.bio-head .eyebrow{flex-wrap:wrap;font-size:13px;padding-right:40px}
-.bio h3{font-size:20px;color:var(--indigo);margin-top:8px}
-:root[data-theme="dark"] .bio h3{color:var(--gold)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .bio h3{color:var(--gold)}}
-.bio p{font-size:16.5px;line-height:1.85;max-width:65ch}
-.bio-quote{margin:6px 0;padding:16px 20px;border-left:4px solid var(--saffron);background:var(--saffron-soft);border-radius:0 10px 10px 0;font-family:var(--display);font-size:18px}
-.bio-pending{font-family:var(--display);color:var(--muted);text-align:center;padding:40px 0}
-.bio-src{font-size:13px!important;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;margin-top:6px}
-@media (max-width:520px){.bio-head{grid-template-columns:80px 1fr}.bio-head img{width:80px}}
-
-/* lineage */
-.lineage{background:var(--indigo);color:var(--on-indigo)}
-.lineage .sec-head h2{color:var(--on-indigo)!important}
-.lineage .eyebrow{color:var(--gold)}.lineage .eyebrow::before{background:var(--gold)}
-.lineage .lede{color:var(--on-indigo);opacity:.8}
-.gurus{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;position:relative}
-.guru{display:grid;gap:14px;align-content:start;text-align:center}
-.guru .frame{aspect-ratio:3/4;max-width:100%;border-radius:200px 200px 14px 14px;overflow:hidden;border:3px solid var(--gold);background:#0e1330}
-.guru .frame img{width:100%;height:100%;object-fit:cover;object-position:top}
-.guru .step{font-size:13px;letter-spacing:.06em;color:var(--gold)}
-.guru h3{font-size:21px}
-.guru p{font-size:15px;opacity:.85}
-@media (max-width:820px){.gurus{grid-template-columns:1fr;max-width:340px;margin:0 auto}}
-
-/* seva */
-.seva-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:grid;grid-template-rows:auto 1fr}
-.card img{width:100%;aspect-ratio:16/10;object-fit:cover}
-.card .body{padding:20px 22px 24px;display:grid;gap:10px;align-content:start}
-.card h3{font-size:22px;color:var(--saffron)}
-.card ul{margin:0;padding-left:18px;color:var(--muted);font-size:15px}
-@media (max-width:900px){.seva-grid{grid-template-columns:1fr 1fr}}
-@media (max-width:620px){.seva-grid{grid-template-columns:1fr}}
-
-/* anath */
-.anath{background:var(--saffron-soft)}
-.anath-head{display:grid;grid-template-columns:1.1fr 1fr;gap:36px;align-items:center;margin-bottom:36px}
-.anath-head > *{min-width:0}
-.anath-head .sec-head{margin-bottom:0}
-.upasana{margin-top:28px;background:var(--indigo);color:var(--on-indigo);border-radius:14px;padding:28px 30px;display:grid;gap:12px}
-.upasana .eyebrow{color:var(--gold)}.upasana .eyebrow::before{background:var(--gold)}
-.upasana h3{font-size:clamp(22px,3vw,28px)}
-.upasana p:not(.eyebrow){max-width:70ch;opacity:.9;font-size:16px}
-.upasana{display:grid;grid-template-columns:1.1fr 1fr;gap:28px;align-items:start}
-.up-text{display:grid;gap:12px;min-width:0}
-.up-photo{margin:0;display:grid;gap:12px;min-width:0}
-.up-photo img{width:100%;border-radius:12px}
-.anath-strip{margin-top:28px;display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
-.anath-strip figure{margin:0;display:grid;gap:8px;min-width:0}
-.anath-strip img{width:100%;height:280px;object-fit:cover;border-radius:12px}
-.anath-strip figcaption{font-family:var(--display);font-size:16px;color:var(--indigo)}
-.occ-pics{display:grid;grid-template-columns:1fr 1.6fr;gap:12px}
-.occ-pics img{width:100%;height:260px;object-fit:cover;border-radius:12px}
-.occ-pics img:first-child{object-position:center 20%}
-@media (max-width:820px){.upasana,.anath-strip{grid-template-columns:1fr}.anath-strip img{height:auto}}
-@media (max-width:480px){.occ-pics{grid-template-columns:1fr}.occ-pics img{height:auto;max-height:420px}}
-.pranam{margin:28px 0 0;display:grid;grid-template-columns:120px 1fr;gap:24px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 26px}
-.pranam > *{min-width:0}
-.pranam img{width:120px;aspect-ratio:3/4;object-fit:cover;object-position:top;border-radius:60px 60px 10px 10px;border:3px solid var(--gold)}
-.pranam blockquote{margin:0;padding:0;background:none;font-family:var(--display);font-size:19px;line-height:1.7}
-.pranam cite{display:block;margin-top:10px;font-style:normal;font-family:var(--body);font-size:15px;color:var(--saffron)}
-.pranam cite small{color:var(--muted);font-size:13px}
-@media (max-width:620px){.pranam{grid-template-columns:1fr;justify-items:center;text-align:center}}
-.anath-photo{width:100%;border-radius:14px;box-shadow:0 10px 30px rgba(60,30,10,.18)}
-.pillars{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
-.pillar{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px 26px;display:grid;gap:8px;align-content:start;min-width:0}
-.p-num{width:36px;height:36px;border-radius:50%;background:var(--saffron);color:#fff;display:grid;place-items:center;font-weight:600}
-.pillar h3{font-size:21px;color:var(--indigo)}
-.pillar p{font-size:15px;color:var(--muted)}
-.anath-cta{margin-top:28px;background:var(--indigo);color:var(--on-indigo);border-radius:14px;padding:24px 26px;display:grid;gap:14px}
-.anath-cta p{font-family:var(--display);font-size:19px}
-.cta-row{display:flex;flex-wrap:wrap;gap:10px}
-.btn-outline{border-color:var(--on-indigo);color:var(--on-indigo)}
-@media (max-width:820px){.anath-head,.pillars{grid-template-columns:1fr}}
-
-/* shubhodin booking */
-.shubho{background:var(--surface);border-block:1px solid var(--line)}
-.shubho-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:36px;align-items:start}
-.shubho-grid > *{min-width:0}
-.occasions{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.occ{border:1px solid var(--line);border-radius:12px;padding:18px 20px;background:var(--bg);display:grid;gap:4px;align-content:start}
-.occ h3{font-size:20px;color:var(--saffron)}
-.occ p{font-size:15px;color:var(--muted)}
-.occ-photo{grid-column:1/-1;margin:0;display:grid;gap:8px}
-.occ-photo img{width:100%;border-radius:12px}
-.occ-photo figcaption{font-family:var(--display);font-size:17px;color:var(--ink)}
-.book{background:var(--saffron-soft);border-radius:14px;padding:26px;display:grid;gap:8px}
-.book h3{font-size:24px;color:var(--ink)}
-.book-sub{font-size:14px;color:var(--muted);margin-bottom:6px}
-.book label{font-size:14px;font-weight:600;margin-top:6px}
-.book input,.book select,.book textarea{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
-.book input:focus,.book select:focus,.book textarea:focus{outline:2px solid var(--saffron);outline-offset:1px}
-.book-btn{justify-content:center;margin-top:12px}
-.book-alt{font-size:14px;color:var(--muted);text-align:center}
-@media (max-width:900px){.shubho-grid{grid-template-columns:1fr}}
-@media (max-width:480px){.occasions{grid-template-columns:1fr}}
-
-/* utsav calendar */
-.utsav{background:var(--saffron-soft)}
-.utsav-grid{display:grid;grid-template-columns:minmax(0,300px) 1fr;gap:32px;align-items:start}
-.utsav-grid > *{min-width:0}
-.next{position:sticky;top:calc(env(safe-area-inset-top,0px) + 96px);background:var(--indigo);color:var(--on-indigo);border-radius:14px;padding:24px;display:grid;gap:8px}
-.next-label{font-size:13px;letter-spacing:.06em;color:var(--gold);font-weight:600}
-.next-date{font-family:var(--display);font-size:24px;line-height:1.3}
-.next-title{font-size:16px}
-.next-place{font-size:14px;opacity:.75}
-.cal{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.ev{display:grid;grid-template-columns:180px 1fr;gap:16px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:12px 16px}
-.ev > *{min-width:0}
-.ev.k-g{border-left-color:var(--saffron)}
-.ev.k-s{border-left-color:var(--lotus)}
-.ev-date b{display:block;font-weight:600;font-variant-numeric:tabular-nums}
-.ev-date span{font-size:13px;color:var(--muted)}
-.ev-what p{font-size:15px;margin-top:2px}
-.kind{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em}
-.k-g .kind{color:var(--saffron)}.k-s .kind{color:var(--lotus)}
-.k-g .ev-what p{font-weight:500}
-.st{font-size:12px;font-weight:600;margin-left:8px;padding:1px 8px;border-radius:99px}
-.ev.past{opacity:.55}
-.ev.is-next{box-shadow:0 0 0 2px var(--saffron)}
-.ev.is-next .st{background:var(--saffron);color:#fff}
-@media (max-width:820px){.utsav-grid{grid-template-columns:1fr}.next{position:static}}
-@media (max-width:520px){.ev{grid-template-columns:1fr;gap:4px}}
-
-/* gallery */
-.gallery{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:200px;gap:10px}
-.gallery figure{margin:0;border-radius:10px;overflow:hidden;position:relative}
-.gallery img{width:100%;height:100%;object-fit:cover}
-.gallery figcaption{position:absolute;inset:auto 0 0;padding:20px 12px 8px;font-size:13px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.65))}
-.g-wide{grid-column:span 2}.g-tall{grid-row:span 2}
-@media (max-width:820px){.gallery{grid-template-columns:1fr 1fr;grid-auto-rows:160px}}
-
-/* bhumidata */
-.bhumi{background:var(--surface);border-block:1px solid var(--line)}
-.then-now{display:grid;grid-template-columns:1fr auto 1.6fr;gap:20px;align-items:center;max-width:820px;margin-bottom:36px}
-.then-now > div{min-width:0}
-.then-now strong{display:block;font-family:var(--display);font-weight:400;font-size:clamp(24px,3.4vw,34px);color:var(--saffron);line-height:1.25}
-.then-now span{font-size:14px;color:var(--muted)}
-.then-now .arrow{font-size:32px;color:var(--gold)}
-.donors{display:flex;flex-wrap:wrap;justify-content:center;gap:28px 16px}
-.donor{display:grid;gap:4px;justify-items:center;align-content:start;text-align:center;width:140px;min-width:0}
-.donor .paksha{font-size:13px;color:var(--saffron)}
-.d-photo{width:124px;max-width:100%;aspect-ratio:1;border-radius:50%;overflow:hidden;border:3px solid var(--gold);background:var(--saffron-soft);display:grid;place-items:center}
-.banner-scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
-.banner-scroll img{max-width:none;height:min(520px,90vw);width:auto;display:block}
-.fullboard{margin-top:12px}
-.fullboard summary{cursor:pointer;color:var(--saffron);font-weight:600;font-size:15px;margin-bottom:10px}
-.donors-top{margin-bottom:36px}
-.guru-donor{width:170px}
-.guru-donor .d-photo{width:150px;border-width:4px;box-shadow:0 0 0 4px var(--saffron-soft),0 6px 18px rgba(184,138,30,.35)}
-.guru-donor h3{font-size:17px;color:var(--saffron)}
-@media (max-width:420px){.donor{width:145px}.d-photo{width:120px}}
-.d-photo img{width:100%;height:100%;object-fit:cover}
-.d-photo span{font-family:var(--display);font-size:44px;color:var(--gold);opacity:.6}
-.donor h3{font-size:16px;margin-top:6px;line-height:1.4}
-.donor p{font-size:14px;color:var(--muted)}
-.donor.placeholder h3,.donor.placeholder p{color:var(--muted);opacity:.7}
-.donor.placeholder .d-photo{border-style:dashed}
-@media (max-width:820px){.then-now{grid-template-columns:1fr}.then-now .arrow{transform:rotate(90deg);justify-self:start}}
-
-/* sadasya */
-.tiers{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px}
-.tier{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px;display:grid;gap:10px;align-content:start;min-width:0}
-.tier-life{background:var(--indigo);color:var(--on-indigo);border-color:var(--indigo)}
-.tier-kind{font-size:14px;font-weight:600;letter-spacing:.06em;color:var(--saffron)}
-.tier-life .tier-kind{color:var(--gold)}
-.tier-amt{font-family:var(--display);font-size:32px;line-height:1.2;font-variant-numeric:tabular-nums}
-.tier-amt small{font-family:var(--body);font-size:15px;opacity:.75}
-.tier p:last-child{font-size:15px;color:var(--muted)}
-.tier-life p:last-child{color:var(--on-indigo);opacity:.85}
-.how{list-style:none;counter-reset:h;margin:28px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:900px}
-.how li{counter-increment:h;display:grid;gap:4px;padding-left:44px;position:relative;min-width:0}
-.how li::before{content:counter(h,bengali);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--saffron);color:#fff;display:grid;place-items:center;font-weight:600}
-.how span{font-size:14px;color:var(--muted)}
-@media (max-width:720px){.tiers,.how{grid-template-columns:1fr}}
-
-/* donate */
-.donate-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.acct{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--saffron);border-radius:12px;padding:24px;display:grid;gap:12px;min-width:0}
-.acct h3{font-size:22px}
-.acct dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:15px}
-.acct dt{color:var(--muted)}
-.acct dd{margin:0;font-weight:500;overflow-wrap:anywhere}
-.num{font-variant-numeric:tabular-nums;letter-spacing:.03em;font-size:18px;font-weight:600}
-.copy{justify-self:start;background:var(--indigo);color:var(--on-indigo);border:0;border-radius:8px;padding:8px 16px;font:inherit;font-size:14px;cursor:pointer}
-.note{margin-top:20px;font-size:15px;color:var(--muted)}
-@media (max-width:720px){.donate-grid{grid-template-columns:1fr}}
-
-/* contact */
-.contact{background:var(--indigo);color:var(--on-indigo)}
-.contact .sec-head h2{color:var(--on-indigo)!important}
-.contact .eyebrow{color:var(--gold)}.contact .eyebrow::before{background:var(--gold)}
-.contact-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
-.contact-grid > div{display:grid;gap:6px;align-content:start;min-width:0}
-.contact h3{font-size:18px;color:var(--gold)}
-.contact a{color:var(--on-indigo)}
-.contact .big{font-size:20px;font-variant-numeric:tabular-nums}
-@media (max-width:820px){.contact-grid{grid-template-columns:1fr}}
-footer{background:#0f1430;color:#cfc6e8;font-size:14px}
-footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-</style>
+<link rel="stylesheet" href="assets/site.css?v=<?= @filemtime(__DIR__.'/assets/site.css') ?>">
 
 <style>body{margin:0}</style>
 </head>
@@ -399,6 +34,7 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
     <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="mainNav">মেনু</button>
     <nav id="mainNav" data-open="false">
       <ul>
+        <?php if ($posts): ?><li><a href="#khobor">খবর</a></li><?php endif; ?>
         <li><a href="#about">পরিচিতি</a></li>
         <li><a href="#itihas">ইতিহাস</a></li>
         <li><a href="#shakha">শাখা</a></li>
@@ -412,7 +48,7 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
         <li><a href="#sadasya">সদস্য</a></li>
         <li><a href="#donate">দান</a></li>
         <li><a href="#gallery">ছবি</a></li>
-        <li><a href="https://www.youtube.com/@biplobChitannaBramachari" target="_blank" rel="noopener">ভিডিও ↗</a></li>
+        <li><a href="<?= e($S['youtube']) ?>" target="_blank" rel="noopener">ভিডিও ↗</a></li>
         <li><a href="#contact">যোগাযোগ</a></li>
       </ul>
     </nav>
@@ -455,14 +91,37 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
         <h3>আশ্রমে আসুন, নিজের চোখে দেখুন</h3>
         <p>গুরুধামের প্রকৃত অনুভূতি কোনো লেখা বা ছবিতে ধরা যায় না। আশ্রমের দ্বার সবসময় সবার জন্য খোলা। যখনই সময় পান, সপরিবারে চলে আসুন নেহালপুরে। গুরুদেবের দর্শন নিন, সমাধিক্ষেত্রে প্রণাম জানান, পুণ্য পুকুরঘাটে কিছুক্ষণ বসুন, আর আশ্রমের শিশুদের সাথে কাটান কিছুটা সময়। তাদের হাসিমুখই এই আশ্রমের সবচেয়ে বড় পরিচয়। অমাবস্যার রাতের চণ্ডীযজ্ঞ কিংবা বার্ষিক উৎসবের দিনগুলোতে এলে পাবেন এক অন্যরকম আধ্যাত্মিক আবহ।</p>
         <p class="visit-open">🕉 আশ্রম সবসময় সবার জন্য উন্মুক্ত</p>
-        <p class="visit-addr"><b>ঠিকানা:</b> শ্রীশ্রী বাসুদেব যোগাশ্রম, নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম · <b>ফোন:</b> ০১৭১১-৯৪১৭৫৬</p>
+        <p class="visit-addr"><b>ঠিকানা:</b> শ্রীশ্রী বাসুদেব যোগাশ্রম, নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম · <b>ফোন:</b> <?= e($S['phone1']) ?></p>
       </div>
       <div class="visit-actions">
-        <a class="btn btn-primary" href="https://www.google.com/maps/search/?api=1&query=Basudev+Yogashram+Nehalpur+Nandirhat+Hathazari+Chattogram" target="_blank" rel="noopener">পথ দেখুন (গুগল ম্যাপ) ↗</a>
+        <a class="btn btn-primary" href="<?= e($S['maps']) ?>" target="_blank" rel="noopener">পথ দেখুন (গুগল ম্যাপ) ↗</a>
         <a class="btn btn-outline" href="#utsav">উৎসবসূচি দেখুন</a>
       </div>
     </div>
   </div></section>
+
+<?php if ($posts): ?>
+  <section id="khobor" class="khobor"><div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">খবর ও নোটিশ</p>
+      <h2>আশ্রমের সর্বশেষ খবর</h2>
+    </div>
+    <div class="news-grid">
+<?php foreach (array_slice($posts, 0, 6) as $p): ?>
+      <article class="news-card">
+        <?php if (!empty($p['image'])): ?><a href="post.php?id=<?= e($p['id']) ?>"><img src="<?= e(img_url($p['image'])) ?>" alt="" loading="lazy"></a><?php endif; ?>
+        <div class="nc-body">
+          <p class="nc-date"><?= e(bn_date($p['date'])) ?></p>
+          <h3><a href="post.php?id=<?= e($p['id']) ?>"><?= e($p['title']) ?></a></h3>
+          <p><?= e(excerpt($p['body'])) ?></p>
+          <a class="nc-more" href="post.php?id=<?= e($p['id']) ?>">বিস্তারিত পড়ুন →</a>
+        </div>
+      </article>
+<?php endforeach; ?>
+    </div>
+    <?php if (count($posts) > 6): ?><p class="news-all"><a href="news.php">সব খবর দেখুন →</a></p><?php endif; ?>
+  </div></section>
+<?php endif; ?>
 
   <section id="about"><div class="wrap about-grid">
     <div class="about-text">
@@ -675,8 +334,8 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
         <input id="bk-date" type="date">
         <label for="bk-note">বিশেষ কিছু জানাতে চাইলে</label>
         <textarea id="bk-note" rows="3" placeholder="যেমন: অতিথি সংখ্যা, কার স্মরণে, বিশেষ পূজা"></textarea>
-        <a class="btn btn-primary book-btn" id="waLink" href="https://wa.me/8801835000824" target="_blank" rel="noopener">হোয়াটসঅ্যাপে বুকিং অনুরোধ পাঠান</a>
-        <p class="book-alt">অন্নসেবার খরচ ও বিস্তারিত জানতে আশ্রমে যোগাযোগ করুন: <b>০১৭১১-৯৪১৭৫৬</b></p>
+        <a class="btn btn-primary book-btn" id="waLink" href="https://wa.me/<?= e(preg_replace('/\D/', '', $S['whatsapp'])) ?>" target="_blank" rel="noopener">হোয়াটসঅ্যাপে বুকিং অনুরোধ পাঠান</a>
+        <p class="book-alt">অন্নসেবার খরচ ও বিস্তারিত জানতে আশ্রমে যোগাযোগ করুন: <b><?= e($S['phone1']) ?></b></p>
       </form>
     </div>
   </div></section>
@@ -695,24 +354,9 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
         <p class="next-place">আশ্রম প্রাঙ্গণ, নেহালপুর</p>
       </aside>
       <ol class="cal" id="cal">
-        <li class="ev k-c" data-date="2026-04-16"><div class="ev-date"><b>১৬ এপ্রিল ২০২৬</b><span>২ বৈশাখ ১৪৩৩ · বৃহস্পতিবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2026-05-16"><div class="ev-date"><b>১৬ মে ২০২৬</b><span>১লা জ্যৈষ্ঠ ১৪৩৩ · শনিবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2026-06-14"><div class="ev-date"><b>১৪ জুন ২০২৬</b><span>৩০ জ্যৈষ্ঠ ১৪৩৩ · রবিবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-g" data-date="2026-06-21"><div class="ev-date"><b>২১ জুন ২০২৬</b><span>৬ আষাঢ় ১৪৩৩ · রবিবার</span></div><div class="ev-what"><span class="kind">গুরু তিথি</span><span class="st"></span><p>শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজের শুভ আবির্ভাব উপলক্ষে বিশ্বশান্তি শ্রীশ্রী গীতাযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2026-07-13"><div class="ev-date"><b>১৩ জুলাই ২০২৬</b><span>২৮ আষাঢ় ১৪৩৩ · সোমবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2026-08-12"><div class="ev-date"><b>১২ আগস্ট ২০২৬</b><span>২৬ শ্রাবণ ১৪৩৩ · বুধবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-g" data-date="2026-09-06"><div class="ev-date"><b>৬ সেপ্টেম্বর ২০২৬</b><span>১৯ ভাদ্র ১৪৩৩ · রবিবার</span></div><div class="ev-what"><span class="kind">গুরু তিথি</span><span class="st"></span><p>শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজের তিরোধান উপলক্ষে বিশ্বশান্তি শ্রীশ্রী গীতাযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2026-09-10"><div class="ev-date"><b>১০ সেপ্টেম্বর ২০২৬</b><span>২৩ ভাদ্র ১৪৩৩ · বৃহস্পতিবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-g" data-date="2026-09-18"><div class="ev-date"><b>১৮ সেপ্টেম্বর ২০২৬</b><span>৩১ ভাদ্র ১৪৩৩ · শুক্রবার</span></div><div class="ev-what"><span class="kind">গুরু তিথি</span><span class="st"></span><p>শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজের তিরোধান উপলক্ষে বিশ্বশান্তি শ্রীশ্রী গীতাযজ্ঞ ও মহতী ধর্মসভা</p></div></li>
-        <li class="ev k-s" data-date="2026-10-10"><div class="ev-date"><b>১০ অক্টোবর ২০২৬</b><span>২২ আশ্বিন ১৪৩৩ · শনিবার</span></div><div class="ev-what"><span class="kind">বিশেষ তিথি</span><span class="st"></span><p>মহালয়া (অমাবস্যা তিথি) উপলক্ষে দিনে শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2026-11-08"><div class="ev-date"><b>৮ নভেম্বর ২০২৬</b><span>২১ কার্তিক ১৪৩৩ · রবিবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2026-12-08"><div class="ev-date"><b>৮ ডিসেম্বর ২০২৬</b><span>২১ অগ্রহায়ণ ১৪৩৩ · মঙ্গলবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2027-01-07"><div class="ev-date"><b>৭ জানুয়ারি ২০২৭</b><span>২২ পৌষ ১৪৩৩ · বৃহস্পতিবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2027-02-05"><div class="ev-date"><b>৫ ফেব্রুয়ারি ২০২৭</b><span>২১ মাঘ ১৪৩৩ · শুক্রবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-s" data-date="2027-03-06"><div class="ev-date"><b>৬ মার্চ ২০২৭</b><span>২১ ফাল্গুন ১৪৩৩ · শনিবার</span></div><div class="ev-what"><span class="kind">বিশেষ তিথি</span><span class="st"></span><p>শিব চতুর্দশী তিথিতে রাত্রীকালীন শিব পূজা ও শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2027-03-07"><div class="ev-date"><b>৭ মার্চ ২০২৭</b><span>২২ ফাল্গুন ১৪৩৩ · রবিবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
-        <li class="ev k-g" data-date="2027-03-22"><div class="ev-date"><b>২২ মার্চ ২০২৭</b><span>৭ চৈত্র ১৪৩৩ · সোমবার</span></div><div class="ev-what"><span class="kind">গুরু তিথি</span><span class="st"></span><p>গৌর দোল পূর্ণিমা তিথিতে শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজের শুভ আবির্ভাব উপলক্ষে বিশ্বশান্তি শ্রীশ্রী গীতাযজ্ঞ</p></div></li>
-        <li class="ev k-c" data-date="2027-04-06"><div class="ev-date"><b>৬ এপ্রিল ২০২৭</b><span>২২ চৈত্র ১৪৩৩ · মঙ্গলবার</span></div><div class="ev-what"><span class="kind">চণ্ডীযজ্ঞ</span><span class="st"></span><p>অমাবস্যা উপলক্ষে রাত্রীকালীন শ্রীশ্রী চণ্ডীযজ্ঞ</p></div></li>
+<?php foreach ($events as $ev): $k = $kinds[$ev['kind']] ?? $kinds['special']; ?>
+        <li class="ev k-<?= $k[0] ?>" data-date="<?= e($ev['date']) ?>"><div class="ev-date"><b><?= e($ev['date_text'] ?: bn_date($ev['date'])) ?></b><span><?= e(trim(($ev['bangla_date'] ?? '') . ' · ' . ($ev['weekday'] ?: bn_weekday($ev['date'])), ' ·')) ?></span></div><div class="ev-what"><span class="kind"><?= e($k[1]) ?></span><span class="st"></span><p><?= e($ev['title']) ?></p></div></li>
+<?php endforeach; ?>
       </ol>
     </div>
   </div></section>
@@ -723,16 +367,9 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
       <h2>আশ্রম প্রাঙ্গণ</h2>
     </div>
     <div class="gallery">
-      <figure class="g-wide g-tall"><img src="images/ashram-pond-temple.jpg" alt="মন্দির ও পুকুর" loading="lazy"><figcaption>মন্দির ও পুণ্য পুকুর</figcaption></figure>
-      <figure class="g-wide"><img src="images/ashram-pond-hall.jpg" alt="খিলান-বারান্দা ঘেরা পুকুরঘাট" loading="lazy"><figcaption>পুকুরঘাট ও বারান্দা</figcaption></figure>
-      <figure><img src="images/tirodhan-utsav-2026.jpg" alt="তিরোধান উৎসব ২০২৬-এর আমন্ত্রণপত্র" loading="lazy" style="object-position:top"><figcaption>তিরোধান উৎসব ২০২৬</figcaption></figure>
-      <figure><img src="images/guru-parampara.jpg" alt="শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজ ও শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজ" loading="lazy" style="object-position:top"><figcaption>গুরু পরম্পরা</figcaption></figure>
-      <figure class="g-wide"><img src="images/anath-bhaban.jpg" alt="শ্রীশ্রী বাসুদেব অনাথ আশ্রম ভবন" loading="lazy"><figcaption>বাসুদেব অনাথ আশ্রম ভবন</figcaption></figure>
-      <figure><img src="images/gita-yagna.jpg" alt="গীতাযজ্ঞ" loading="lazy"><figcaption>গীতাযজ্ঞ</figcaption></figure>
-      <figure><img src="images/basudeb-school.jpg" alt="বাসুদেব স্কুল এন্ড কলেজ" loading="lazy"><figcaption>বাসুদেব স্কুল এন্ড কলেজ</figcaption></figure>
-      <figure class="g-wide"><img src="images/upasana-2.jpg" alt="বিদ্যার্থীদের উপাসনা" loading="lazy"><figcaption>বিদ্যার্থীদের উপাসনা</figcaption></figure>
-      <figure><img src="images/dhyan-yoga.jpg" alt="সমবেত ধ্যান" loading="lazy"><figcaption>সমবেত ধ্যান</figcaption></figure>
-      <figure><img src="images/shubhodin-birthday.jpg" alt="আশ্রমে জন্মদিন উদযাপন" loading="lazy"><figcaption>আশ্রমে শুভদিন উদযাপন</figcaption></figure>
+<?php foreach ($gallery as $g): $cls = ['large' => 'g-wide g-tall', 'wide' => 'g-wide'][$g['size'] ?? ''] ?? ''; ?>
+      <figure<?= $cls ? ' class="' . $cls . '"' : '' ?>><img src="<?= e(img_url($g['image'])) ?>" alt="<?= e($g['alt'] ?: $g['caption']) ?>" loading="lazy"<?= !empty($g['focus_top']) ? ' style="object-position:top"' : '' ?>><?php if ($g['caption']): ?><figcaption><?= e($g['caption']) ?></figcaption><?php endif; ?></figure>
+<?php endforeach; ?>
     </div>
   </div></section>
 
@@ -757,7 +394,7 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
     </div>
 
     <div class="invite">
-      <p><b>এই কাজে অংশ নিতে চান?</b> নির্মাণসামগ্রী, অর্থ বা শ্রম, যেকোনোভাবে যুক্ত হতে আশ্রমের সাথে যোগাযোগ করুন: <b>০১৭১১-৯৪১৭৫৬</b>, অথবা <a href="#donate">আশ্রমের ব্যাংক হিসাবে</a> দান পাঠান।</p>
+      <p><b>এই কাজে অংশ নিতে চান?</b> নির্মাণসামগ্রী, অর্থ বা শ্রম, যেকোনোভাবে যুক্ত হতে আশ্রমের সাথে যোগাযোগ করুন: <b><?= e($S['phone1']) ?></b>, অথবা <a href="#donate">আশ্রমের ব্যাংক হিসাবে</a> দান পাঠান।</p>
     </div>
   </div></section>
 
@@ -774,65 +411,14 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
     </div>
     <h3 class="sub-h">শ্রীশ্রী বাসুদেব যোগাশ্রম ও বাসুদেব অনাথ আশ্রমের ভূমিদাতা সদস্যবৃন্দ</h3>
     <div class="donors donors-top">
-      <article class="donor guru-donor"><div class="d-photo"><img src="images/guru-basudevananda.jpg" alt="পরমহংস শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজ" loading="lazy"></div><h3>পরমহংস শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজ</h3><p>প্রতিষ্ঠাতা অধ্যক্ষ, শ্রীশ্রী বাসুদেব যোগাশ্রম</p></article>
-      <article class="donor guru-donor"><div class="d-photo"><img src="images/guru-krishnananda.jpg" alt="শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজ" loading="lazy"></div><h3>শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজ</h3><p>নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রী স্বপন দাশগুপ্ত</p></article>
-      <article class="donor guru-donor"><div class="d-photo"><img src="images/bhumidata/new/a1_3.jpg" alt="শ্রীমৎ দিলীপ চক্রবর্তী" loading="lazy"></div><h3>শ্রীমৎ দিলীপ চক্রবর্তী</h3><p>কৈবল্যধামের ৫ম মোহন্ত মহারাজ</p><p class="paksha">পক্ষে: শ্রী অসীম সাহা</p></article>
-      <article class="donor guru-donor"><div class="d-photo"><img src="images/bhumidata/new/a1_2.jpg" alt="শ্রী শ্রীমৎ স্বামী মাধবানন্দ মহারাজ" loading="lazy"></div><h3>শ্রী শ্রীমৎ স্বামী মাধবানন্দ মহারাজ</h3><p>সীতাকুণ্ড, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রী মধুসূদন ধর (আমেরিকা প্রবাসী)</p></article>
+<?php foreach ($donors as $d): if (($d['group'] ?? 'main') !== 'guru') continue; ?>
+      <article class="donor guru-donor"><div class="d-photo"><?php if (!empty($d['photo'])): ?><img src="<?= e(img_url($d['photo'])) ?>" alt="<?= e($d['name']) ?>" loading="lazy"><?php else: ?><span>ॐ</span><?php endif; ?></div><h3><?= e($d['name']) ?></h3><?php if ($d['address']): ?><p><?= e($d['address']) ?></p><?php endif; ?><?php if ($d['paksha']): ?><p class="paksha">পক্ষে: <?= e($d['paksha']) ?></p><?php endif; ?></article>
+<?php endforeach; ?>
     </div>
     <div class="donors">
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a1_0.jpg" alt="শ্রীশ্রী মা চণ্ডী" loading="lazy"></div><h3>শ্রীশ্রী মা চণ্ডী</h3><p class="paksha">পক্ষে: শ্রী পুলক ভট্টাচার্য</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b1_3.jpg" alt="শ্রী প্রবাল ভট্টাচার্য" loading="lazy"></div><h3>শ্রী প্রবাল ভট্টাচার্য</h3><p>কেউটিয়া, রাউজান, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d05.jpg" alt="শ্রী শ্যামল কান্তি দে" loading="lazy"></div><h3>শ্রী শ্যামল কান্তি দে</h3><p>চিকদাইর, রাউজান, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a1_5.jpg" alt="শ্রী জুটন সাহা" loading="lazy"></div><h3>শ্রী জুটন সাহা</h3><p>খাতুনগঞ্জ, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/poli-biswas.jpg" alt="শ্রীমতি পলি বিশ্বাস" loading="lazy"></div><h3>শ্রীমতি পলি বিশ্বাস</h3><p>দেওয়ানজী পুকুর পাড়, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/ashutosh-mahajan.jpg" alt="শ্রী আশুতোষ মহাজন" loading="lazy"></div><h3>শ্রী আশুতোষ মহাজন</h3><p>রাউজান, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a1_4.jpg" alt="শ্রী রতন কুমার ঘোষ" loading="lazy"></div><h3>শ্রী রতন কুমার ঘোষ</h3><p>রামদয়াল মাঝির বাড়ি, পূর্ব ডাবুয়া, রাউজান, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b1_1.jpg" alt="শ্রী ডাঃ জ্ঞান বিকাশ শীল" loading="lazy"></div><h3>শ্রী ডাঃ জ্ঞান বিকাশ শীল</h3><p>শীলপাড়া, ধামাইরহাট, রাঙ্গুনিয়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a1_6.jpg" alt="স্বর্গীয় নারায়ণ দাশগুপ্ত" loading="lazy"></div><h3>স্বর্গীয় নারায়ণ দাশগুপ্ত</h3><p>সাহাবীনগর, পারুয়া, রাঙ্গুনিয়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a2_0.jpg" alt="শ্রী প্রদীপ দাশগুপ্ত" loading="lazy"></div><h3>শ্রী প্রদীপ দাশগুপ্ত</h3><p>সাহাবীনগর, পারুয়া, রাঙ্গুনিয়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a2_1.jpg" alt="শ্রী অনিল কান্তি দেবনাথ" loading="lazy"></div><h3>শ্রী অনিল কান্তি দেবনাথ</h3><p>দক্ষিণ কাট্টলী, হালিশহর, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a2_2.jpg" alt="শ্রী সুজিত তালুকদার" loading="lazy"></div><h3>শ্রী সুজিত তালুকদার</h3><p>বুড়ির দোকান, রাঙ্গুনিয়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a2_3.jpg" alt="স্বর্গীয় শংকর দে" loading="lazy"></div><h3>স্বর্গীয় শংকর দে</h3><p>নেহালপুর, নন্দীরহাট, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a2_4.jpg" alt="শ্রী কেশব নাগ (মিন্টু)" loading="lazy"></div><h3>শ্রী কেশব নাগ (মিন্টু)</h3><p>বাথুয়াপাড়া, পরৈকোড়া, আনোয়ারা, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a2_5.jpg" alt="স্বর্গীয় কষ্ট মোহন শীল" loading="lazy"></div><h3>স্বর্গীয় কষ্ট মোহন শীল</h3><p>শীল পাড়া, ধামাইরহাট, রাঙ্গুনিয়া, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রী বিমল চন্দ্র শীল</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/a2_6.jpg" alt="শ্রী দিলীপ কুমার চৌধুরী" loading="lazy"></div><h3>শ্রী দিলীপ কুমার চৌধুরী</h3><p>চক্রশালা, পটিয়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b1_0.jpg" alt="স্বর্গীয় নিত্যগোপাল সরকার" loading="lazy"></div><h3>স্বর্গীয় নিত্যগোপাল সরকার</h3><p>বিনাজুরী, রাউজান, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রী জয়তোষ সরকার</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b1_2.jpg" alt="স্বর্গীয় মানিক শীল" loading="lazy"></div><h3>স্বর্গীয় মানিক শীল</h3><p>শীলপাড়া, শিলক, রাঙ্গুনিয়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b1_4.jpg" alt="শ্রী প্রবীর দাশ (তপু)" loading="lazy"></div><h3>শ্রী প্রবীর দাশ (তপু)</h3><p>পি. কে. সেন লেইন, সদরঘাট, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b1_5.jpg" alt="স্বর্গীয় শিবু প্রসাদ চক্রবর্তী" loading="lazy"></div><h3>স্বর্গীয় শিবু প্রসাদ চক্রবর্তী</h3><p>চুনা ফ্যাক্টরী রোড, হালিশহর, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b1_6.jpg" alt="শ্রী বাসুদেব চক্রবর্তী" loading="lazy"></div><h3>শ্রী বাসুদেব চক্রবর্তী</h3><p>পোমরা, রাঙ্গুনিয়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b1_7.jpg" alt="শ্রী বাপন কান্তি ধর" loading="lazy"></div><h3>শ্রী বাপন কান্তি ধর</h3><p>চৌধুরীহাট, হাটহাজারী, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b2_2.jpg" alt="শ্রী পলাশ দে" loading="lazy"></div><h3>শ্রী পলাশ দে</h3></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b2_3.jpg" alt="শ্রী রাজীব দেব" loading="lazy"></div><h3>শ্রী রাজীব দেব</h3></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b2_4.jpg" alt="শ্রী রাখাল ধর" loading="lazy"></div><h3>শ্রী রাখাল ধর</h3><p>লোহাগাড়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b2_5.jpg" alt="শ্রী সমীর কর" loading="lazy"></div><h3>শ্রী সমীর কর</h3><p>ডাবুয়া, রাউজান, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b2_6.jpg" alt="স্বর্গীয় শিব প্রসাদ সেন" loading="lazy"></div><h3>স্বর্গীয় শিব প্রসাদ সেন</h3><p>গুজরা, রাউজান, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/new/b2_7.jpg" alt="শ্রী তাপস মহাজন" loading="lazy"></div><h3>শ্রী তাপস মহাজন</h3><p>কাজির দেউড়ী, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d01.jpg" alt="শ্রী রনতোষ ধর" loading="lazy"></div><h3>শ্রী রনতোষ ধর</h3><p>চকবাজার, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d02.jpg" alt="শ্রী তপন দাশ" loading="lazy"></div><h3>শ্রী তপন দাশ</h3><p>লালানগর, রাঙ্গুনিয়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d03.jpg" alt="স্বর্গীয় নিকুঞ্জ বিহারী শীল" loading="lazy"></div><h3>স্বর্গীয় নিকুঞ্জ বিহারী শীল</h3><p>রাঙ্গুনিয়া, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রী বাদল কান্তি শীল (পুত্র)</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d04.jpg" alt="স্বর্গীয় স্বপন মজুমদার" loading="lazy"></div><h3>স্বর্গীয় স্বপন মজুমদার</h3><p>দঃ পাহাড়তলী, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রীমতি ডলি মজুমদার</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d06.jpg" alt="শ্রী বিশ্বনাথ ধর" loading="lazy"></div><h3>শ্রী বিশ্বনাথ ধর</h3><p>সুলতানপুর, রাউজান, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d07.jpg" alt="স্বর্গীয় মনিন্দ্র লাল মহাজন" loading="lazy"></div><h3>স্বর্গীয় মনিন্দ্র লাল মহাজন</h3><p>বিনাজুরী, রাউজান, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রী মিঠু মহাজন (পুত্র)</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d08.jpg" alt="শ্রী হরিপদ চৌধুরী" loading="lazy"></div><h3>শ্রী হরিপদ চৌধুরী</h3><p>জামালখান, কোতোয়ালী, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d09.jpg" alt="শ্রীমতি রমা রাণী ধর" loading="lazy"></div><h3>শ্রীমতি রমা রাণী ধর</h3><p>জামালখান, কোতোয়ালী, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d10.jpg" alt="শ্রী দয়াল কান্তি সামন্ত" loading="lazy"></div><h3>শ্রী দয়াল কান্তি সামন্ত</h3><p>চন্দনাইশ, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d11.jpg" alt="শ্রী সাগর শীল" loading="lazy"></div><h3>শ্রী সাগর শীল</h3><p>পশ্চিম গোমদন্ডী, বোয়ালখালী, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d12.jpg" alt="স্বর্গীয়া রীনা রাণী বণিক" loading="lazy"></div><h3>স্বর্গীয়া রীনা রাণী বণিক</h3><p>কোতোয়ালী, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রী সুমন বণিক (পুত্র)</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d13.jpg" alt="শ্রীমতি ইলা দাশ" loading="lazy"></div><h3>শ্রীমতি ইলা দাশ</h3><p>ডাবুয়া, রাউজান, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d14.jpg" alt="শ্রী সাজু মহাজন" loading="lazy"></div><h3>শ্রী সাজু মহাজন</h3><p>মধ্যম মোহরা, কালুরঘাট, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d15.jpg" alt="আনন্দময়ী মা" loading="lazy"></div><h3>আনন্দময়ী মা</h3><p>লালখান বাজার, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d16.jpg" alt="স্বর্গীয় শশাঙ্ক দেওয়ানজী ও স্বর্গীয়া ইলা দেওয়ানজী" loading="lazy"></div><h3>স্বর্গীয় শশাঙ্ক দেওয়ানজী ও স্বর্গীয়া ইলা দেওয়ানজী</h3><p>মাছুয়াঝর্ণা লেইন, দেওয়ানবাজার, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রীমতি চম্পা দেওয়ানজী</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d17.jpg" alt="স্বর্গীয় প্রভাত চন্দ্র নন্দী ও স্বর্গীয়া কল্পনা নন্দী" loading="lazy"></div><h3>স্বর্গীয় প্রভাত চন্দ্র নন্দী ও স্বর্গীয়া কল্পনা নন্দী</h3><p>মাছুয়াঝর্ণা লেইন, দেওয়ানবাজার, চট্টগ্রাম</p><p class="paksha">পক্ষে: শ্রী প্রকাশ নন্দী</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d18.jpg" alt="শ্রী দুলাল চৌধুরী ও শ্রীমতি গীতা চৌধুরী" loading="lazy"></div><h3>শ্রী দুলাল চৌধুরী ও শ্রীমতি গীতা চৌধুরী</h3><p>ভট্ট চৌধুরী বাড়ী, হাটহাজারী, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d19.jpg" alt="শ্রী অর্ধেন্দু শেখর খাস্তগীর" loading="lazy"></div><h3>শ্রী অর্ধেন্দু শেখর খাস্তগীর</h3><p>উত্তর কাট্টলী, আকবর শাহ, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d20.jpg" alt="স্বর্গীয় সুরেশ চন্দ্র বিশ্বাস ও স্বর্গীয়া পুষ্প রাণী বিশ্বাস" loading="lazy"></div><h3>স্বর্গীয় সুরেশ চন্দ্র বিশ্বাস ও স্বর্গীয়া পুষ্প রাণী বিশ্বাস</h3><p>দক্ষিণ মার্দাশা, হাটহাজারী, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d21.jpg" alt="বীর মুক্তিযোদ্ধা ক্যাপ্টেন রঞ্জিত দাশ (অব.) ও শ্রীমতি শিল্পী দাশ" loading="lazy"></div><h3>বীর মুক্তিযোদ্ধা ক্যাপ্টেন রঞ্জিত দাশ (অব.) ও শ্রীমতি শিল্পী দাশ</h3><p>বালুছড়া, বায়েজিদ, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d22.jpg" alt="স্বর্গীয়া ডাঃ দিশা দাশ" loading="lazy"></div><h3>স্বর্গীয়া ডাঃ দিশা দাশ</h3><p>ধলঘাট, পটিয়া, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d23.jpg" alt="শ্রীমতি জয়শ্রী কর" loading="lazy"></div><h3>শ্রীমতি জয়শ্রী কর</h3><p>রহমতগঞ্জ, কোতোয়ালী, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d24.jpg" alt="বীর মুক্তিযোদ্ধা ক্যাপ্টেন (অব.) গোবিন্দ লাল সূত্রধর" loading="lazy"></div><h3>বীর মুক্তিযোদ্ধা ক্যাপ্টেন (অব.) গোবিন্দ লাল সূত্রধর</h3><p>বালুছড়া, বায়েজিদ, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d25.jpg" alt="শ্রী নারায়ণ দেব" loading="lazy"></div><h3>শ্রী নারায়ণ দেব</h3><p>কোতোয়ালী, চট্টগ্রাম</p></article>
-      <article class="donor"><div class="d-photo"><img src="images/bhumidata/d26.jpg" alt="শ্রী অজিত কুমার দত্ত" loading="lazy"></div><h3>শ্রী অজিত কুমার দত্ত</h3><p>আশীর্বাদ ভবন, হাজারী লেইন, কোতোয়ালী, চট্টগ্রাম</p></article>
+<?php foreach ($donors as $d): if (($d['group'] ?? 'main') !== 'main') continue; ?>
+      <article class="donor"><div class="d-photo"><?php if (!empty($d['photo'])): ?><img src="<?= e(img_url($d['photo'])) ?>" alt="<?= e($d['name']) ?>" loading="lazy"><?php else: ?><span>ॐ</span><?php endif; ?></div><h3><?= e($d['name']) ?></h3><?php if ($d['address']): ?><p><?= e($d['address']) ?></p><?php endif; ?><?php if ($d['paksha']): ?><p class="paksha">পক্ষে: <?= e($d['paksha']) ?></p><?php endif; ?></article>
+<?php endforeach; ?>
     </div>
     <h3 class="sub-h" style="margin-top:40px">বাসুদেব স্কুল এন্ড কলেজের ভূমিদাতা সদস্যবৃন্দ</h3>
     <p class="lede" style="margin-bottom:14px">বাসুদেব স্কুল এন্ড কলেজের জন্য শতাধিক ভক্ত ভূমিদান করেছেন। আশ্রমে টাঙানো সম্মাননা ফলক:</p>
@@ -842,7 +428,7 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
     </details>
     <p class="note">ফলকটি পাশে সরিয়ে দেখুন। স্কুল এন্ড কলেজের ভূমিদাতাগণের নাম ও ছবি শীঘ্রই আলাদাভাবে যোগ করা হবে।</p>
       <div class="invite" style="margin-top:24px">
-      <p><b>ভূমিদান কার্যক্রম চলমান রয়েছে।</b> আশ্রম, অনাথ আশ্রম বা স্কুল এন্ড কলেজের জন্য কেউ এই মহৎ ভূমিদানে অংশ নিতে চাইলে সরাসরি আশ্রমের সাথে যোগাযোগ করুন: <b>০১৭১১-৯৪১৭৫৬</b></p>
+      <p><b>ভূমিদান কার্যক্রম চলমান রয়েছে।</b> আশ্রম, অনাথ আশ্রম বা স্কুল এন্ড কলেজের জন্য কেউ এই মহৎ ভূমিদানে অংশ নিতে চাইলে সরাসরি আশ্রমের সাথে যোগাযোগ করুন: <b><?= e($S['phone1']) ?></b></p>
     </div>
   </div></section>
 
@@ -865,7 +451,7 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
       </article>
     </div>
     <ol class="how">
-      <li><b>যোগাযোগ করুন</b><span>০১৭১১-৯৪১৭৫৬ বা হোয়াটসঅ্যাপে ০১৮৩৫-০০০৮২৪</span></li>
+      <li><b>যোগাযোগ করুন</b><span><?= e($S['phone1']) ?> বা হোয়াটসঅ্যাপে <?= e($S['phone2']) ?></span></li>
       <li><b>নাম ও ঠিকানা দিন</b><span>আশ্রমের সদস্য খাতায় আপনার নাম নিবন্ধিত হবে</span></li>
       <li><b>প্রণামী পাঠান</b><span>আশ্রমে সরাসরি, অথবা <a href="#donate">ব্যাংক হিসাবে</a></span></li>
     </ol>
@@ -878,24 +464,17 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
       <p class="lede">আপনার দান সরাসরি শিশুদের আহার, শিক্ষা ও চিকিৎসায় এবং আশ্রমের ধর্মীয় কাজে ব্যয় হয়।</p>
     </div>
     <div class="donate-grid">
+<?php foreach (($S['banks'] ?? []) as $i => $bk): ?>
       <article class="acct">
-        <h3>শ্রীশ্রী বাসুদেব অনাথ আশ্রম</h3>
+        <h3><?= e($bk['title']) ?></h3>
         <dl>
-          <dt>হিসাব নং</dt><dd><span class="num" id="acc1">0100146789069</span></dd>
-          <dt>ধরন</dt><dd>সঞ্চয়ী (S/B)</dd>
-          <dt>ব্যাংক</dt><dd>জনতা ব্যাংক, চৌধুরীহাট শাখা, হাটহাজারী, চট্টগ্রাম</dd>
+          <dt>হিসাব নং</dt><dd><span class="num" id="acc<?= $i ?>"><?= e($bk['account']) ?></span></dd>
+          <?php if ($bk['type']): ?><dt>ধরন</dt><dd><?= e($bk['type']) ?></dd><?php endif; ?>
+          <dt>ব্যাংক</dt><dd><?= e($bk['bank']) ?></dd>
         </dl>
-        <button class="copy" data-copy="acc1">হিসাব নং কপি করুন</button>
+        <button class="copy" data-copy="acc<?= $i ?>">হিসাব নং কপি করুন</button>
       </article>
-      <article class="acct">
-        <h3>শ্রীশ্রী বাসুদেব যোগাশ্রম</h3>
-        <dl>
-          <dt>হিসাব নং</dt><dd><span class="num" id="acc2">0100231486610</span></dd>
-          <dt>ধরন</dt><dd>সঞ্চয়ী (S/B)</dd>
-          <dt>ব্যাংক</dt><dd>জনতা ব্যাংক, চৌধুরীহাট শাখা, হাটহাজারী, চট্টগ্রাম</dd>
-        </dl>
-        <button class="copy" data-copy="acc2">হিসাব নং কপি করুন</button>
-      </article>
+<?php endforeach; ?>
     </div>
     <p class="note">দান পাঠানোর পর অনুগ্রহ করে নিচের নম্বরে জানিয়ে দিন, যাতে আশ্রম আপনার দান গ্রহণ নিশ্চিত করতে পারে।</p>
   </div></section>
@@ -909,17 +488,17 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
       <div>
         <h3>ঠিকানা</h3>
         <p>শ্রীশ্রী বাসুদেব যোগাশ্রম ও অনাথ আশ্রম<br>নেহালপুর, ডাকঘর: নন্দীরহাট<br>উপজেলা: হাটহাজারী, জেলা: চট্টগ্রাম</p>
-        <p><a href="https://www.google.com/maps/search/?api=1&query=Basudev+Yogashram+Nehalpur+Nandirhat+Hathazari+Chattogram" target="_blank" rel="noopener">গুগল ম্যাপে দেখুন ↗</a></p>
+        <p><a href="<?= e($S['maps']) ?>" target="_blank" rel="noopener">গুগল ম্যাপে দেখুন ↗</a></p>
       </div>
       <div>
         <h3>ফোন</h3>
-        <p class="big">০১৭১১-৯৪১৭৫৬</p>
-        <p class="big">০১৮৩৫-০০০৮২৪ <small>(হোয়াটসঅ্যাপ)</small></p>
+        <p class="big"><?= e($S['phone1']) ?></p>
+        <p class="big"><?= e($S['phone2']) ?> <small>(হোয়াটসঅ্যাপ)</small></p>
       </div>
       <div>
         <h3>ফেসবুক ও ইউটিউব</h3>
-        <p><a href="https://www.facebook.com/share/1FmKxbMbRT/" target="_blank" rel="noopener">ফেসবুক পেজে আমাদের অনুসরণ করুন ↗</a></p>
-        <p><a href="https://www.youtube.com/@biplobChitannaBramachari" target="_blank" rel="noopener">ইউটিউবে গুরুদেবের ভিডিও দেখুন ↗</a></p>
+        <p><a href="<?= e($S['facebook']) ?>" target="_blank" rel="noopener">ফেসবুক পেজে আমাদের অনুসরণ করুন ↗</a></p>
+        <p><a href="<?= e($S['youtube']) ?>" target="_blank" rel="noopener">ইউটিউবে গুরুদেবের ভিডিও দেখুন ↗</a></p>
       </div>
     </div>
   </div></section>
@@ -1013,7 +592,7 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
       'নাম: '+(v('bk-name')||'-')+'\nমোবাইল: '+(v('bk-phone')||'-')+
       '\nঅনুষ্ঠান: '+v('bk-occ')+'\nপছন্দের তারিখ: '+(v('bk-date')||'-')+
       (v('bk-note')?'\nবিস্তারিত: '+v('bk-note'):'');
-    wa.href='https://wa.me/8801835000824?text='+encodeURIComponent(msg);
+    wa.href='https://wa.me/<?= e(preg_replace('/\D/', '', $S['whatsapp'])) ?>?text='+encodeURIComponent(msg);
   }
   document.getElementById('bookForm').addEventListener('input',upd);
   document.getElementById('bookForm').addEventListener('submit',function(e){e.preventDefault();});

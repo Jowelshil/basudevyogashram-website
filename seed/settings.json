@@ -1,0 +1,24 @@
+{
+ "phone1": "০১৭১১-৯৪১৭৫৬",
+ "phone2": "০১৮৩৫-০০০৮২৪",
+ "whatsapp": "8801835000824",
+ "facebook": "https://www.facebook.com/share/1FmKxbMbRT/",
+ "youtube": "https://www.youtube.com/@biplobChitannaBramachari",
+ "maps": "https://www.google.com/maps/search/?api=1&query=Basudev+Yogashram+Nehalpur+Nandirhat+Hathazari+Chattogram",
+ "banks": [
+  {
+   "id": "324e34d4ba",
+   "title": "শ্রীশ্রী বাসুদেব অনাথ আশ্রম",
+   "account": "0100146789069",
+   "type": "সঞ্চয়ী (S/B)",
+   "bank": "জনতা ব্যাংক, চৌধুরীহাট শাখা, হাটহাজারী, চট্টগ্রাম"
+  },
+  {
+   "id": "5f92390779",
+   "title": "শ্রীশ্রী বাসুদেব যোগাশ্রম",
+   "account": "0100231486610",
+   "type": "সঞ্চয়ী (S/B)",
+   "bank": "জনতা ব্যাংক, চৌধুরীহাট শাখা, হাটহাজারী, চট্টগ্রাম"
+  }
+ ]
+}

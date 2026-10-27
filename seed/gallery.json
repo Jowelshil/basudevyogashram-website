@@ -1,0 +1,82 @@
+[
+ {
+  "id": "e528b0cf81",
+  "image": "images/ashram-pond-temple.jpg",
+  "caption": "মন্দির ও পুণ্য পুকুর",
+  "alt": "মন্দির ও পুকুর",
+  "size": "large",
+  "focus_top": false
+ },
+ {
+  "id": "4a2972dedb",
+  "image": "images/ashram-pond-hall.jpg",
+  "caption": "পুকুরঘাট ও বারান্দা",
+  "alt": "খিলান-বারান্দা ঘেরা পুকুরঘাট",
+  "size": "wide",
+  "focus_top": false
+ },
+ {
+  "id": "21c6d48e21",
+  "image": "images/tirodhan-utsav-2026.jpg",
+  "caption": "তিরোধান উৎসব ২০২৬",
+  "alt": "তিরোধান উৎসব ২০২৬-এর আমন্ত্রণপত্র",
+  "size": "normal",
+  "focus_top": false
+ },
+ {
+  "id": "e2f350638c",
+  "image": "images/guru-parampara.jpg",
+  "caption": "গুরু পরম্পরা",
+  "alt": "শ্রীমৎ স্বামী বাসুদেবানন্দ গিরি মহারাজ ও শ্রীমৎ স্বামী কৃষ্ণানন্দ গিরি মহারাজ",
+  "size": "normal",
+  "focus_top": false
+ },
+ {
+  "id": "a8eb72e4b9",
+  "image": "images/anath-bhaban.jpg",
+  "caption": "বাসুদেব অনাথ আশ্রম ভবন",
+  "alt": "শ্রীশ্রী বাসুদেব অনাথ আশ্রম ভবন",
+  "size": "wide",
+  "focus_top": false
+ },
+ {
+  "id": "028e848c11",
+  "image": "images/gita-yagna.jpg",
+  "caption": "গীতাযজ্ঞ",
+  "alt": "গীতাযজ্ঞ",
+  "size": "normal",
+  "focus_top": false
+ },
+ {
+  "id": "55667bb238",
+  "image": "images/basudeb-school.jpg",
+  "caption": "বাসুদেব স্কুল এন্ড কলেজ",
+  "alt": "বাসুদেব স্কুল এন্ড কলেজ",
+  "size": "normal",
+  "focus_top": false
+ },
+ {
+  "id": "f0a38e2f3a",
+  "image": "images/upasana-2.jpg",
+  "caption": "বিদ্যার্থীদের উপাসনা",
+  "alt": "বিদ্যার্থীদের উপাসনা",
+  "size": "wide",
+  "focus_top": false
+ },
+ {
+  "id": "1cf913a42f",
+  "image": "images/dhyan-yoga.jpg",
+  "caption": "সমবেত ধ্যান",
+  "alt": "সমবেত ধ্যান",
+  "size": "normal",
+  "focus_top": false
+ },
+ {
+  "id": "42d6fb83ae",
+  "image": "images/shubhodin-birthday.jpg",
+  "caption": "আশ্রমে শুভদিন উদযাপন",
+  "alt": "আশ্রমে জন্মদিন উদযাপন",
+  "size": "normal",
+  "focus_top": false
+ }
+]
