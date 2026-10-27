@@ -72,3 +72,9 @@ input[type=file]{padding:8px;background:#fffaf3}
 .reset input{width:170px;padding:6px 10px;font-size:14px}
 .user .acts{flex:1 1 100%}
 @media (max-width:600px){.bank{grid-template-columns:1fr}.reset{flex-wrap:wrap}.reset input{width:100%}}
+.invite{display:grid;gap:10px;margin:16px 0;border-color:var(--saffron)}
+.invite h2{margin:0}
+.inv-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.inv-row code{flex:1 1 280px;min-width:0;background:var(--saffron-soft);padding:10px 12px;border-radius:8px;font-size:14px;overflow-wrap:anywhere}
+.pend{border-color:var(--saffron);background:#fffaf3}
+details summary{cursor:pointer}

@@ -158,8 +158,19 @@ function load_users(): array {
 function save_users(array $u): void { save('users', array_values($u)); }
 function current_user(): ?array {
     if (empty($_SESSION['uid'])) return null;
-    foreach (load_users() as $u) if ($u['id'] === $_SESSION['uid']) return $u;
+    foreach (load_users() as $u) if ($u['id'] === $_SESSION['uid'] && ($u['status'] ?? 'active') === 'active') return $u;
     return null;
+}
+function invite(): array {
+    $f = data_dir() . '/invite.json';
+    return file_exists($f) ? (json_decode((string)file_get_contents($f), true) ?: []) : [];
+}
+function new_invite_code(): string {
+    $a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; $c = '';
+    for ($i = 0; $i < 8; $i++) $c .= $a[random_int(0, strlen($a) - 1)];
+    $code = substr($c, 0, 4) . '-' . substr($c, 4);
+    file_put_contents(data_dir() . '/invite.json', json_encode(['code' => $code, 'on' => true]), LOCK_EX);
+    return $code;
 }
 function csrf_token(): string {
     if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));

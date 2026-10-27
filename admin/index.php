@@ -104,7 +104,7 @@ $hasUsers = count(load_users()) > 0;
 
 if (!$hasUsers && $p !== 'setup') redirect(['p' => 'setup']);
 if ($hasUsers && $p === 'setup') redirect(['p' => 'login']);
-if (!$user && !in_array($p, ['login', 'setup'], true)) redirect(['p' => 'login']);
+if (!$user && !in_array($p, ['login', 'setup', 'register'], true)) redirect(['p' => 'login']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') check_csrf();
 
 /* ===== setup (first super admin) ===== */
@@ -153,7 +153,10 @@ if ($p === 'login') {
         else {
             $found = null;
             foreach (load_users() as $u) if (strcasecmp($u['username'], $un) === 0) $found = $u;
-            if ($found && password_verify($pw, $found['hash'])) {
+            if ($found && password_verify($pw, $found['hash']) && ($found['status'] ?? 'active') === 'pending') {
+                login_ok($un);
+                $err = 'আপনার অ্যাকাউন্ট এখনো প্রধান অ্যাডমিনের অনুমোদনের অপেক্ষায় আছে। অনুমোদন হলে লগইন করতে পারবেন।';
+            } elseif ($found && password_verify($pw, $found['hash'])) {
                 login_ok($un);
                 session_regenerate_id(true);
                 $_SESSION['uid'] = $found['id'];
@@ -161,8 +164,7 @@ if ($p === 'login') {
                 log_action('লগইন করেছেন');
                 redirect();
             }
-            login_failed($un);
-            $err = 'ইউজারনেম বা পাসওয়ার্ড সঠিক নয়।';
+            if (!$err) { login_failed($un); $err = 'ইউজারনেম বা পাসওয়ার্ড সঠিক নয়।'; }
         }
     }
     layout('লগইন', function () use ($err) { ?>
@@ -175,10 +177,61 @@ if ($p === 'login') {
         <label>পাসওয়ার্ড<input type="password" name="password" required autocomplete="current-password"></label>
         <button class="btn">লগইন</button>
         <p class="muted small">পাসওয়ার্ড ভুলে গেলে প্রধান অ্যাডমিনকে বলুন, তিনি নতুন পাসওয়ার্ড দিতে পারবেন।</p>
+        <p class="small">নতুন? <a href="?p=register">নিজের অ্যাকাউন্ট খুলুন →</a></p>
       </form>
     <?php }, null);
     exit;
 }
+
+/* ===== self registration (needs invite code + approval) ===== */
+if ($p === 'register') {
+    if ($user) redirect();
+    $inv = invite();
+    $err = ''; $done = false;
+    $prefill = preg_replace('/[^A-Z0-9-]/', '', strtoupper((string)($_GET['code'] ?? '')));
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $code = strtoupper(trim((string)($_POST['code'] ?? '')));
+        $un = trim((string)($_POST['username'] ?? '')); $nm = trim((string)($_POST['name'] ?? ''));
+        $ph = trim((string)($_POST['phone'] ?? '')); $pw = (string)($_POST['password'] ?? ''); $pw2 = (string)($_POST['password2'] ?? '');
+        $us = load_users();
+        if (login_blocked('register')) $err = 'অনেকবার ভুল কোড দেওয়া হয়েছে। ১৫ মিনিট পর চেষ্টা করুন।';
+        elseif (empty($inv['on']) || !hash_equals((string)($inv['code'] ?? ''), $code)) { login_failed('register'); $err = 'আমন্ত্রণ কোড সঠিক নয়। প্রধান অ্যাডমিনের কাছ থেকে সঠিক কোড নিন।'; }
+        elseif ($nm === '') $err = 'আপনার নাম লিখুন।';
+        elseif (!preg_match('/^[a-zA-Z0-9_.]{3,30}$/', $un)) $err = 'ইউজারনেম ৩-৩০ অক্ষরের ইংরেজি অক্ষর বা সংখ্যা হতে হবে (ফাঁকা জায়গা ছাড়া)।';
+        elseif (array_filter($us, fn($u) => strcasecmp($u['username'], $un) === 0)) $err = 'এই ইউজারনেম আগেই নেওয়া হয়েছে। অন্য একটি বেছে নিন।';
+        elseif (mb_strlen($pw) < 8) $err = 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।';
+        elseif ($pw !== $pw2) $err = 'দুটি পাসওয়ার্ড মেলেনি।';
+        elseif (count(array_filter($us, fn($u) => ($u['status'] ?? '') === 'pending')) >= 20) $err = 'এখন অনেক আবেদন অপেক্ষায় আছে। পরে চেষ্টা করুন।';
+        else {
+            $us[] = ['id' => new_id(), 'username' => $un, 'name' => mb_substr($nm, 0, 80), 'phone' => mb_substr($ph, 0, 30), 'role' => 'editor', 'status' => 'pending', 'hash' => password_hash($pw, PASSWORD_DEFAULT), 'created' => date('Y-m-d H:i')];
+            save_users($us); login_ok('register');
+            $done = true;
+        }
+    }
+    layout('নতুন অ্যাকাউন্ট', function () use ($err, $done, $prefill) { ?>
+      <form method="post" class="card narrow" action="?p=register">
+        <h1>ॐ নতুন অ্যাকাউন্ট খুলুন</h1>
+        <?php if ($done): ?>
+          <div class="flash ok">আবেদন জমা হয়েছে। প্রধান অ্যাডমিন অনুমোদন দিলেই আপনার ইউজারনেম ও পাসওয়ার্ড দিয়ে লগইন করতে পারবেন।</div>
+          <p><a href="?p=login">← লগইন পাতায় যান</a></p>
+        <?php else: ?>
+        <p class="muted">আশ্রমের দায়িত্বপ্রাপ্তদের জন্য। আমন্ত্রণ কোড প্রধান অ্যাডমিনের কাছ থেকে নিন। জমা দেওয়ার পর প্রধান অ্যাডমিন অনুমোদন দিলে অ্যাকাউন্ট চালু হবে।</p>
+        <?php if ($err): ?><div class="flash err"><?= e($err) ?></div><?php endif; ?>
+        <?= csrf_field() ?>
+        <label>আমন্ত্রণ কোড<input name="code" required value="<?= e($_POST['code'] ?? $prefill) ?>" autocomplete="off"></label>
+        <label>আপনার নাম<input name="name" required value="<?= e($_POST['name'] ?? '') ?>"></label>
+        <label>মোবাইল নম্বর<input name="phone" value="<?= e($_POST['phone'] ?? '') ?>" inputmode="tel"><small>প্রধান অ্যাডমিন যাতে আপনাকে চিনতে পারেন</small></label>
+        <label>ইউজারনেম (ইংরেজিতে, নিজে বেছে নিন)<input name="username" required pattern="[a-zA-Z0-9_.]{3,30}" value="<?= e($_POST['username'] ?? '') ?>" autocomplete="username"><small>যেমন: rajib, office.ctg</small></label>
+        <label>পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)<input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
+        <label>পাসওয়ার্ড আবার<input type="password" name="password2" required minlength="8" autocomplete="new-password"></label>
+        <button class="btn">আবেদন জমা দিন</button>
+        <p class="small"><a href="?p=login">← লগইন পাতায় ফিরুন</a></p>
+        <?php endif; ?>
+      </form>
+    <?php }, null);
+    exit;
+}
+
 if ($p === 'logout' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     log_action('লগআউট করেছেন');
     session_unset(); session_destroy();
@@ -448,14 +501,27 @@ if ($p === 'users') {
                 save_users($us); log_action('নতুন ব্যবহারকারী যোগ করেছেন: ' . $nm);
                 redirect(['p' => 'users'], "“{$nm}” যোগ হয়েছে। ইউজারনেম ও পাসওয়ার্ড তাঁকে জানিয়ে দিন।");
             }
+        } elseif ($act === 'invite_new') {
+            new_invite_code(); log_action('নতুন আমন্ত্রণ কোড তৈরি করেছেন');
+            redirect(['p' => 'users'], 'নতুন আমন্ত্রণ কোড তৈরি হয়েছে। পুরনো কোড আর কাজ করবে না।');
+        } elseif ($act === 'invite_off') {
+            $inv = invite(); $inv['on'] = false; file_put_contents(data_dir() . '/invite.json', json_encode($inv), LOCK_EX);
+            log_action('নতুন অ্যাকাউন্ট খোলা বন্ধ করেছেন');
+            redirect(['p' => 'users'], 'নতুন অ্যাকাউন্ট খোলা বন্ধ করা হয়েছে।');
         } else {
             $id = (string)($_POST['id'] ?? '');
             $target = null; foreach ($us as $u) if ($u['id'] === $id) $target = $u;
             if (!$target) redirect(['p' => 'users']);
+            if ($act === 'approve') {
+                foreach ($us as &$u) if ($u['id'] === $id) $u['status'] = 'active';
+                unset($u);
+                save_users($us); log_action('অ্যাকাউন্ট অনুমোদন করেছেন: ' . $target['name'] . ' (' . $target['username'] . ')');
+                redirect(['p' => 'users'], "“{$target['name']}”-এর অ্যাকাউন্ট চালু হয়েছে। এখন তিনি লগইন করতে পারবেন।");
+            }
             if ($act === 'delete') {
                 if ($id === $user['id']) redirect(['p' => 'users'], 'নিজেকে মুছে ফেলা যাবে না।', 'err');
                 $us = array_filter($us, fn($u) => $u['id'] !== $id);
-                save_users($us); log_action('ব্যবহারকারী মুছেছেন: ' . $target['name']);
+                save_users($us); log_action((($target['status'] ?? '') === 'pending' ? 'আবেদন বাতিল করেছেন: ' : 'ব্যবহারকারী মুছেছেন: ') . $target['name']);
                 redirect(['p' => 'users'], 'মুছে ফেলা হয়েছে।');
             }
             if ($act === 'reset') {
@@ -475,14 +541,52 @@ if ($p === 'users') {
             }
         }
     }
-    layout('ব্যবহারকারী', function () use ($us, $user, $err) { ?>
+    layout('ব্যবহারকারী', function () use ($us, $user, $err) {
+        $inv = invite();
+        $host = ($_SERVER['HTTP_HOST'] ?? 'basudevyogashram.org');
+        $link = 'https://' . $host . '/admin/?p=register&code=' . rawurlencode($inv['code'] ?? '');
+        $pending = array_values(array_filter($us, fn($u) => ($u['status'] ?? 'active') === 'pending'));
+        $active = array_values(array_filter($us, fn($u) => ($u['status'] ?? 'active') !== 'pending')); ?>
       <h1>👤 ব্যবহারকারী</h1>
-      <p class="muted"><b>প্রধান অ্যাডমিন</b> সবকিছু করতে পারেন, ব্যবহারকারী যোগ-বাদ ও পাসওয়ার্ড রিসেটসহ। <b>সম্পাদক</b> খবর, উৎসব, ভূমিদাতা, ছবি ও যোগাযোগের তথ্য বদলাতে পারেন।</p>
+      <p class="muted"><b>প্রধান অ্যাডমিন</b> সবকিছু করতে পারেন, অ্যাকাউন্ট অনুমোদন ও পাসওয়ার্ড রিসেটসহ। <b>সম্পাদক</b> খবর, উৎসব, ভূমিদাতা, ছবি ও যোগাযোগের তথ্য বদলাতে পারেন। পাসওয়ার্ড গোপনভাবে সংরক্ষিত থাকে, কেউ দেখতে পারেন না; তবে প্রধান অ্যাডমিন নতুন পাসওয়ার্ড সেট করে দিতে পারেন।</p>
       <?php if ($err): ?><div class="flash err"><?= e($err) ?></div><?php endif; ?>
+
+      <section class="card invite">
+        <h2>আশ্রমের লোকদের নিজেদের অ্যাকাউন্ট খুলতে দিন</h2>
+        <?php if (!empty($inv['on']) && !empty($inv['code'])): ?>
+          <p>নিচের লিংকটি শুধু আশ্রমের দায়িত্বপ্রাপ্তদের হোয়াটসঅ্যাপে পাঠান। তাঁরা নিজেরাই ইউজারনেম ও পাসওয়ার্ড বেছে আবেদন করবেন, আর আবেদন নিচে “অনুমোদনের অপেক্ষায়” তালিকায় আসবে। আপনি অনুমোদন দিলেই অ্যাকাউন্ট চালু হবে।</p>
+          <div class="inv-row"><code id="invLink"><?= e($link) ?></code><button type="button" class="btn small" id="copyInv">লিংক কপি করুন</button></div>
+          <p class="small muted">আমন্ত্রণ কোড: <b><?= e($inv['code']) ?></b> · লিংক কারো হাতে ভুলভাবে চলে গেলে নতুন কোড তৈরি করুন, পুরনোটা তখন আর কাজ করবে না।</p>
+          <div class="form-actions">
+            <form method="post"><?= csrf_field() ?><input type="hidden" name="act" value="invite_new"><button class="btn small ghost">নতুন কোড তৈরি করুন</button></form>
+            <form method="post"><?= csrf_field() ?><input type="hidden" name="act" value="invite_off"><button class="btn small danger">নতুন অ্যাকাউন্ট খোলা বন্ধ করুন</button></form>
+          </div>
+        <?php else: ?>
+          <p>এখন কেউ নিজে থেকে অ্যাকাউন্ট খুলতে পারবেন না। চালু করলে একটি আমন্ত্রণ লিংক পাবেন, সেটি আশ্রমের লোকদের পাঠাবেন।</p>
+          <form method="post"><?= csrf_field() ?><input type="hidden" name="act" value="invite_new"><button class="btn">আমন্ত্রণ লিংক চালু করুন</button></form>
+        <?php endif; ?>
+      </section>
+
+      <?php if ($pending): ?>
+      <h2>⏳ অনুমোদনের অপেক্ষায় (<?= bn_digits((string)count($pending)) ?>)</h2>
       <ul class="items">
-      <?php foreach ($us as $u): ?>
+      <?php foreach ($pending as $u): ?>
+        <li class="item user pend">
+          <div class="it-txt"><b><?= e($u['name']) ?></b><span>ইউজারনেম: <?= e($u['username']) ?><?= !empty($u['phone']) ? ' · মোবাইল: ' . e($u['phone']) : '' ?> · আবেদন: <?= e(bn_digits($u['created'] ?? '')) ?></span></div>
+          <div class="acts">
+            <form method="post"><?= csrf_field() ?><input type="hidden" name="act" value="approve"><input type="hidden" name="id" value="<?= e($u['id']) ?>"><button class="btn small">অনুমোদন দিন</button></form>
+            <form method="post" data-confirm="“<?= e($u['name']) ?>”-এর আবেদন বাতিল করবেন?"><?= csrf_field() ?><input type="hidden" name="act" value="delete"><input type="hidden" name="id" value="<?= e($u['id']) ?>"><button class="btn small danger">বাতিল</button></form>
+          </div>
+        </li>
+      <?php endforeach; ?>
+      </ul>
+      <?php endif; ?>
+
+      <h2>সক্রিয় ব্যবহারকারী (<?= bn_digits((string)count($active)) ?>)</h2>
+      <ul class="items">
+      <?php foreach ($active as $u): ?>
         <li class="item user">
-          <div class="it-txt"><b><?= e($u['name']) ?><?= $u['id'] === $user['id'] ? ' (আপনি)' : '' ?></b><span>ইউজারনেম: <?= e($u['username']) ?> · <?= $u['role'] === 'super' ? 'প্রধান অ্যাডমিন' : 'সম্পাদক' ?></span></div>
+          <div class="it-txt"><b><?= e($u['name']) ?><?= $u['id'] === $user['id'] ? ' (আপনি)' : '' ?></b><span>ইউজারনেম: <?= e($u['username']) ?> · <?= $u['role'] === 'super' ? 'প্রধান অ্যাডমিন' : 'সম্পাদক' ?><?= !empty($u['phone']) ? ' · মোবাইল: ' . e($u['phone']) : '' ?></span></div>
           <?php if ($u['id'] !== $user['id']): ?>
           <div class="acts wrap-acts">
             <form method="post" class="reset"><?= csrf_field() ?><input type="hidden" name="act" value="reset"><input type="hidden" name="id" value="<?= e($u['id']) ?>"><input name="password" placeholder="নতুন পাসওয়ার্ড" minlength="8" required autocomplete="new-password"><button class="btn small ghost">পাসওয়ার্ড রিসেট</button></form>
@@ -493,15 +597,23 @@ if ($p === 'users') {
         </li>
       <?php endforeach; ?>
       </ul>
-      <form method="post" class="card form">
-        <h2>নতুন ব্যবহারকারী যোগ করুন</h2>
-        <?= csrf_field() ?><input type="hidden" name="act" value="add">
-        <label>নাম<input name="name" required></label>
-        <label>ইউজারনেম (ইংরেজিতে)<input name="username" required pattern="[a-zA-Z0-9_.]{3,30}" autocomplete="off"></label>
-        <label>পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)<input name="password" required minlength="8" autocomplete="new-password"></label>
-        <label>ভূমিকা<select name="role"><option value="editor">সম্পাদক</option><option value="super">প্রধান অ্যাডমিন</option></select></label>
-        <div class="form-actions"><button class="btn">যোগ করুন</button></div>
-      </form>
+
+      <details class="card">
+        <summary><b>নিজে হাতে ব্যবহারকারী যোগ করুন</b> (আমন্ত্রণ লিংক ছাড়া)</summary>
+        <form method="post" class="form" style="margin-top:14px">
+          <?= csrf_field() ?><input type="hidden" name="act" value="add">
+          <label>নাম<input name="name" required></label>
+          <label>ইউজারনেম (ইংরেজিতে)<input name="username" required pattern="[a-zA-Z0-9_.]{3,30}" autocomplete="off"></label>
+          <label>পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)<input name="password" required minlength="8" autocomplete="new-password"></label>
+          <label>ভূমিকা<select name="role"><option value="editor">সম্পাদক</option><option value="super">প্রধান অ্যাডমিন</option></select></label>
+          <div class="form-actions"><button class="btn">যোগ করুন</button></div>
+        </form>
+      </details>
+      <script>
+      (function(){var b=document.getElementById('copyInv');if(!b)return;b.addEventListener('click',function(){var t=document.getElementById('invLink').textContent;
+        function sel(){var r=document.createRange();r.selectNodeContents(document.getElementById('invLink'));var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='লিংক সিলেক্ট হয়েছে, কপি করুন';}
+        try{navigator.clipboard.writeText(t).then(function(){b.textContent='কপি হয়েছে ✓';},sel);}catch(e){sel();}});})();
+      </script>
     <?php }, $user);
     exit;
 }
