@@ -487,7 +487,8 @@ $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গ
   <section id="contact" class="contact"><div class="wrap">
     <div class="sec-head">
       <p class="eyebrow">যোগাযোগ</p>
-      <h2>আশ্রমে আসুন</h2>
+      <h2>শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ</h2>
+      <p class="lede">অধ্যক্ষ, শ্রীশ্রী বাসুদেব যোগাশ্রম ও শ্রীশ্রী বাসুদেব অনাথ আশ্রম</p>
     </div>
     <div class="contact-grid">
       <div>
