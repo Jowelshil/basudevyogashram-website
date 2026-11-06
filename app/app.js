@@ -6,7 +6,8 @@ const BN_MS = ["জানু","ফেব্রু","মার্চ","এপ্�
 const INC_CATS = ["এককালীন অনুদান","মাসিক প্রণামী","ভূমিদাতা প্রণামী","আজীবন সদস্য ফি","প্রণামী / দানবাক্স","পূজা-উৎসব অনুদান","অনাথ আশ্রম অনুদান","বিদ্যালয় অনুদান","নির্মাণ অনুদান","অন্যান্য আয়"];
 const DAILY_CATS = ["বাজার ও খাদ্য সামগ্রী","চাল-ডাল (মজুদ)","পূজা ও ভোগ সামগ্রী","বিদ্যুৎ বিল","গ্যাস / জ্বালানি","কর্মচারী বেতন","শিক্ষক বেতন","চিকিৎসা","শিক্ষা উপকরণ","যাতায়াত","মেরামত ও রক্ষণাবেক্ষণ","অন্যান্য খরচ"];
 const CON_CATS = ["রড","সিমেন্ট","ইট","বালু / পাথর","শ্রমিক মজুরি","ঠিকাদার বিল","কাঠ / দরজা-জানালা","বিদ্যুৎ ও স্যানিটারি","রং","পরিবহন","অন্যান্য নির্মাণ"];
-const CATS = {income: INC_CATS, daily: DAILY_CATS, construction: CON_CATS};
+const CATS_FALLBACK = {income: INC_CATS, daily: DAILY_CATS, construction: CON_CATS};
+const cats = k => (D.cats && D.cats[k] && D.cats[k].length ? D.cats[k] : CATS_FALLBACK[k]);
 const KLABEL = {income: "জমা/আয়", daily: "দৈনিক খরচ", construction: "নির্মাণ খরচ"};
 const LIST_LABEL = {monthly: "মাসিক প্রণামী", land: "ভূমিদাতা", life: "আজীবন সদস্য"};
 const LIST_CAT = {monthly: "মাসিক প্রণামী"};
@@ -103,6 +104,7 @@ $("logoutBtn").onclick = async () => { closeMenu(); try { await api("logout"); }
 async function reload() {
   const j = await api("load");
   me = j.user; D = j;
+  if (typeof kind !== "undefined" && $("fCat")) { const cur = $("fCat").value; $("fCat").innerHTML = cats(kind).map(c => `<option>${esc(c)}</option>`).join(""); if (cats(kind).includes(cur)) $("fCat").value = cur; }
   D.ledger.sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt).localeCompare(String(a.createdAt)));
 }
 function enterApp() {
@@ -156,7 +158,7 @@ window.addEventListener("popstate", () => { if (!$("sheet").hidden) closeSheet()
 function setKind(k) {
   kind = k;
   document.querySelectorAll("#kindSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === k));
-  $("fCat").innerHTML = CATS[k].map(c => `<option>${esc(c)}</option>`).join("");
+  $("fCat").innerHTML = cats(k).map(c => `<option>${esc(c)}</option>`).join("");
   $("projWrap").hidden = k !== "construction";
   $("donorExtra").hidden = k !== "income";
   $("nameLbl").textContent = k === "income" ? "ভক্ত / দাতার নাম" : "কাকে দেওয়া হলো (দোকান / ব্যক্তি)";
@@ -217,10 +219,10 @@ $("dayList").addEventListener("click", e => {
 /* admin: edit / delete ledger entry */
 function editEntry(id) {
   const r = D.ledger.find(x => x.id === id); if (!r) return;
-  const cats = CATS[r.kind].includes(r.category) ? CATS[r.kind] : [r.category, ...CATS[r.kind]];
+  const catList = cats(r.kind).includes(r.category) ? cats(r.kind) : [r.category, ...cats(r.kind)];
   openSheet("এন্ট্রি সম্পাদনা", `<form class="form" id="eForm">
     <p class="note">${fmtDate(r.date)} · ক্রমিক ${bnd(r.serial)} · ${KLABEL[r.kind]}</p>
-    <div class="row2"><label>টাকা<input id="eAmt" inputmode="decimal" value="${esc(r.amount)}" required></label><label>খাত<select id="eCat">${cats.map(c => `<option${c === r.category ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></label></div>
+    <div class="row2"><label>টাকা<input id="eAmt" inputmode="decimal" value="${esc(r.amount)}" required></label><label>খাত<select id="eCat">${catList.map(c => `<option${c === r.category ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></label></div>
     ${r.kind === "construction" ? `<label>প্রকল্প<input id="eProj" value="${esc(r.project)}"></label>` : ""}
     <label>নাম<input id="eName" value="${esc(r.name)}"></label>
     ${r.kind === "income" ? `<div class="row2"><label>মোবাইল<input id="eMob" value="${esc(r.mobile)}"></label><label>ঠিকানা<input id="eAddr" value="${esc(r.address)}"></label></div>` : ""}
@@ -505,11 +507,17 @@ $("backupBtn").onclick = () => { closeMenu(); guard(null, async () => { await do
 
 /* ================= admin: users & areas ================= */
 async function renderUsers() {
+  renderAreasCats();
   let j; try { j = await api("users"); } catch (e) { $("userList").innerHTML = `<div class="msg">${esc(e.message)}</div>`; return; }
   const n = j.users.filter(u => u.role === "user" && u.active).length;
-  $("userList").innerHTML = `<div class="card-head"><h3 class="sub">ইউজার (${bnd(n)} / ${bnd(j.max)})</h3></div>` + j.users.map(u => `<div class="item"><div class="sn">${u.role === "admin" ? "★" : ""}</div>
-    <div><div class="t">${esc(u.name)}</div><div class="s">আইডি: ${esc(u.username)} · ${u.role === "admin" ? "অ্যাডমিন" : "ইউজার"} ${u.active ? "" : '<span class="chip bad">বন্ধ</span>'}</div>
-    ${u.id !== me.id ? `<div class="ops" style="margin-top:6px"><button class="btn ghost small" data-reset="${u.id}" data-n="${esc(u.name)}">পাসওয়ার্ড রিসেট</button><button class="btn ghost small" data-toggle="${u.id}">${u.active ? "বন্ধ করুন" : "চালু করুন"}</button></div>` : ""}</div><div></div></div>`).join("");
+  $("userList").innerHTML = `<div class="card-head"><h3 class="sub">ইউজার (${bnd(n)} / ${bnd(j.max)}) ও অ্যাডমিন</h3></div>` + j.users.map(u => `<div class="item"><div class="sn">${u.role === "admin" ? "★" : ""}</div>
+    <div><div class="t">${esc(u.name)}${u.id === me.id ? " (আপনি)" : ""}</div><div class="s">আইডি: ${esc(u.username)} · ${u.role === "admin" ? "অ্যাডমিন" : "ইউজার"} ${u.active ? "" : '<span class="chip bad">বন্ধ</span>'}</div>
+    <div class="ops" style="margin-top:6px">
+      <button class="btn ghost small" data-rename="${u.id}" data-n="${esc(u.name)}" data-u="${esc(u.username)}">নাম / আইডি বদল</button>
+      ${u.id !== me.id ? `<button class="btn ghost small" data-reset="${u.id}" data-n="${esc(u.name)}">পাসওয়ার্ড রিসেট</button>
+      <button class="btn ghost small" data-role="${u.id}" data-to="${u.role === "admin" ? "user" : "admin"}" data-n="${esc(u.name)}">${u.role === "admin" ? "অ্যাডমিন থেকে সরান" : "অ্যাডমিন বানান"}</button>
+      <button class="btn ghost small" data-toggle="${u.id}">${u.active ? "বন্ধ করুন" : "চালু করুন"}</button>` : ""}
+    </div></div><div></div></div>`).join("") + (j.users.filter(u => u.role === "admin" && u.active).length < 2 ? `<p class="banner" style="margin-top:8px">এখন অ্যাডমিন মাত্র একজন। পাসওয়ার্ড ভুলে গেলে আর ঢোকার উপায় থাকবে না, তাই বিশ্বস্ত আরেকজনকে অ্যাডমিন বানিয়ে রাখুন।</p>` : "");
 }
 $("userList").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
@@ -517,11 +525,70 @@ $("userList").addEventListener("click", e => {
   if (b.dataset.reset) openSheet("পাসওয়ার্ড রিসেট: " + b.dataset.n, `<form class="form" id="rsF"><label>নতুন পাসওয়ার্ড<input id="rsP" required minlength="6"></label><button class="btn wide">রিসেট করুন</button></form>`, bb => {
     bb.querySelector("#rsF").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => { await api("user_reset", {id: b.dataset.reset, password: bb.querySelector("#rsP").value}); closeSheet(); toast("পাসওয়ার্ড বদলানো হয়েছে। নতুন পাসওয়ার্ড ইউজারকে জানিয়ে দিন।"); }); };
   });
+  if (b.dataset.rename) openSheet("নাম / আইডি বদল", `<form class="form" id="rnF"><label>নাম<input id="rnN" value="${esc(b.dataset.n)}" required></label>
+    <label>ইউজার আইডি (ইংরেজিতে)<input id="rnU" value="${esc(b.dataset.u)}" autocapitalize="none" spellcheck="false" required></label>
+    <p class="note">আইডি বদলালে পরের লগইন থেকে নতুন আইডি দিতে হবে। পাসওয়ার্ড আগেরটাই থাকবে।</p><button class="btn wide">সংরক্ষণ করুন</button></form>`, bb => {
+    bb.querySelector("#rnF").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      await api("user_update", {id: b.dataset.rename, name: bb.querySelector("#rnN").value, username: bb.querySelector("#rnU").value});
+      closeSheet(); toast("হালনাগাদ হয়েছে।"); await reload(); if (b.dataset.rename === me.id) $("whoami").textContent = me.name + " · অ্যাডমিন"; renderUsers(); }); };
+  });
+  if (b.dataset.role) {
+    const toAdmin = b.dataset.to === "admin";
+    openSheet(toAdmin ? "অ্যাডমিন বানাবেন?" : "অ্যাডমিন থেকে সরাবেন?", `<p><b>${esc(b.dataset.n)}</b> ${toAdmin ? "অ্যাডমিন হলে সব হিসাব, মোট টাকা, রিপোর্ট দেখতে পারবেন এবং যেকোনো এন্ট্রি সম্পাদনা ও মুছতে পারবেন। শুধু খুব বিশ্বস্ত কাউকে অ্যাডমিন বানান।" : "সাধারণ ইউজার হয়ে যাবেন। মোট হিসাব আর দেখতে পারবেন না।"}</p>
+      <p class="note">এরপর তাঁকে আবার লগইন করতে হবে।</p><button class="btn wide" id="roleOk">${toAdmin ? "হ্যাঁ, অ্যাডমিন বানান" : "হ্যাঁ, সরান"}</button>`, bb => {
+      bb.querySelector("#roleOk").onclick = ev => guard(ev.target, async () => { await api("user_role", {id: b.dataset.role, role: b.dataset.to}); closeSheet(); toast("হালনাগাদ হয়েছে।"); await reload(); renderUsers(); });
+    });
+  }
 });
+
+/* areas and categories */
+function renderAreasCats() {
+  $("areaList").innerHTML = D.areas.map(a => {
+    const n = D.people.filter(p => p.list === "monthly" && !p.deleted && p.area === a).length;
+    return `<div class="item"><div class="sn"></div><div><div class="t">${esc(a)}</div><div class="s">${bnd(n)} জন</div>
+      ${a === "অন্যান্য" ? "" : `<div class="ops"><button class="btn ghost small" data-arename="${esc(a)}">নাম বদল</button><button class="btn ghost small" data-adel="${esc(a)}">মুছুন</button></div>`}</div><div></div></div>`;
+  }).join("");
+  const kindSel = $("catKind").value || "income";
+  $("catList").innerHTML = cats(kindSel).map((c, i) => `<div class="item" style="padding:8px 0"><div class="sn">${bnd(i + 1)}</div><div class="t" style="font-weight:500">${esc(c)}</div>
+    <div class="ops" style="grid-column:auto">${i ? `<button class="btn ghost small" data-cup="${esc(c)}" aria-label="উপরে তুলুন">↑</button>` : ""}${c === "মাসিক প্রণামী" ? "" : `<button class="btn ghost small" data-crem="${esc(c)}" aria-label="সরান">✕</button>`}</div></div>`).join("");
+}
+$("catKind").addEventListener("change", renderAreasCats);
+$("catList").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return;
+  const kindSel = $("catKind").value;
+  if (b.dataset.cup) guard(b, async () => { const j = await api("cat_move", {kind: kindSel, name: b.dataset.cup}); D.cats = j.cats; renderAreasCats(); setKind(kind); });
+  if (b.dataset.crem) openSheet("খাত সরাবেন?", `<p><b>${esc(b.dataset.crem)}</b> খাতটি এন্ট্রির তালিকা থেকে সরে যাবে। আগের এন্ট্রিগুলোতে এই খাতের নাম যেমন আছে তেমনই থাকবে, রিপোর্টেও দেখাবে।</p><button class="btn danger wide" id="crOk">সরান</button>`, bb => {
+    bb.querySelector("#crOk").onclick = ev => guard(ev.target, async () => { const j = await api("cat_remove", {kind: kindSel, name: b.dataset.crem}); D.cats = j.cats; closeSheet(); renderAreasCats(); setKind(kind); toast("খাত সরানো হয়েছে।"); });
+  });
+});
+$("catForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
+  const j = await api("cat_add", {kind: $("catKind").value, name: $("catName").value}); D.cats = j.cats; $("catName").value = ""; renderAreasCats(); setKind(kind); toast("খাত যোগ হয়েছে।"); }); });
+$("areaList").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.arename) openSheet("এলাকার নাম বদল", `<form class="form" id="arF"><label>নতুন নাম<input id="arN" value="${esc(b.dataset.arename)}" required></label><p class="note">এই এলাকার সব ভক্ত নতুন নামের এলাকায় চলে যাবেন।</p><button class="btn wide">সংরক্ষণ করুন</button></form>`, bb => {
+    bb.querySelector("#arF").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => { await api("area_rename", {old: b.dataset.arename, name: bb.querySelector("#arN").value}); closeSheet(); await reload(); renderAreasCats(); toast("নাম বদলানো হয়েছে।"); }); };
+  });
+  if (b.dataset.adel) guard(b, async () => { await api("area_delete", {old: b.dataset.adel}); await reload(); renderAreasCats(); toast("এলাকা মুছে ফেলা হয়েছে।"); });
+});
+
+/* restore from a backup file */
+$("restoreFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  let b; try { b = JSON.parse(await f.text()); } catch (err) { toast("ফাইলটি পড়া যায়নি। সঠিক ব্যাকআপ ফাইল বেছে নিন।"); return; }
+  if (!b || b.app !== "basudev-hisab" || !b.ledger || !b.people) { toast("এটা বাসুদেব যোগাশ্রম হিসাবের ব্যাকআপ ফাইল নয়।"); return; }
+  const n = Object.values(b.ledger).reduce((s, r) => s + (Array.isArray(r) ? r.length : 0), 0);
+  openSheet("ব্যাকআপ থেকে পুনরুদ্ধার", `<form class="form" id="rstF"><p>ব্যাকআপের সময়: <b>${esc(b.created || "?")}</b><br>${bnd(n)}টি আয়-ব্যয় এন্ট্রি, ${bnd(b.people.length)} জনের তালিকা।</p>
+    <p class="banner">এখনকার সব হিসাব আর তালিকা এই ব্যাকআপ দিয়ে বদলে যাবে। ব্যাকআপের পরে যা এন্ট্রি হয়েছে তা চলে যাবে। ইউজার ও পাসওয়ার্ড বদলাবে না। এখনকার ডেটার একটা কপি সার্ভারে আলাদা করে রাখা হবে।</p>
+    <label class="chk"><input type="checkbox" id="rstC" required> আমি বুঝেছি, এখনকার হিসাব ব্যাকআপ দিয়ে বদলে যাবে</label><button class="btn danger wide">পুনরুদ্ধার করুন</button></form>`, bb => {
+    bb.querySelector("#rstF").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      const j = await api("restore", {backup: b, confirm: bb.querySelector("#rstC").checked ? "yes" : ""});
+      closeSheet(); await reload(); render(); toast(`পুনরুদ্ধার হয়েছে: ${bnd(j.entries)}টি এন্ট্রি, ${bnd(j.people)} জনের তালিকা।`); }); };
+  });
+});
+$("restoreBtn").onclick = () => { closeMenu(); go("users"); setTimeout(() => $("restoreCard").scrollIntoView({behavior: "smooth"}), 100); };
+
 $("userForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
   await api("user_add", {name: $("uName").value, username: $("uUser").value, password: $("uPass").value});
   toast(`ইউজার যোগ হয়েছে। আইডি: ${$("uUser").value.trim().toLowerCase()}`); $("userForm").reset(); await reload(); renderUsers(); }); });
-$("areaForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => { const j = await api("area_add", {name: $("areaName").value}); D.areas = j.areas; $("areaName").value = ""; toast("এলাকা যোগ হয়েছে।"); }); });
+$("areaForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => { const j = await api("area_add", {name: $("areaName").value}); D.areas = j.areas; $("areaName").value = ""; renderAreasCats(); toast("এলাকা যোগ হয়েছে।"); }); });
 
 /* ================= admin: SMS ================= */
 async function loadSms() {

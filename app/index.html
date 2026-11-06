@@ -164,7 +164,7 @@
     </section>
 
     <section class="view" id="v-users" hidden>
-      <h2 class="vh">ইউজার</h2>
+      <h2 class="vh">ইউজার, এলাকা ও খাত</h2>
       <div class="card"><div id="userList"></div></div>
       <div class="card">
         <h3 class="sub">নতুন ইউজার যোগ করুন</h3>
@@ -175,8 +175,21 @@
         </form>
       </div>
       <div class="card">
-        <h3 class="sub">মাসিক প্রণামীর নতুন এলাকা (থানা)</h3>
-        <form id="areaForm" class="inline"><input id="areaName" placeholder="যেমন: বোয়ালখালী" required><button class="btn" type="submit">যোগ করুন</button></form>
+        <h3 class="sub">মাসিক প্রণামীর এলাকা (থানা)</h3>
+        <div id="areaList"></div>
+        <form id="areaForm" class="inline" style="margin-top:10px"><input id="areaName" placeholder="নতুন এলাকা, যেমন: বোয়ালখালী" required><button class="btn" type="submit">যোগ করুন</button></form>
+        <p class="note" style="margin-top:6px">কোনো এলাকায় ভক্ত থাকলে সেটা মোছা যায় না, নাম বদলানো যায়।</p>
+      </div>
+      <div class="card">
+        <h3 class="sub">খাত (এন্ট্রির সময় যে তালিকা থেকে বাছাই করা হয়)</h3>
+        <label>ধরন<select id="catKind"><option value="income">জমা / অনুদান</option><option value="daily">দৈনিক খরচ</option><option value="construction">নির্মাণ খরচ</option></select></label>
+        <div id="catList" style="margin-top:6px"></div>
+        <form id="catForm" class="inline" style="margin-top:10px"><input id="catName" placeholder="নতুন খাতের নাম" required><button class="btn" type="submit">যোগ করুন</button></form>
+      </div>
+      <div class="card" id="restoreCard">
+        <h3 class="sub">ব্যাকআপ থেকে পুনরুদ্ধার</h3>
+        <p class="note">"পূর্ণ ব্যাকআপ ডাউনলোড" দিয়ে রাখা ফাইলটি বেছে নিন। সব হিসাব ওই ব্যাকআপের অবস্থায় ফিরে যাবে।</p>
+        <label class="btn ghost" style="display:inline-block;margin-top:8px;color:var(--ink)">ব্যাকআপ ফাইল বেছে নিন<input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
       </div>
     </section>
 
@@ -242,9 +255,10 @@
     <button data-go="daily">দৈনিক এন্ট্রি: কে কী দিয়েছেন</button>
     <button data-go="report">রিপোর্ট (মাসিক / ষাণ্মাসিক / বার্ষিক)</button>
     <button data-go="records">মুছে ফেলা ও সম্পাদনার রেকর্ড</button>
-    <button data-go="users">ইউজার ও এলাকা</button>
+    <button data-go="users">ইউজার, এলাকা ও খাত</button>
     <button data-go="sms">SMS সেটিংস</button>
     <button id="backupBtn">পূর্ণ ব্যাকআপ ডাউনলোড</button>
+    <button id="restoreBtn">ব্যাকআপ থেকে পুনরুদ্ধার</button>
     <hr>
   </div>
   <button data-go="password">পাসওয়ার্ড বদলান</button>
@@ -261,6 +275,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

@@ -13,6 +13,12 @@ const MAX_USERS = 10;
 const TOKEN_DAYS = 30;
 const IDLE_SECONDS = 300; // server-side idle limit; the app itself logs out after 3 minutes
 const AREAS_DEFAULT = ['চট্টগ্রাম শহর', 'রাঙ্গুনিয়া', 'রাউজান', 'ফটিকছড়ি', 'হাটহাজারী'];
+const CATS_DEFAULT = [
+    'income' => ['এককালীন অনুদান', 'মাসিক প্রণামী', 'আজীবন সদস্য ফি', 'প্রণামী / দানবাক্স', 'পূজা-উৎসব অনুদান', 'অনাথ আশ্রম অনুদান', 'বিদ্যালয় অনুদান', 'নির্মাণ অনুদান', 'অন্যান্য আয়'],
+    'daily' => ['বাজার ও খাদ্য সামগ্রী', 'চাল-ডাল (মজুদ)', 'পূজা ও ভোগ সামগ্রী', 'বিদ্যুৎ বিল', 'গ্যাস / জ্বালানি', 'কর্মচারী বেতন', 'শিক্ষক বেতন', 'চিকিৎসা', 'শিক্ষা উপকরণ', 'যাতায়াত', 'মেরামত ও রক্ষণাবেক্ষণ', 'অন্যান্য খরচ'],
+    'construction' => ['রড', 'সিমেন্ট', 'ইট', 'বালু / পাথর', 'শ্রমিক মজুরি', 'ঠিকাদার বিল', 'কাঠ / দরজা-জানালা', 'বিদ্যুৎ ও স্যানিটারি', 'রং', 'পরিবহন', 'অন্যান্য নির্মাণ'],
+];
+const CAT_FIXED = 'মাসিক প্রণামী'; // used by the 12-month grid, cannot be removed
 const LISTS = ['monthly' => 'মাসিক প্রণামী', 'land' => 'ভূমিদাতা', 'life' => 'আজীবন সদস্য'];
 const KINDS = ['income' => 'অনুদান/আয়', 'daily' => 'দৈনিক খরচ', 'construction' => 'নির্মাণ খরচ'];
 
@@ -78,6 +84,11 @@ function amount_in(array $in, string $k = 'amount', bool $required = true): floa
     return max(0.0, $a);
 }
 /* area list for মাসিক প্রণামী; "অন্যান্য" is always there and always last */
+function cats_list(): array {
+    $c = hread('categories', CATS_DEFAULT) + CATS_DEFAULT;
+    if (!in_array(CAT_FIXED, $c['income'], true)) array_splice($c['income'], 1, 0, [CAT_FIXED]);
+    return $c;
+}
 function areas_list(): array {
     $a = array_values(array_filter(hread('areas', AREAS_DEFAULT), fn($x) => $x !== 'অন্যান্য'));
     $a[] = 'অন্যান্য';
@@ -250,7 +261,7 @@ case 'load': {
     $names = [];
     foreach (hread('users') as $x) $names[$x['id']] = $x['name'];
     $c = sms_cfg();
-    out(['ok' => true, 'user' => public_user($u), 'today' => date('Y-m-d'), 'areas' => areas_list(),
+    out(['ok' => true, 'user' => public_user($u), 'today' => date('Y-m-d'), 'areas' => areas_list(), 'cats' => cats_list(),
          'ledger' => $ledger, 'people' => $people, 'names' => $names,
          'sms' => ['enabled' => (bool)$c['enabled'], 'auto' => (bool)$c['auto'], 'template' => $c['template']]]);
 }
@@ -407,6 +418,46 @@ case 'people_restore': {
     out(['ok' => true]);
 }
 
+case 'area_rename':
+case 'area_delete': {
+    $u = auth(true);
+    $old = str_in($IN, 'old', 60); $new = str_in($IN, 'name', 60);
+    if ($old === 'অন্যান্য') fail('"অন্যান্য" এলাকা বদলানো বা মোছা যায় না।');
+    if (!in_array($old, areas_list(), true)) fail('এলাকা পাওয়া যায়নি।', 404);
+    if ($act === 'area_rename') {
+        if ($new === '' || $new === 'অন্যান্য') fail('নতুন নাম লিখুন।');
+        if (in_array($new, areas_list(), true)) fail('এই নামে এলাকা আগেই আছে।');
+        hmutate('areas', function (&$a) use ($old, $new) { foreach ($a as &$x) if ($x === $old) $x = $new; }, AREAS_DEFAULT);
+        hmutate('people', function (&$p) use ($old, $new) { foreach ($p as &$x) if (($x['area'] ?? '') === $old) $x['area'] = $new; });
+        audit($u, 'এলাকার নাম বদল', ['name' => "$old → $new"]);
+    } else {
+        $n = count(array_filter(hread('people'), fn($x) => empty($x['deleted']) && ($x['area'] ?? '') === $old));
+        if ($n > 0) fail("এই এলাকায় এখনো " . bn_digits((string)$n) . " জন আছেন। আগে তাঁদের অন্য এলাকায় সরান, অথবা এলাকার নাম বদলান।");
+        hmutate('areas', function (&$a) use ($old) { $a = array_values(array_filter($a, fn($x) => $x !== $old)); }, AREAS_DEFAULT);
+        audit($u, 'এলাকা মুছে ফেলা', ['name' => $old]);
+    }
+    out(['ok' => true, 'areas' => areas_list()]);
+}
+
+/* ----- categories (খাত) ----- */
+case 'cat_add':
+case 'cat_remove':
+case 'cat_move': {
+    $u = auth(true);
+    $kind = str_in($IN, 'kind'); $name = str_in($IN, 'name', 80);
+    if (!isset(KINDS[$kind])) fail('ধরন ঠিক নেই।');
+    if ($name === '') fail('খাতের নাম লিখুন।');
+    if ($act === 'cat_remove' && $name === CAT_FIXED) fail('"মাসিক প্রণামী" খাতটি ১২ মাসের হিসাবে লাগে, তাই মোছা যায় না।');
+    $c = cats_list();
+    if ($act === 'cat_add') { if (in_array($name, $c[$kind], true)) fail('এই খাত আগেই আছে।'); $c[$kind][] = $name; }
+    elseif ($act === 'cat_remove') { if (!in_array($name, $c[$kind], true)) fail('এই খাত পাওয়া যায়নি।'); $c[$kind] = array_values(array_filter($c[$kind], fn($x) => $x !== $name)); }
+    else { $i = array_search($name, $c[$kind], true); if ($i !== false && $i > 0) { [$c[$kind][$i - 1], $c[$kind][$i]] = [$c[$kind][$i], $c[$kind][$i - 1]]; } }
+    if (!$c[$kind]) fail('অন্তত একটি খাত রাখতে হবে।');
+    hwrite('categories', $c);
+    if ($act !== 'cat_move') audit($u, $act === 'cat_add' ? 'খাত যোগ' : 'খাত সরানো', ['name' => KINDS[$kind] . ': ' . $name]);
+    out(['ok' => true, 'cats' => cats_list()]);
+}
+
 case 'area_add': {
     $u = auth(true);
     $n = str_in($IN, 'name', 60);
@@ -463,6 +514,34 @@ case 'user_add': {
     audit($u, 'ইউজার যোগ', ['username' => $un]);
     out(['ok' => true]);
 }
+case 'user_update':
+case 'user_role': {
+    $u = auth(true);
+    $id = str_in($IN, 'id', 20);
+    $un = mb_strtolower(str_in($IN, 'username', 40)); $nm = str_in($IN, 'name', 80); $role = str_in($IN, 'role', 10);
+    if ($act === 'user_update') {
+        if ($nm === '') fail('নাম লিখুন।');
+        if (!preg_match('/^[a-z0-9_.]{3,40}$/', $un)) fail('ইউজার আইডি ইংরেজি ছোট হাতের অক্ষর বা সংখ্যায় দিন (৩ অক্ষরের বেশি)।');
+    } elseif (!in_array($role, ['admin', 'user'], true)) fail('ভূমিকা ঠিক নেই।');
+    hmutate('users', function (&$us) use ($id, $act, $un, $nm, $role, $u) {
+        if ($act === 'user_update') foreach ($us as $x) if ($x['username'] === $un && $x['id'] !== $id) fail('এই ইউজার আইডি অন্য কেউ ব্যবহার করছেন।');
+        if ($act === 'user_role') {
+            $admins = 0; $usersActive = 0;
+            foreach ($us as $x) { if ($x['role'] === 'admin' && ($x['active'] ?? true)) $admins++; if ($x['role'] === 'user' && ($x['active'] ?? true)) $usersActive++; }
+            if ($role === 'user' && $id === $u['id'] && $admins <= 1) fail('অন্তত একজন অ্যাডমিন থাকতে হবে। আগে অন্য কাউকে অ্যাডমিন করুন।');
+            if ($role === 'user' && $usersActive >= MAX_USERS) fail('ইউজারের সংখ্যা পূর্ণ, তাই অ্যাডমিন থেকে ইউজার করা যাচ্ছে না।');
+        }
+        foreach ($us as &$x) if ($x['id'] === $id) {
+            if ($act === 'user_update') { $x['name'] = $nm; $x['username'] = $un; } else $x['role'] = $role;
+            return;
+        }
+        fail('ইউজার পাওয়া যায়নি।', 404);
+    });
+    if ($act === 'user_role') drop_tokens_of($id);
+    audit($u, $act === 'user_update' ? 'ইউজারের নাম/আইডি বদল' : ($role === 'admin' ? 'অ্যাডমিন বানানো' : 'অ্যাডমিন থেকে সরানো'), ['id' => $id, 'name' => $nm ?: null]);
+    out(['ok' => true]);
+}
+
 case 'user_reset':
 case 'user_toggle': {
     $u = auth(true);
@@ -493,6 +572,28 @@ case 'password': {
     out(['ok' => true]);
 }
 
+case 'restore': {
+    $u = auth(true);
+    $b = $IN['backup'] ?? null;
+    if (!is_array($b) || ($b['app'] ?? '') !== 'basudev-hisab' || !isset($b['ledger'], $b['people']) || !is_array($b['ledger']) || !is_array($b['people']))
+        fail('এটা বাসুদেব যোগাশ্রম হিসাবের ব্যাকআপ ফাইল নয়।');
+    foreach (array_keys($b['ledger']) as $k) if (!preg_match('/^ledger-\d{4}$/', (string)$k)) fail('ব্যাকআপ ফাইলটি নষ্ট।');
+    if (str_in($IN, 'confirm', 20) !== 'yes') fail('নিশ্চিত করার ঘরে টিক দিন।');
+    /* first keep a copy of the current data, so a wrong restore can be undone */
+    $snap = hdir() . '/backups/before-restore-' . date('Ymd-His');
+    @mkdir($snap, 0750, true);
+    foreach (glob(hdir() . '/*.json') ?: [] as $f) @copy($f, $snap . '/' . basename($f));
+    foreach (glob(hdir() . '/ledger-*.json') ?: [] as $f) if (!isset($b['ledger'][basename($f, '.json')])) @unlink($f);
+    foreach ($b['ledger'] as $k => $rows) hwrite($k, array_values(is_array($rows) ? $rows : []));
+    hwrite('people', array_values($b['people']));
+    if (!empty($b['areas']) && is_array($b['areas'])) hwrite('areas', array_values(array_filter($b['areas'], fn($x) => $x !== 'অন্যান্য')));
+    if (!empty($b['cats']) && is_array($b['cats'])) hwrite('categories', $b['cats']);
+    if (!empty($b['sms']) && is_array($b['sms'])) hwrite('sms', $b['sms']);
+    $n = array_sum(array_map(fn($r) => is_array($r) ? count($r) : 0, $b['ledger']));
+    audit($u, 'ব্যাকআপ থেকে পুনরুদ্ধার', ['name' => ($b['created'] ?? '') . ' এর ব্যাকআপ, ' . $n . 'টি এন্ট্রি', 'saved' => basename($snap)]);
+    out(['ok' => true, 'entries' => $n, 'people' => count($b['people'])]);
+}
+
 case 'ping': { auth(); out(['ok' => true]); }
 
 case 'audit': {
@@ -520,7 +621,7 @@ case 'export': {
     if ($job['what'] === 'backup') {
         /* everything needed to rebuild the ledger; password hashes and login sessions are left out */
         $b = ['app' => 'basudev-hisab', 'version' => 1, 'created' => date('Y-m-d H:i:s'),
-              'users' => array_map('public_user', hread('users')), 'areas' => areas_list(), 'people' => hread('people'), 'sms' => sms_cfg(), 'ledger' => []];
+              'users' => array_map('public_user', hread('users')), 'areas' => areas_list(), 'cats' => cats_list(), 'people' => hread('people'), 'sms' => sms_cfg(), 'ledger' => []];
         foreach (glob(hdir() . '/ledger-*.json') ?: [] as $f) $b['ledger'][basename($f, '.json')] = hread(basename($f, '.json'));
         $f = hdir() . '/audit.log';
         $b['audit'] = file_exists($f) ? array_map(fn($l) => json_decode($l, true), file($f, FILE_IGNORE_NEW_LINES) ?: []) : [];
