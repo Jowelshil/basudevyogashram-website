@@ -51,8 +51,32 @@ function toast(t) { const el = $("toast"); el.textContent = t; el.hidden = false
 async function guard(btn, fn) { if (btn) btn.disabled = true; try { await fn(); } catch (e) { toast(e.message); } finally { if (btn) btn.disabled = false; } }
 
 /* ---------- auth ---------- */
+/* ---------- auto logout after 3 minutes without any touch ---------- */
+const IDLE_MS = 3 * 60 * 1000;
+let lastAct = Date.now(), lastPing = Date.now(), lastSaved = 0;
+function activity() {
+  if (!token) return;
+  lastAct = Date.now();
+  if (lastAct - lastSaved > 5000) { lastSaved = lastAct; store.set("bya_last", String(lastAct)); }
+  if (lastAct - lastPing > 60000) { lastPing = lastAct; api("ping").catch(() => {}); } // keeps the server session alive while someone is working
+}
+["pointerdown", "touchstart", "keydown", "input", "wheel"].forEach(ev => document.addEventListener(ev, activity, {passive: true, capture: true}));
+window.addEventListener("scroll", activity, {passive: true});
+async function idleCheck() {
+  if (!token || $("appScreen").hidden) return;
+  if (Date.now() - lastAct > IDLE_MS) {
+    closeSheet(); closeMenu();
+    try { await api("logout"); } catch (e) {}
+    logoutLocal("৩ মিনিট কোনো কাজ না হওয়ায় নিরাপত্তার জন্য লগআউট হয়েছে।");
+  }
+}
+setInterval(idleCheck, 10000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) idleCheck(); });
+window.addEventListener("pageshow", idleCheck);
+
 async function boot() {
   token = store.get("bya_token");
+  if (token && Date.now() - Number(store.get("bya_last") || 0) > IDLE_MS) { store.set("bya_token", null); token = null; showAuth("৩ মিনিট কোনো কাজ না হওয়ায় লগআউট হয়েছে। আবার লগইন করুন।"); return; }
   if (token) { try { await reload(); enterApp(); return; } catch (e) { if (!token) {} } }
   showAuth();
 }
@@ -82,6 +106,7 @@ async function reload() {
   D.ledger.sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt).localeCompare(String(a.createdAt)));
 }
 function enterApp() {
+  lastAct = lastPing = Date.now(); store.set("bya_last", String(lastAct));
   $("authScreen").hidden = true; $("appScreen").hidden = false;
   $("whoami").textContent = me.name + (isAdmin() ? " · অ্যাডমিন" : "");
   document.querySelectorAll(".admin-only").forEach(el => el.hidden = !isAdmin());
@@ -476,6 +501,7 @@ function renderReport() {
 async function download(what, from, to) { const j = await api("export_link", {what, from, to}); window.location.href = j.url; }
 $("csvBtn").onclick = e => guard(e.target, () => download("ledger", curPeriod?.a, curPeriod?.b));
 $("csvPeople").onclick = e => guard(e.target, () => download("people"));
+$("backupBtn").onclick = () => { closeMenu(); guard(null, async () => { await download("backup"); toast("ব্যাকআপ ফাইল ডাউনলোড হচ্ছে। এটা Google Drive বা পেনড্রাইভে রেখে দিন।"); }); };
 
 /* ================= admin: users & areas ================= */
 async function renderUsers() {

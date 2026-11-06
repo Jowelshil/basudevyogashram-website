@@ -11,6 +11,7 @@ header('X-Content-Type-Options: nosniff');
 
 const MAX_USERS = 10;
 const TOKEN_DAYS = 30;
+const IDLE_SECONDS = 300; // server-side idle limit; the app itself logs out after 3 minutes
 const AREAS_DEFAULT = ['চট্টগ্রাম শহর', 'রাঙ্গুনিয়া', 'রাউজান', 'ফটিকছড়ি', 'হাটহাজারী'];
 const LISTS = ['monthly' => 'মাসিক প্রণামী', 'land' => 'ভূমিদাতা', 'life' => 'আজীবন সদস্য'];
 const KINDS = ['income' => 'অনুদান/আয়', 'daily' => 'দৈনিক খরচ', 'construction' => 'নির্মাণ খরচ'];
@@ -103,6 +104,12 @@ function auth(bool $adminOnly = false): array {
     $tokens = hread('tokens');
     $t = $tokens[hash('sha256', $tok)] ?? null;
     if (!$t || $t['exp'] < time()) fail('লগইনের মেয়াদ শেষ। আবার লগইন করুন।', 401);
+    $key = hash('sha256', $tok);
+    if (($t['seen'] ?? 0) < time() - IDLE_SECONDS) {
+        hmutate('tokens', function (&$all) use ($key) { unset($all[$key]); });
+        fail('কিছুক্ষণ কোনো কাজ না হওয়ায় নিরাপত্তার জন্য লগআউট হয়েছে। আবার লগইন করুন।', 401);
+    }
+    if ($t['seen'] < time() - 20) hmutate('tokens', function (&$all) use ($key) { if (isset($all[$key])) $all[$key]['seen'] = time(); });
     foreach (hread('users') as $u) {
         if ($u['id'] === $t['uid'] && ($u['active'] ?? true)) {
             if ($adminOnly && $u['role'] !== 'admin') fail('এই কাজটি শুধু অ্যাডমিন (গুরুদেব) করতে পারবেন।', 403);
@@ -114,8 +121,8 @@ function auth(bool $adminOnly = false): array {
 function issue_token(array $u): string {
     $tok = bin2hex(random_bytes(24));
     hmutate('tokens', function (&$t) use ($tok, $u) {
-        foreach ($t as $k => $v) if ($v['exp'] < time()) unset($t[$k]);
-        $t[hash('sha256', $tok)] = ['uid' => $u['id'], 'exp' => time() + TOKEN_DAYS * 86400];
+        foreach ($t as $k => $v) if ($v['exp'] < time() || ($v['seen'] ?? 0) < time() - IDLE_SECONDS) unset($t[$k]);
+        $t[hash('sha256', $tok)] = ['uid' => $u['id'], 'exp' => time() + TOKEN_DAYS * 86400, 'seen' => time()];
     });
     return $tok;
 }
@@ -486,6 +493,8 @@ case 'password': {
     out(['ok' => true]);
 }
 
+case 'ping': { auth(); out(['ok' => true]); }
+
 case 'audit': {
     auth(true);
     $f = hdir() . '/audit.log';
@@ -496,6 +505,7 @@ case 'audit': {
 /* ----- CSV download (one-time link, works with Android DownloadManager) ----- */
 case 'export_link': {
     $u = auth(true);
+    if (str_in($IN, 'what', 10) === 'backup') audit($u, 'পূর্ণ ব্যাকআপ ডাউনলোড');
     $code = bin2hex(random_bytes(16));
     hmutate('dl', function (&$d) use ($code, $IN) {
         foreach ($d as $k => $v) if ($v['exp'] < time()) unset($d[$k]);
@@ -507,6 +517,18 @@ case 'export': {
     $code = (string)($_GET['c'] ?? '');
     $job = hmutate('dl', function (&$d) use ($code) { $j = $d[$code] ?? null; unset($d[$code]); return $j; });
     if (!$job || $job['exp'] < time()) { header('Content-Type: text/plain; charset=utf-8'); http_response_code(410); exit('লিংকের মেয়াদ শেষ। অ্যাপ থেকে আবার ডাউনলোড চাপুন।'); }
+    if ($job['what'] === 'backup') {
+        /* everything needed to rebuild the ledger; password hashes and login sessions are left out */
+        $b = ['app' => 'basudev-hisab', 'version' => 1, 'created' => date('Y-m-d H:i:s'),
+              'users' => array_map('public_user', hread('users')), 'areas' => areas_list(), 'people' => hread('people'), 'sms' => sms_cfg(), 'ledger' => []];
+        foreach (glob(hdir() . '/ledger-*.json') ?: [] as $f) $b['ledger'][basename($f, '.json')] = hread(basename($f, '.json'));
+        $f = hdir() . '/audit.log';
+        $b['audit'] = file_exists($f) ? array_map(fn($l) => json_decode($l, true), file($f, FILE_IGNORE_NEW_LINES) ?: []) : [];
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="basudev-hisab-backup_' . date('Y-m-d_Hi') . '.json"');
+        echo json_encode($b, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
+    }
     $rows = [];
     if ($job['what'] === 'people') {
         $rows[] = ['তালিকা', 'এলাকা', 'নাম', 'ঠিকানা', 'মোবাইল', 'টাকা', 'জমির পরিমাণ', 'বিবরণ', 'তারিখ', 'সদস্য নং', 'মন্তব্য'];
