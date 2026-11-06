@@ -412,3 +412,10 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
 .hero-guru figcaption{font-family:var(--display);font-size:16px;line-height:1.4;color:#FFD9A8;display:grid}
 .hero-guru figcaption small{font-family:var(--body);font-size:13px;color:#fff;opacity:.8}
 @media (max-width:640px){.hero .hero-guru img{width:84px;height:112px;aspect-ratio:auto}.hero-guru{margin-bottom:14px}}
+
+.guru-phone{font-size:clamp(20px,2.4vw,26px);font-variant-numeric:tabular-nums;color:var(--on-indigo);margin-top:6px}
+.guru-phone small{font-size:14px;opacity:.75}
+.office{display:grid;gap:0}
+.office span{font-size:15px;opacity:.8}
+.office b{font-weight:500}
+.contact .lede{color:var(--on-indigo);opacity:.8}

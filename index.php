@@ -486,6 +486,7 @@ $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গ
       <p class="eyebrow">যোগাযোগ</p>
       <h2>শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ</h2>
       <p class="lede">অধ্যক্ষ, শ্রীশ্রী বাসুদেব যোগাশ্রম ও শ্রীশ্রী বাসুদেব অনাথ আশ্রম</p>
+      <p class="guru-phone"><?= e($S['phone1']) ?> <small>(হোয়াটসঅ্যাপ)</small></p>
     </div>
     <div class="contact-grid">
       <div>
@@ -494,9 +495,10 @@ $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গ
         <p><a href="<?= e($S['maps']) ?>" target="_blank" rel="noopener">গুগল ম্যাপে দেখুন ↗</a></p>
       </div>
       <div>
-        <h3>ফোন</h3>
-        <p class="big"><?= e($S['phone1']) ?> <small>(গুরুদেব · হোয়াটসঅ্যাপ)</small></p>
-        <p class="big"><?= e($S['phone2']) ?> <small>(হোয়াটসঅ্যাপ)</small></p>
+        <h3>অফিস নম্বর</h3>
+        <p class="office"><span>রুবেল শীল</span><b class="big">০১৮৩৫-০০০৮২৪</b></p>
+        <p class="office"><span>কৌশিক চৌধুরী</span><b class="big">০১৭৬৯-৯২০৯৪১</b></p>
+        <p><small>দুটি নম্বরেই হোয়াটসঅ্যাপ আছে</small></p>
       </div>
       <div>
         <h3>ফেসবুক ও ইউটিউব</h3>
