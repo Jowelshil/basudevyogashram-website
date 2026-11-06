@@ -11,7 +11,7 @@ const KLABEL = {income: "জমা/আয়", daily: "দৈনিক খরচ
 const LIST_LABEL = {monthly: "মাসিক প্রণামী", land: "ভূমিদাতা", life: "আজীবন সদস্য"};
 const LIST_CAT = {monthly: "মাসিক প্রণামী"};
 
-const bn = n => Number(n || 0).toLocaleString("bn-BD", {maximumFractionDigits: 2});
+const bn = n => String(Number(n || 0).toLocaleString("en-IN", {maximumFractionDigits: 2})).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
 const bnd = s => String(s).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
 const tk = n => "৳ " + bn(n);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -65,7 +65,7 @@ $("setupForm").addEventListener("submit", e => { e.preventDefault(); guard(e.sub
     token = j.token; store.set("bya_token", token); await reload(); enterApp(); toast("অ্যাডমিন অ্যাকাউন্ট তৈরি হয়েছে। এখন ইউজার যোগ করুন।"); go("users"); }
   catch (err) { $("authMsg").textContent = err.message; }
 }); });
-function logoutLocal(msg) { token = null; me = null; store.set("bya_token", null); showAuth(msg); }
+function logoutLocal(msg) { token = null; me = null; enterApp.done = false; view = "ledger"; store.set("bya_token", null); showAuth(msg); }
 $("logoutBtn").onclick = async () => { closeMenu(); try { await api("logout"); } catch (e) {} logoutLocal("লগআউট হয়েছে।"); };
 
 async function reload() {
@@ -79,7 +79,9 @@ function enterApp() {
   document.querySelectorAll(".admin-only").forEach(el => el.hidden = !isAdmin());
   $("lockNote").hidden = isAdmin();
   if (!$("fDate").value) { $("fDate").value = D.today; $("dayPick").value = D.today; $("dailyPick").value = D.today; initReport(); }
-  setKind(kind); go(view);
+  setKind(kind);
+  if (!enterApp.done) { enterApp.done = true; if (isAdmin()) view = "dash"; }
+  go(view);
 }
 
 /* ---------- navigation ---------- */
@@ -99,6 +101,7 @@ function render() {
   ({ledger: renderLedger, monthly: renderMonthly, land: renderLand, life: renderLife, dash: renderDash, daily: renderDaily,
     report: renderReport, users: renderUsers, sms: loadSms, records: renderRecords}[view] || (() => {}))();
 }
+document.querySelector(".brand").onclick = () => go(isAdmin() ? "dash" : "ledger");
 $("menuBtn").onclick = () => { $("menu").hidden = false; $("menuScrim").hidden = false; };
 function closeMenu() { $("menu").hidden = true; $("menuScrim").hidden = true; }
 $("menuScrim").onclick = closeMenu;
@@ -377,7 +380,7 @@ function kpiHTML(s) {
 }
 function barChart(buckets) {
   const W = Math.max(520, buckets.length * 38), H = 220, pl = 64, pb = 28, pt = 10, cw = (W - pl - 8) / Math.max(1, buckets.length);
-  const max = Math.max(1, ...buckets.map(b => Math.max(b.income, b.daily + b.construction)));
+  const max = Math.max(1000, ...buckets.map(b => Math.max(b.income, b.daily + b.construction)));
   const p10 = Math.pow(10, Math.floor(Math.log10(max))), f = max / p10, nice = (f <= 2 ? 2 : f <= 5 ? 5 : 10) * p10;
   const y = v => pt + (H - pt - pb) * (1 - v / nice); let g = "";
   for (let i = 0; i <= 4; i++) { const v = nice * i / 4; g += `<line x1="${pl}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${bn(v)}</text>`; }
@@ -529,7 +532,8 @@ window.byaBack = function () {
   if (!$("sheet").hidden) { closeSheet(); return true; }
   if (!$("menu").hidden) { closeMenu(); return true; }
   if (view === "monthly" && curArea !== null) { curArea = null; renderMonthly(); return true; }
-  if (view !== "ledger" && !$("appScreen").hidden) { go("ledger"); return true; }
+  const home = isAdmin() ? "dash" : "ledger";
+  if (view !== home && !$("appScreen").hidden) { go(home); return true; }
   return false;
 };
 window.addEventListener("online", () => $("offline").hidden = true);

@@ -65,7 +65,7 @@ label.chk input{width:auto;margin-top:4px}
 /* app chrome */
 .top{position:sticky;top:0;z-index:20;background:var(--indigo);color:var(--on-indigo);padding-top:env(safe-area-inset-top,0px)}
 .top-in{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));max-width:980px;margin:0 auto}
-.brand{display:flex;gap:10px;align-items:center}
+.brand{display:flex;gap:10px;align-items:center;cursor:pointer}
 .brand b{font-family:var(--display);font-weight:400;font-size:1.2rem;display:block;line-height:1.2}
 .brand small{opacity:.8;font-size:.8rem}
 .icon-btn{background:none;border:0;color:inherit;font-size:1.4rem;width:44px;height:44px;border-radius:10px;cursor:pointer}
