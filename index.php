@@ -59,6 +59,7 @@ $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গ
   <div class="hero">
     <img src="images/ashram-dusk.jpg" alt="সন্ধ্যায় বাসুদেব যোগাশ্রম: মন্দিরের চূড়া, আলো জ্বলা খিলান-বারান্দা ও পুকুরের প্রতিবিম্ব">
     <div class="hero-copy"><div class="wrap"><div class="hero-panel">
+      <figure class="hero-guru"><img src="images/guru-biplob-chaitanya.jpg" alt="শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ"><figcaption>শ্রীমৎ বিপ্লব চৈতন্য ব্রহ্মচারী মহারাজ<small>অধ্যক্ষ</small></figcaption></figure>
       <h1>শ্রীশ্রী বাসুদেব যোগাশ্রম<span>ও বাসুদেব অনাথ আশ্রম</span></h1>
       <p class="meta">নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম · স্থাপিত ১৯৬৫ · রেজি: নং-১২১৮২ চট্ট/হাট/২৬</p>
       <div class="cta">
