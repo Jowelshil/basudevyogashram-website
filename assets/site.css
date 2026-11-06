@@ -419,3 +419,9 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
 .office span{font-size:15px;opacity:.8}
 .office b{font-weight:500}
 .contact .lede{color:var(--on-indigo);opacity:.8}
+
+/* phone numbers: English digits in a clear Latin face */
+.big,.guru-phone,.book-alt b,.invite b,.how span{font-variant-numeric:tabular-nums}
+.big,.guru-phone{font-family:"Hind Siliguri",system-ui,sans-serif;letter-spacing:.02em}
+.guru-phone{font-weight:600}
+.office b{font-weight:600}
