@@ -498,7 +498,7 @@ $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গ
       </div>
       <div>
         <h3>ফোন</h3>
-        <p class="big"><?= e($S['phone1']) ?></p>
+        <p class="big"><?= e($S['phone1']) ?> <small>(গুরুদেব · হোয়াটসঅ্যাপ)</small></p>
         <p class="big"><?= e($S['phone2']) ?> <small>(হোয়াটসঅ্যাপ)</small></p>
       </div>
       <div>
