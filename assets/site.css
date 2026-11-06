@@ -395,3 +395,13 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
 .article img.lead{width:100%;border-radius:14px}
 .article p{font-size:17.5px;line-height:1.85}
 .back{font-weight:600;text-decoration:none}
+
+/* new photos */
+.col-photo{margin:4px 0;display:grid;gap:8px}
+.col-photo img{width:100%;border-radius:14px;box-shadow:0 10px 28px rgba(60,30,10,.18)}
+.col-photo figcaption{font-family:var(--display);font-size:15px;color:var(--muted)}
+.hist-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:start}
+.hist-photo{margin:0;position:sticky;top:calc(env(safe-area-inset-top,0px) + 110px);display:grid;gap:8px}
+.hist-photo img{width:100%;border-radius:14px;border:3px solid var(--gold)}
+.hist-photo figcaption{font-family:var(--display);font-size:15px;color:var(--muted);text-align:center}
+@media (max-width:860px){.hist-grid{grid-template-columns:1fr}.hist-photo{position:static;max-width:320px;margin:0 auto}}
