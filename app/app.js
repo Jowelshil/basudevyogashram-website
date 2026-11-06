@@ -545,6 +545,31 @@ window.byaBack = function () {
   if (view !== home && !$("appScreen").hidden) { go(home); return true; }
   return false;
 };
+/* swipe between the 5 bottom tabs: finger to the left goes to the tab on the left, to the right goes right */
+(function () {
+  let x0 = null, y0 = 0, t0 = 0;
+  const main = $("main");
+  main.addEventListener("touchstart", e => {
+    x0 = null;
+    if (e.touches.length !== 1 || !TABS.includes(view) || !$("sheet").hidden || !$("menu").hidden) return;
+    const t = e.touches[0];
+    if (t.clientX < 24 || t.clientX > window.innerWidth - 24) return; // leave the phone's own edge-swipe alone
+    if (e.target.closest("input,select,textarea,.mgrid-wrap,.chart,.tbl")) return; // these scroll sideways themselves
+    x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
+  }, {passive: true});
+  main.addEventListener("touchend", e => {
+    if (x0 === null) return;
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6 || Date.now() - t0 > 800) return;
+    const i = TABS.indexOf(view), next = TABS[i + (dx < 0 ? -1 : 1)];
+    if (!next) return;
+    if (next === "monthly") curArea = null;
+    main.classList.remove("slide-l", "slide-r"); void main.offsetWidth;
+    main.classList.add(dx < 0 ? "slide-r" : "slide-l");
+    go(next);
+  }, {passive: true});
+})();
 window.addEventListener("online", () => $("offline").hidden = true);
 window.addEventListener("offline", () => $("offline").hidden = false);
 boot();

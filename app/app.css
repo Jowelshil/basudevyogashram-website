@@ -170,3 +170,8 @@ tr.tot td{font-weight:700;border-bottom:0}
 .menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:60;max-width:calc(100% - 32px);font-size:.95rem}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
+
+@media (prefers-reduced-motion:no-preference){
+  .main.slide-l{animation:fromRight .2s ease-out}.main.slide-r{animation:fromLeft .2s ease-out}
+  @keyframes fromRight{from{transform:translateX(40px);opacity:.4}}@keyframes fromLeft{from{transform:translateX(-40px);opacity:.4}}
+}
