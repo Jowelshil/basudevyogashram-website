@@ -76,6 +76,12 @@ function amount_in(array $in, string $k = 'amount', bool $required = true): floa
     if ($a > 100000000) fail('টাকার পরিমাণ ঠিক নেই।');
     return max(0.0, $a);
 }
+/* area list for মাসিক প্রণামী; "অন্যান্য" is always there and always last */
+function areas_list(): array {
+    $a = array_values(array_filter(hread('areas', AREAS_DEFAULT), fn($x) => $x !== 'অন্যান্য'));
+    $a[] = 'অন্যান্য';
+    return $a;
+}
 function public_user(array $u): array { return ['id' => $u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'active' => $u['active'] ?? true, 'created' => $u['created'] ?? '']; }
 
 /* ---------- auth ---------- */
@@ -226,7 +232,7 @@ case 'load': {
     $names = [];
     foreach (hread('users') as $x) $names[$x['id']] = $x['name'];
     $c = sms_cfg();
-    out(['ok' => true, 'user' => public_user($u), 'today' => date('Y-m-d'), 'areas' => hread('areas', AREAS_DEFAULT),
+    out(['ok' => true, 'user' => public_user($u), 'today' => date('Y-m-d'), 'areas' => areas_list(),
          'ledger' => $ledger, 'people' => $people, 'names' => $names,
          'sms' => ['enabled' => (bool)$c['enabled'], 'auto' => (bool)$c['auto'], 'template' => $c['template']]]);
 }
@@ -389,7 +395,7 @@ case 'area_add': {
     if ($n === '') fail('এলাকার নাম লিখুন।');
     hmutate('areas', function (&$a) use ($n) { if (!in_array($n, $a, true)) $a[] = $n; }, AREAS_DEFAULT);
     audit($u, 'এলাকা যোগ', ['name' => $n]);
-    out(['ok' => true, 'areas' => hread('areas', AREAS_DEFAULT)]);
+    out(['ok' => true, 'areas' => areas_list()]);
 }
 
 /* ----- SMS ----- */
