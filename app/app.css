@@ -42,6 +42,9 @@ code{background:var(--saffron-soft);padding:0 4px;border-radius:4px}
 label{display:grid;gap:4px;font-size:.85rem;font-weight:600;color:var(--muted);min-width:0}
 input,select,textarea{width:100%;min-width:0;font-size:1rem;font-weight:400;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 textarea{resize:vertical}
+/* iPhone draws date pickers wider than their box unless reset */
+input[type=date],input[type=month]{-webkit-appearance:none;appearance:none;display:block;min-height:46px;text-align:left}
+input[type=date]::-webkit-date-and-time-value,input[type=month]::-webkit-date-and-time-value{text-align:left}
 label.chk{display:flex;gap:10px;align-items:flex-start;font-weight:500;color:var(--ink);font-size:.95rem}
 label.chk input{width:auto;margin-top:4px}
 .form{display:grid;gap:12px}
@@ -60,8 +63,7 @@ label.chk input{width:auto;margin-top:4px}
 .banner{background:var(--saffron-soft);border-radius:10px;padding:8px 12px;font-size:.9rem}
 
 /* app chrome */
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--indigo);z-index:30}
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--indigo);color:var(--on-indigo)}
+.top{position:sticky;top:0;z-index:20;background:var(--indigo);color:var(--on-indigo);padding-top:env(safe-area-inset-top,0px)}
 .top-in{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));max-width:980px;margin:0 auto}
 .brand{display:flex;gap:10px;align-items:center}
 .brand b{font-family:var(--display);font-weight:400;font-size:1.2rem;display:block;line-height:1.2}
