@@ -18,6 +18,14 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const fmtDate = s => { if (!s) return ""; const [y, m, d] = s.split("-").map(Number); return bnd(d) + " " + BN_MONTHS[m - 1] + " " + bnd(y); };
 const monthName = ym => BN_MONTHS[+ym.slice(5, 7) - 1] + " " + bnd(ym.slice(0, 4));
 const addDays = (s, n) => { const d = new Date(s + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+/* Banglish land words and digits to Bangla: "2 shotok" -> "২ শতক", "dag 1234" -> "দাগ ১২৩৪" */
+const LAND_WORDS = [
+  [/\b(sho|sha|so|sa)t(o|a)?(k|ng?sho|ngsho|nsho|angsh?o)\b/gi, "শতক"], [/\bdecimals?\b|\bdec\b/gi, "শতক"],
+  [/\bk(a|o)a?th?a\b|\bkata\b/gi, "কাঠা"], [/\bbig?h?a\b/gi, "বিঘা"], [/\bka+ni\b/gi, "কানি"], [/\bg(o|a)nd(a|o)\b/gi, "গণ্ডা"],
+  [/\bk(o|a)ra\b/gi, "কড়া"], [/\b(acre|akor|ekor|okor)s?\b/gi, "একর"], [/\b(o|a)jut(a|o)ng?sho\b/gi, "অযুতাংশ"],
+  [/\bm(o|a)u?u?za\b|\bmouja\b/gi, "মৌজা"], [/\bdag\b/gi, "দাগ"], [/\bkh?(a|o)tt?i?y?an\b/gi, "খতিয়ান"], [/\bjomi\b/gi, "জমি"], [/\bch?(o|a)t(o|a)k\b/gi, "ছটাক"],
+  [/\bno\.?(?=\s|$)/gi, "নং"], [/\band\b/gi, "ও"]];
+const landBn = v => { let t = String(v || ""); LAND_WORDS.forEach(([re, bnw]) => t = t.replace(re, bnw)); return t.replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]); };
 const toEn = s => String(s || "").replace(/[০-৯]/g, c => "০১২৩৪৫৬৭৮৯".indexOf(c));
 
 let token = null, me = null, D = {ledger: [], people: [], areas: [], names: {}, sms: {}, today: ""};
@@ -242,7 +250,7 @@ function renderLand() {
   $("landList").innerHTML = `<div class="card">` + (ppl.length ? ppl.map((p, i) => `<div class="item"><div class="sn">${bnd(i + 1)}</div>
     <div><button class="link-btn" data-person="${p.id}" style="padding:0;color:inherit;text-align:left"><span class="t">${esc(p.name)}</span></button>
     <div class="s">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</div>
-    <div class="s">${esc([p.land ? "জমি " + p.land : "", p.details, p.area].filter(Boolean).join(" · "))}${p.date ? " · দান " + fmtDate(p.date) : ""}</div></div>
+    <div class="s">${esc([p.land ? "জমি " + landBn(p.land) : "", landBn(p.details), p.area].filter(Boolean).join(" · "))}${p.date ? " · দান " + fmtDate(p.date) : ""}</div></div>
     <div></div></div>`).join("") : `<div class="empty">${$("landSearch").value ? "কিছু পাওয়া যায়নি।" : "এখনো কেউ যোগ হয়নি। নিচের + বাটন চেপে যোগ করুন।"}</div>`) + `</div>`;
 }
 function scrollGrid(box, list) {
@@ -340,10 +348,11 @@ function personForm(list, p) {
     <label>মন্তব্য<input id="peNote" value="${v("note")}"></label>
     <button class="btn wide">${p ? "হালনাগাদ করুন" : "যোগ করুন"}</button>
     ${p || isAdmin() ? "" : `<p class="note">যোগ করার পর বদলাতে বা মুছতে অ্যাডমিন লাগবে।</p>`}</form>`, b => {
+    ["peLand", "peDet"].forEach(id => { const el = b.querySelector("#" + id); if (el) el.addEventListener("blur", () => el.value = landBn(el.value)); });
     b.querySelector("#peForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
       const g = id => (b.querySelector("#" + id) || {}).value ?? "";
       const body = {list, name: g("peName"), address: g("peAddr"), mobile: g("peMob"), area: g("peArea"), amount: toEn(g("peAmt")), date: g("peDate"),
-        land: g("peLand"), details: g("peDet"), memberNo: toEn(g("peNo")), note: g("peNote")};
+        land: landBn(g("peLand")), details: landBn(g("peDet")), memberNo: toEn(g("peNo")), note: g("peNote")};
       if (p) await api("people_update", {...body, id: p.id}); else await api("people_add", body);
       closeSheet(); toast(p ? "হালনাগাদ হয়েছে।" : "যোগ হয়েছে।"); await reload(); render(); }); };
   });
@@ -352,7 +361,7 @@ function showPerson(id) {
   const p = D.people.find(x => x.id === id); if (!p) return;
   const paid = Object.keys(p.paid || {}).sort().reverse();
   const rows = [["ঠিকানা", p.address], ["মোবাইল", p.mobile], ["এলাকা", p.area], [p.list === "life" ? "সদস্য ফি" : "মাসিক প্রণামী", p.amount && p.list !== "land" ? tk(p.amount) : ""],
-    ["জমির পরিমাণ", p.land], ["মৌজা / দাগ", p.details], ["সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : p.list === "land" ? "জমি দানের তারিখ" : "শুরু", p.date ? fmtDate(p.date) : ""],
+    ["জমির পরিমাণ", landBn(p.land)], ["মৌজা / দাগ", landBn(p.details)], ["সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : p.list === "land" ? "জমি দানের তারিখ" : "শুরু", p.date ? fmtDate(p.date) : ""],
     ["মন্তব্য", p.note], ["যোগ করেছেন", (D.names[p.by] || "") + " · " + fmtDate((p.createdAt || "").slice(0, 10))]].filter(r => r[1]);
   openSheet(p.name, `<table><tbody>${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table>
     ${paid.length ? `<h3 class="sub" style="margin-top:12px">জমার ইতিহাস</h3><table><tbody>${paid.slice(0, 24).map(m => `<tr><td>${monthName(m)}</td><td>${fmtDate(p.paid[m].date)}</td><td class="n">${tk(p.paid[m].amount)}</td></tr>`).join("")}</tbody></table>` : ""}

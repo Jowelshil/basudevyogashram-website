@@ -82,6 +82,17 @@ function areas_list(): array {
     $a[] = 'অন্যান্য';
     return $a;
 }
+/* Banglish land words and digits to Bangla (same rules as the app) */
+function land_bn(string $t): string {
+    $rules = [
+        '/\b(sho|sha|so|sa)t(o|a)?(k|ng?sho|ngsho|nsho|angsh?o)\b/i' => 'শতক', '/\bdecimals?\b|\bdec\b/i' => 'শতক',
+        '/\bk(a|o)a?th?a\b|\bkata\b/i' => 'কাঠা', '/\bbig?h?a\b/i' => 'বিঘা', '/\bka+ni\b/i' => 'কানি', '/\bg(o|a)nd(a|o)\b/i' => 'গণ্ডা',
+        '/\bk(o|a)ra\b/i' => 'কড়া', '/\b(acre|akor|ekor|okor)s?\b/i' => 'একর', '/\b(o|a)jut(a|o)ng?sho\b/i' => 'অযুতাংশ',
+        '/\bm(o|a)u?u?za\b|\bmouja\b/i' => 'মৌজা', '/\bdag\b/i' => 'দাগ', '/\bkh?(a|o)tt?i?y?an\b/i' => 'খতিয়ান', '/\bjomi\b/i' => 'জমি', '/\bch?(o|a)t(o|a)k\b/i' => 'ছটাক',
+        '/\bno\.?(?=\s|$)/i' => 'নং', '/\band\b/i' => 'ও'];
+    foreach ($rules as $re => $bn) $t = preg_replace($re, $bn, $t);
+    return bn_digits($t);
+}
 function public_user(array $u): array { return ['id' => $u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'active' => $u['active'] ?? true, 'created' => $u['created'] ?? '']; }
 
 /* ---------- auth ---------- */
@@ -353,7 +364,7 @@ case 'people_update': {
     $area = str_in($IN, 'area', 60);
     if ($list === 'monthly' && $area === '') fail('এলাকা (থানা) বেছে নিন।');
     $fields = ['list' => $list, 'area' => $area, 'name' => $name, 'address' => str_in($IN, 'address', 200), 'mobile' => $mobile,
-        'amount' => amount_in($IN, 'amount', $list !== 'land'), 'land' => str_in($IN, 'land', 60), 'details' => str_in($IN, 'details', 300),
+        'amount' => amount_in($IN, 'amount', $list !== 'land'), 'land' => land_bn(str_in($IN, 'land', 60)), 'details' => land_bn(str_in($IN, 'details', 300)),
         'date' => valid_date(str_in($IN, 'date', 10)) ? str_in($IN, 'date', 10) : '', 'memberNo' => str_in($IN, 'memberNo', 30), 'note' => str_in($IN, 'note', 300)];
     if ($act === 'people_add') {
         $rec = ['id' => new_id()] + $fields + ['by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s')];
