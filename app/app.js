@@ -1,0 +1,533 @@
+/* বাসুদেব যোগাশ্রম হিসাব অ্যাপ (ওয়েব + Android) */
+"use strict";
+const $ = id => document.getElementById(id);
+const BN_MONTHS = ["জানুয়ারি","ফেব্রুয়ারি","মার্চ","এপ্রিল","মে","জুন","জুলাই","আগস্ট","সেপ্টেম্বর","অক্টোবর","নভেম্বর","ডিসেম্বর"];
+const BN_MS = ["জানু","ফেব্রু","মার্চ","এপ্রিল","মে","জুন","জুলাই","আগস্ট","সেপ্টে","অক্টো","নভে","ডিসে"];
+const INC_CATS = ["এককালীন অনুদান","মাসিক প্রণামী","ভূমিদাতা প্রণামী","আজীবন সদস্য ফি","প্রণামী / দানবাক্স","পূজা-উৎসব অনুদান","অনাথ আশ্রম অনুদান","বিদ্যালয় অনুদান","নির্মাণ অনুদান","অন্যান্য আয়"];
+const DAILY_CATS = ["বাজার ও খাদ্য সামগ্রী","চাল-ডাল (মজুদ)","পূজা ও ভোগ সামগ্রী","বিদ্যুৎ বিল","গ্যাস / জ্বালানি","কর্মচারী বেতন","শিক্ষক বেতন","চিকিৎসা","শিক্ষা উপকরণ","যাতায়াত","মেরামত ও রক্ষণাবেক্ষণ","অন্যান্য খরচ"];
+const CON_CATS = ["রড","সিমেন্ট","ইট","বালু / পাথর","শ্রমিক মজুরি","ঠিকাদার বিল","কাঠ / দরজা-জানালা","বিদ্যুৎ ও স্যানিটারি","রং","পরিবহন","অন্যান্য নির্মাণ"];
+const CATS = {income: INC_CATS, daily: DAILY_CATS, construction: CON_CATS};
+const KLABEL = {income: "জমা/আয়", daily: "দৈনিক খরচ", construction: "নির্মাণ খরচ"};
+const LIST_LABEL = {monthly: "মাসিক প্রণামী", land: "ভূমিদাতা", life: "আজীবন সদস্য"};
+const LIST_CAT = {monthly: "মাসিক প্রণামী", land: "ভূমিদাতা প্রণামী"};
+
+const bn = n => Number(n || 0).toLocaleString("bn-BD", {maximumFractionDigits: 2});
+const bnd = s => String(s).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
+const tk = n => "৳ " + bn(n);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDate = s => { if (!s) return ""; const [y, m, d] = s.split("-").map(Number); return bnd(d) + " " + BN_MONTHS[m - 1] + " " + bnd(y); };
+const monthName = ym => BN_MONTHS[+ym.slice(5, 7) - 1] + " " + bnd(ym.slice(0, 4));
+const addDays = (s, n) => { const d = new Date(s + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const toEn = s => String(s || "").replace(/[০-৯]/g, c => "০১২৩৪৫৬৭৮৯".indexOf(c));
+
+let token = null, me = null, D = {ledger: [], people: [], areas: [], names: {}, sms: {}, today: ""};
+let kind = "income", view = "ledger", curArea = null, prefill = null;
+const isAdmin = () => me && me.role === "admin";
+const store = {get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+               set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }};
+
+/* ---------- API ---------- */
+async function api(a, body = {}) {
+  let r;
+  try {
+    r = await fetch("api.php?a=" + a, {method: "POST", headers: {"Content-Type": "application/json", ...(token ? {"Authorization": "Bearer " + token} : {})},
+      body: JSON.stringify({...body, token})});
+  } catch (e) { $("offline").hidden = false; throw new Error("ইন্টারনেট সংযোগ নেই।"); }
+  $("offline").hidden = true;
+  let j; try { j = await r.json(); } catch (e) { throw new Error("সার্ভার থেকে উত্তর পাওয়া যায়নি (" + r.status + ")।"); }
+  if (r.status === 401 && a !== "login") { logoutLocal(j.error); throw new Error(j.error); }
+  if (!j.ok) throw new Error(j.error || "কিছু একটা সমস্যা হয়েছে।");
+  return j;
+}
+function toast(t) { const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3200); }
+async function guard(btn, fn) { if (btn) btn.disabled = true; try { await fn(); } catch (e) { toast(e.message); } finally { if (btn) btn.disabled = false; } }
+
+/* ---------- auth ---------- */
+async function boot() {
+  token = store.get("bya_token");
+  if (token) { try { await reload(); enterApp(); return; } catch (e) { if (!token) {} } }
+  showAuth();
+}
+async function showAuth(msg) {
+  $("appScreen").hidden = true; $("authScreen").hidden = false;
+  $("authMsg").textContent = msg || "";
+  let st = {needsSetup: false};
+  try { st = await api("status"); } catch (e) { $("authMsg").textContent = e.message; }
+  $("setupForm").hidden = !st.needsSetup; $("loginForm").hidden = st.needsSetup;
+}
+$("loginForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
+  $("authMsg").textContent = "";
+  try { const j = await api("login", {username: $("lUser").value.trim(), password: $("lPass").value}); token = j.token; store.set("bya_token", token); $("lPass").value = ""; await reload(); enterApp(); }
+  catch (err) { $("authMsg").textContent = err.message; }
+}); });
+$("setupForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
+  try { const j = await api("setup", {key: $("sKey").value.trim(), name: $("sName").value.trim(), username: $("sUser").value.trim(), password: $("sPass").value});
+    token = j.token; store.set("bya_token", token); await reload(); enterApp(); toast("অ্যাডমিন অ্যাকাউন্ট তৈরি হয়েছে। এখন ইউজার যোগ করুন।"); go("users"); }
+  catch (err) { $("authMsg").textContent = err.message; }
+}); });
+function logoutLocal(msg) { token = null; me = null; store.set("bya_token", null); showAuth(msg); }
+$("logoutBtn").onclick = async () => { closeMenu(); try { await api("logout"); } catch (e) {} logoutLocal("লগআউট হয়েছে।"); };
+
+async function reload() {
+  const j = await api("load");
+  me = j.user; D = j;
+  D.ledger.sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+function enterApp() {
+  $("authScreen").hidden = true; $("appScreen").hidden = false;
+  $("whoami").textContent = me.name + (isAdmin() ? " · অ্যাডমিন" : "");
+  document.querySelectorAll(".admin-only").forEach(el => el.hidden = !isAdmin());
+  $("lockNote").hidden = isAdmin();
+  if (!$("fDate").value) { $("fDate").value = D.today; $("dayPick").value = D.today; $("dailyPick").value = D.today; initReport(); }
+  setKind(kind); go(view);
+}
+
+/* ---------- navigation ---------- */
+const TABS = ["ledger", "monthly", "land", "life", "other"];
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { if (b.dataset.tab === "monthly") curArea = null; go(b.dataset.tab); });
+function go(v) {
+  if (!isAdmin() && !TABS.includes(v) && v !== "password") v = "ledger";
+  view = v;
+  document.querySelectorAll(".view").forEach(s => s.hidden = s.id !== "v-" + v);
+  document.querySelectorAll("#tabs button").forEach(b => b.toggleAttribute("aria-current", b.dataset.tab === v));
+  if (document.querySelector("#tabs [aria-current]")) document.querySelector("#tabs [aria-current]").setAttribute("aria-current", "page");
+  $("fab").hidden = !["monthly", "land", "life"].includes(v);
+  window.scrollTo(0, 0);
+  render();
+}
+function render() {
+  ({ledger: renderLedger, monthly: renderMonthly, land: () => renderGridList("land"), life: renderLife, dash: renderDash, daily: renderDaily,
+    report: renderReport, users: renderUsers, sms: loadSms, records: renderRecords}[view] || (() => {}))();
+}
+$("menuBtn").onclick = () => { $("menu").hidden = false; $("menuScrim").hidden = false; };
+function closeMenu() { $("menu").hidden = true; $("menuScrim").hidden = true; }
+$("menuScrim").onclick = closeMenu;
+document.querySelectorAll("#menu [data-go]").forEach(b => b.onclick = () => { closeMenu(); go(b.dataset.go); });
+$("refreshBtn").onclick = () => { closeMenu(); guard(null, async () => { await reload(); render(); toast("তথ্য হালনাগাদ হয়েছে।"); }); };
+
+/* ---------- sheet ---------- */
+function openSheet(title, html, onReady) {
+  $("sheetTitle").textContent = title; $("sheetBody").innerHTML = html;
+  $("sheet").hidden = false; $("sheetScrim").hidden = false;
+  if (onReady) onReady($("sheetBody"));
+  const f = $("sheetBody").querySelector("input:not([type=hidden]),select,textarea"); if (f && window.innerWidth > 700) f.focus();
+}
+function closeSheet() { $("sheet").hidden = true; $("sheetScrim").hidden = true; $("sheetBody").innerHTML = ""; }
+$("sheetClose").onclick = closeSheet; $("sheetScrim").onclick = closeSheet;
+window.addEventListener("popstate", () => { if (!$("sheet").hidden) closeSheet(); });
+
+/* ================= Tab 1: আয়/ব্যয় ================= */
+function setKind(k) {
+  kind = k;
+  document.querySelectorAll("#kindSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === k));
+  $("fCat").innerHTML = CATS[k].map(c => `<option>${esc(c)}</option>`).join("");
+  $("projWrap").hidden = k !== "construction";
+  $("donorExtra").hidden = k !== "income";
+  $("nameLbl").textContent = k === "income" ? "ভক্ত / দাতার নাম" : "কাকে দেওয়া হলো (দোকান / ব্যক্তি)";
+}
+document.querySelectorAll("#kindSeg button").forEach(b => b.onclick = () => { clearPrefill(); setKind(b.dataset.k); });
+function clearPrefill() { prefill = null; $("prefillNote").hidden = true; }
+$("fName").addEventListener("change", () => {
+  if (kind !== "income") return;
+  const n = $("fName").value.trim();
+  const p = D.people.find(x => x.name === n) || D.ledger.find(x => x.kind === "income" && x.name === n);
+  if (p) { if (!$("fMobile").value) $("fMobile").value = p.mobile || ""; if (!$("fAddr").value) $("fAddr").value = p.address || ""; }
+});
+$("ledgerForm").addEventListener("submit", e => { e.preventDefault(); guard($("saveBtn"), async () => {
+  const body = {kind, date: $("fDate").value, amount: toEn($("fAmount").value), category: $("fCat").value, project: $("fProj").value,
+    name: $("fName").value, mobile: $("fMobile").value, address: $("fAddr").value, ref: $("fRef").value, mode: $("fMode").value, note: $("fNote").value};
+  const j = await api("ledger_add", body);
+  const k = kind; $("ledgerForm").reset(); $("fDate").value = D.today; setKind(k); clearPrefill();
+  toast(`সংরক্ষিত · ক্রমিক ${bnd(j.entry.serial)}` + (j.sms === "sent" ? " · SMS গেছে" : j.sms === "failed" ? " · SMS যায়নি" : ""));
+  $("dayPick").value = j.entry.date;
+  await reload(); render();
+}); });
+$("dayPick").addEventListener("input", renderLedger);
+
+function entryRow(r, {who = false, ops = false} = {}) {
+  const sms = r.kind === "income" && r.mobile ? (r.sms?.status === "sent" ? '<span class="chip ok">SMS গেছে</span>' : r.sms?.status === "failed" ? '<span class="chip bad">SMS যায়নি</span>' : '<span class="chip wait">SMS বাকি</span>') : "";
+  return `<div class="item">
+    <div class="sn">${bnd(r.serial || "")}</div>
+    <div><div class="t">${esc(r.name || r.category)}</div>
+      <div class="s"><span class="chip ${r.kind}">${KLABEL[r.kind]}</span> ${esc(r.category)}${r.project ? " · " + esc(r.project) : ""}${r.month ? " · " + monthName(r.month) : ""}</div>
+      <div class="s">${[r.mobile, r.address, r.ref ? "রসিদ " + r.ref : "", r.mode, r.note].filter(Boolean).map(esc).join(" · ")}</div>
+      ${who ? `<div class="s">এন্ট্রি: ${esc(D.names[r.by] || "?")} · ${esc((r.createdAt || "").slice(11, 16))}</div>` : ""}
+      ${r.history?.length ? '<span class="chip wait">সম্পাদিত</span>' : ""} ${sms}</div>
+    <div class="amt ${r.kind === "income" ? "inc" : "exp"}">${tk(r.amount)}</div>
+    ${ops ? `<div class="ops"><button class="btn ghost small" data-edit="${r.id}">সম্পাদনা</button><button class="btn ghost small" data-del="${r.id}">মুছুন</button></div>` : ""}
+  </div>`;
+}
+function renderLedger() {
+  const d = $("dayPick").value || D.today;
+  const list = D.ledger.filter(r => r.date === d && !r.deleted).sort((a, b) => a.kind.localeCompare(b.kind) || a.serial - b.serial);
+  $("projOptions").innerHTML = [...new Set(D.ledger.map(r => r.project).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join("");
+  $("nameOptions").innerHTML = [...new Set([...D.people.map(p => p.name), ...D.ledger.filter(r => r.kind === "income").map(r => r.name)].filter(Boolean))].slice(0, 400).map(n => `<option value="${esc(n)}">`).join("");
+  if (isAdmin()) {
+    const s = sums(list);
+    $("daySum").innerHTML = `<span>জমা <b class="inc">${tk(s.income)}</b></span><span>দৈনিক খরচ <b class="exp">${tk(s.daily)}</b></span><span>নির্মাণ <b class="con">${tk(s.construction)}</b></span>`;
+  } else {
+    $("daySum").innerHTML = `<span class="muted">${fmtDate(d)} তারিখে আপনার দেওয়া এন্ট্রি</span>`;
+  }
+  const pend = list.filter(r => r.kind === "income" && r.mobile && r.sms?.status !== "sent").length;
+  $("smsBox").innerHTML = D.sms.enabled && pend ? `<div class="smsbar"><span>${bnd(pend)} জন দাতার SMS বাকি</span><button class="btn small" id="smsDayBtn">দিন শেষ: SMS পাঠান</button></div>` : "";
+  if ($("smsDayBtn")) $("smsDayBtn").onclick = e => guard(e.target, async () => { const j = await api("sms_day", {date: d}); toast(`${bnd(j.sent)}টি SMS গেছে` + (j.failed ? `, ${bnd(j.failed)}টি যায়নি` : "")); await reload(); render(); });
+  $("dayList").innerHTML = list.length ? list.map(r => entryRow(r, {who: isAdmin(), ops: isAdmin()})).join("") : `<div class="empty">এই তারিখে কোনো এন্ট্রি নেই।</div>`;
+}
+$("dayList").addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.edit) editEntry(t.dataset.edit); else if (t.dataset.del) deleteEntry(t.dataset.del);
+});
+
+/* admin: edit / delete ledger entry */
+function editEntry(id) {
+  const r = D.ledger.find(x => x.id === id); if (!r) return;
+  const cats = CATS[r.kind].includes(r.category) ? CATS[r.kind] : [r.category, ...CATS[r.kind]];
+  openSheet("এন্ট্রি সম্পাদনা", `<form class="form" id="eForm">
+    <p class="note">${fmtDate(r.date)} · ক্রমিক ${bnd(r.serial)} · ${KLABEL[r.kind]}</p>
+    <div class="row2"><label>টাকা<input id="eAmt" inputmode="decimal" value="${esc(r.amount)}" required></label><label>খাত<select id="eCat">${cats.map(c => `<option${c === r.category ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></label></div>
+    ${r.kind === "construction" ? `<label>প্রকল্প<input id="eProj" value="${esc(r.project)}"></label>` : ""}
+    <label>নাম<input id="eName" value="${esc(r.name)}"></label>
+    ${r.kind === "income" ? `<div class="row2"><label>মোবাইল<input id="eMob" value="${esc(r.mobile)}"></label><label>ঠিকানা<input id="eAddr" value="${esc(r.address)}"></label></div>` : ""}
+    <div class="row2"><label>রসিদ<input id="eRef" value="${esc(r.ref)}"></label><label>মাধ্যম<input id="eMode" value="${esc(r.mode)}"></label></div>
+    <label>মন্তব্য<input id="eNote" value="${esc(r.note)}"></label>
+    <button class="btn wide">হালনাগাদ করুন</button><p class="note">আগের তথ্য সম্পাদনার রেকর্ডে থেকে যাবে।</p></form>`, b => {
+    b.querySelector("#eForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      const v = id => (b.querySelector("#" + id) || {}).value ?? "";
+      await api("ledger_update", {id, year: r.date.slice(0, 4), amount: toEn(v("eAmt")), category: v("eCat"), project: v("eProj") || r.project, name: v("eName"),
+        mobile: r.kind === "income" ? v("eMob") : "", address: r.kind === "income" ? v("eAddr") : "", ref: v("eRef"), mode: v("eMode"), note: v("eNote")});
+      closeSheet(); toast("হালনাগাদ হয়েছে।"); await reload(); render(); }); };
+  });
+}
+function deleteEntry(id) {
+  const r = D.ledger.find(x => x.id === id); if (!r) return;
+  openSheet("এন্ট্রি মুছবেন?", `<form class="form" id="dForm"><p>${fmtDate(r.date)} · ক্রমিক ${bnd(r.serial)} · ${esc(r.name || r.category)} · <b>${tk(r.amount)}</b></p>
+    ${r.month ? `<p class="note">এটা ${monthName(r.month)} মাসের প্রণামী। মুছলে ওই মাস আবার বকেয়া দেখাবে।</p>` : ""}
+    <label>মুছে ফেলার কারণ<input id="dReason" required></label><button class="btn danger wide">মুছে ফেলুন</button>
+    <p class="note">মুছে ফেলা এন্ট্রি রেকর্ডে থেকে যায়, দরকার হলে ফিরিয়ে আনা যাবে।</p></form>`, b => {
+    b.querySelector("#dForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      await api("ledger_delete", {id, year: r.date.slice(0, 4), reason: b.querySelector("#dReason").value}); closeSheet(); toast("মুছে ফেলা হয়েছে।"); await reload(); render(); }); };
+  });
+}
+
+/* ================= Tab 2/3: মাসিক প্রণামী + ভূমিদাতা (১২ মাসের ঘর) ================= */
+const gridYear = {monthly: null, land: null};
+function renderMonthly() {
+  const ppl = D.people.filter(p => p.list === "monthly" && !p.deleted);
+  const curM = D.today.slice(0, 7);
+  if (curArea === null) {
+    $("areaGrid").hidden = false; $("areaDetail").hidden = true;
+    $("areaGrid").innerHTML = `<div class="card-head"><h2>মাসিক প্রণামী</h2><span class="muted">এলাকা বেছে নিন</span></div><div class="areas">` +
+      D.areas.map(a => { const l = ppl.filter(p => p.area === a); const paid = l.filter(p => p.paid?.[curM]).length;
+        return `<button class="area" data-area="${esc(a)}"><b>${esc(a)}</b><span>${bnd(l.length)} জন ভক্ত</span><span>${BN_MONTHS[+curM.slice(5) - 1]}: ${bnd(paid)} জন জমা দিয়েছেন</span>${isAdmin() ? `<span>মাসিক মোট ${tk(l.reduce((s, p) => s + Number(p.amount || 0), 0))}</span>` : ""}</button>`; }).join("") + `</div>`;
+    return;
+  }
+  $("areaGrid").hidden = true; $("areaDetail").hidden = false;
+  $("areaTitle").textContent = curArea;
+  $("mList").innerHTML = gridHTML("monthly", ppl.filter(p => p.area === curArea), $("mSearch").value);
+  scrollGrid($("mList"), "monthly");
+}
+$("areaGrid").addEventListener("click", e => { const b = e.target.closest("[data-area]"); if (b) { curArea = b.dataset.area; $("mSearch").value = ""; renderMonthly(); window.scrollTo(0, 0); } });
+$("areaBack").onclick = () => { curArea = null; renderMonthly(); };
+$("mSearch").addEventListener("input", renderMonthly);
+$("landSearch").addEventListener("input", () => renderGridList("land"));
+
+function matches(p, q) { q = toEn(q).trim().toLowerCase(); return !q || [p.name, p.address, p.mobile, p.area, p.details, p.memberNo, p.land].join(" ").toLowerCase().includes(q); }
+function renderGridList(list) {
+  const ppl = D.people.filter(p => p.list === list && !p.deleted);
+  $("landCount").textContent = bnd(ppl.length) + " জন";
+  $("landList").innerHTML = gridHTML(list, ppl, $("landSearch").value);
+  scrollGrid($("landList"), list);
+}
+function scrollGrid(box, list) {
+  const w = box.querySelector(".mgrid-wrap"); if (!w) return;
+  const y = gridYear[list] || +D.today.slice(0, 4), t = D.today;
+  const col = y < +t.slice(0, 4) ? 12 : y > +t.slice(0, 4) ? 1 : +t.slice(5, 7);
+  const th = w.querySelectorAll("thead th")[col], pin = w.querySelector("th.pin");
+  if (th && pin) w.scrollLeft = Math.max(0, th.offsetLeft - pin.offsetWidth - th.offsetWidth * 2.5);
+}
+function gridHTML(list, ppl, q) {
+  const y = gridYear[list] || +D.today.slice(0, 4);
+  const curM = D.today.slice(0, 7);
+  const rows = ppl.filter(p => matches(p, q)).sort((a, b) => a.name.localeCompare(b.name, "bn"));
+  const years = []; for (let i = +D.today.slice(0, 4) + 1; i >= 2024; i--) years.push(i);
+  let paidCount = 0, dueCount = 0, paidSum = 0;
+  const body = rows.map(p => {
+    const start = (p.date || p.createdAt || "").slice(0, 7);
+    const cells = BN_MS.map((_, i) => {
+      const m = `${y}-${String(i + 1).padStart(2, "0")}`;
+      const pd = p.paid?.[m];
+      if (pd) { paidCount++; paidSum += Number(pd.amount || 0); return `<td class="m"><button class="mc paid" data-paid="${p.id}" data-m="${m}" title="${fmtDate(pd.date)}">✓ জমা</button></td>`; }
+      if (start && m < start) return `<td class="m"><span class="mc na">·</span></td>`;
+      if (m <= curM) { dueCount++; return `<td class="m"><button class="mc due" data-pay="${p.id}" data-m="${m}">বকেয়া</button></td>`; }
+      return `<td class="m"><button class="mc future" data-pay="${p.id}" data-m="${m}">—</button></td>`;
+    }).join("");
+    return `<tr><td class="pin"><button class="link-btn" data-person="${p.id}" style="text-align:left;padding:0;color:inherit"><span class="t">${esc(p.name)}</span></button>
+      <div class="s">${esc(p.address || "")}</div><div class="s">${esc(p.mobile || "")}${list === "land" && p.land ? " · " + esc(p.land) : ""}</div>
+      <div class="s">${p.amount ? "মাসিক " + tk(p.amount) : ""}${list === "land" && p.area ? " · " + esc(p.area) : ""}</div></td>${cells}</tr>`;
+  }).join("");
+  const sum = isAdmin() ? `<span class="muted">${bnd(y)}: ${bnd(paidCount)}টি মাস জমা (${tk(paidSum)}), ${bnd(dueCount)}টি বকেয়া</span>` : `<span class="muted">${bnd(rows.length)} জন</span>`;
+  return `<div class="gridbar"><label style="display:flex;gap:6px;align-items:center">বছর <select data-year="${list}">${years.map(v => `<option value="${v}"${v === y ? " selected" : ""}>${bnd(v)}</option>`).join("")}</select></label>${sum}</div>
+    <div class="legend" style="margin-bottom:8px"><span><i class="sw inc-bg"></i>জমা হয়েছে</span><span><i class="sw exp-bg"></i>বকেয়া (চাপ দিয়ে জমা নিন)</span><span>— সামনের মাস</span></div>` +
+    (rows.length ? `<div class="mgrid-wrap"><table class="mgrid"><thead><tr><th class="pin">নাম / ঠিকানা</th>${BN_MS.map(m => `<th style="text-align:center">${m}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`
+      : `<div class="empty">${q ? "কিছু পাওয়া যায়নি।" : "এখনো কেউ যোগ হয়নি। নিচের + বাটন চেপে যোগ করুন।"}</div>`);
+}
+document.addEventListener("change", e => { const s = e.target.closest("[data-year]"); if (s) { gridYear[s.dataset.year] = +s.value; render(); } });
+["mList", "landList", "lifeList"].forEach(id => $(id).addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.pay) payMonth(b.dataset.pay, b.dataset.m);
+  else if (b.dataset.paid) showPaid(b.dataset.paid, b.dataset.m);
+  else if (b.dataset.person) showPerson(b.dataset.person);
+}));
+
+function payMonth(pid, m) {
+  const p = D.people.find(x => x.id === pid); if (!p) return;
+  openSheet(`${monthName(m)}: প্রণামী জমা`, `<form class="form" id="pForm">
+    <p><b>${esc(p.name)}</b><br><span class="muted">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</span></p>
+    <div class="row2"><label>টাকা<input id="pAmt" inputmode="decimal" value="${esc(p.amount || "")}" required></label><label>জমার তারিখ<input type="date" id="pDate" value="${D.today}" required></label></div>
+    <div class="row2"><label>মাধ্যম<select id="pMode"><option>নগদ</option><option>বিকাশ</option><option>নগদ (মোবাইল)</option><option>রকেট</option><option>ব্যাংক</option></select></label><label>রসিদ নং<input id="pRef"></label></div>
+    ${m > D.today.slice(0, 7) ? `<p class="banner">এটা সামনের মাসের অগ্রিম জমা।</p>` : ""}
+    <button class="btn wide">জমা নিন</button>
+    <p class="note">${isAdmin() ? "" : "জমা নেওয়ার পর আর বদলানো যাবে না। "}${p.mobile && D.sms.enabled ? "দাতার মোবাইলে SMS যাবে।" : ""}</p></form>`, b => {
+    b.querySelector("#pForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      const j = await api("ledger_add", {kind: "income", date: b.querySelector("#pDate").value, amount: toEn(b.querySelector("#pAmt").value), category: LIST_CAT[p.list],
+        name: p.name, mobile: p.mobile, address: p.address, mode: b.querySelector("#pMode").value, ref: b.querySelector("#pRef").value, personId: p.id, month: m});
+      closeSheet(); toast(`${monthName(m)} জমা হয়েছে · ক্রমিক ${bnd(j.entry.serial)}` + (j.sms === "sent" ? " · SMS গেছে" : ""));
+      await reload(); render(); }); };
+  });
+}
+function showPaid(pid, m) {
+  const p = D.people.find(x => x.id === pid); const pd = p?.paid?.[m]; if (!pd) return;
+  const e = D.ledger.find(x => x.id === pd.entry);
+  openSheet(`${monthName(m)}: জমা হয়েছে`, `<p><b>${esc(p.name)}</b></p><p>${tk(pd.amount)} · ${fmtDate(pd.date)}${pd.by ? " · এন্ট্রি: " + esc(D.names[pd.by] || "") : ""}</p>
+    ${isAdmin() && e ? `<div class="actions"><button class="btn ghost" id="pdEdit">এন্ট্রি সম্পাদনা</button><button class="btn danger" id="pdDel">এন্ট্রি মুছুন</button></div>` : ""}`, b => {
+    if (b.querySelector("#pdEdit")) { b.querySelector("#pdEdit").onclick = () => editEntry(e.id); b.querySelector("#pdDel").onclick = () => deleteEntry(e.id); }
+  });
+}
+
+/* ================= Tab 4: আজীবন সদস্য ================= */
+$("lifeSearch").addEventListener("input", renderLife);
+function renderLife() {
+  const ppl = D.people.filter(p => p.list === "life" && !p.deleted && matches(p, $("lifeSearch").value)).sort((a, b) => (a.memberNo || "").localeCompare(b.memberNo || "", "bn", {numeric: true}) || a.name.localeCompare(b.name, "bn"));
+  $("lifeCount").textContent = bnd(D.people.filter(p => p.list === "life" && !p.deleted).length) + " জন" + (isAdmin() ? " · মোট " + tk(D.people.filter(p => p.list === "life" && !p.deleted).reduce((s, p) => s + Number(p.amount || 0), 0)) : "");
+  $("lifeList").innerHTML = `<div class="card">` + (ppl.length ? ppl.map(p => `<div class="item"><div class="sn">${esc(bnd(p.memberNo || ""))}</div>
+    <div><button class="link-btn" data-person="${p.id}" style="padding:0;color:inherit;text-align:left"><span class="t">${esc(p.name)}</span></button>
+    <div class="s">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</div><div class="s">${p.date ? "সদস্য হয়েছেন " + fmtDate(p.date) : ""}${p.area ? " · " + esc(p.area) : ""}</div></div>
+    <div class="amt inc">${p.amount ? tk(p.amount) : ""}</div></div>`).join("") : `<div class="empty">এখনো কেউ যোগ হয়নি। নিচের + বাটন চেপে যোগ করুন।</div>`) + `</div>`;
+}
+
+/* ================= add / view / edit person ================= */
+$("fab").onclick = () => personForm(view === "monthly" ? "monthly" : view, null);
+function personForm(list, p) {
+  const v = k => esc(p ? p[k] ?? "" : "");
+  const areaOpts = (sel, optional) => (optional ? `<option value="">—</option>` : "") + D.areas.map(a => `<option${a === sel ? " selected" : ""}>${esc(a)}</option>`).join("");
+  const areaSel = p ? p.area : (list === "monthly" ? curArea : "");
+  openSheet((p ? "সম্পাদনা: " : "নতুন ") + LIST_LABEL[list], `<form class="form" id="peForm">
+    <label>নাম<input id="peName" value="${v("name")}" required></label>
+    <label>ঠিকানা<input id="peAddr" value="${v("address")}" placeholder="গ্রাম, ডাকঘর, থানা"></label>
+    <div class="row2"><label>মোবাইল নম্বর<input id="peMob" type="tel" inputmode="numeric" value="${v("mobile")}" placeholder="01XXXXXXXXX"></label>
+      <label>এলাকা (থানা)<select id="peArea"${list === "monthly" ? " required" : ""}>${areaOpts(areaSel, list !== "monthly")}</select></label></div>
+    <div class="row2"><label>${list === "life" ? "সদস্য ফি (টাকা)" : "মাসিক প্রণামী (টাকা)"}<input id="peAmt" inputmode="decimal" value="${v("amount")}"${list !== "land" ? " required" : ""}></label>
+      <label>${list === "life" ? "সদস্য হওয়ার তারিখ" : "কোন মাস থেকে"}<input type="date" id="peDate" value="${v("date") || D.today}"></label></div>
+    ${list === "land" ? `<div class="row2"><label>জমির পরিমাণ<input id="peLand" value="${v("land")}" placeholder="যেমন: ১০ শতক"></label><label>মৌজা / দাগ নং<input id="peDet" value="${v("details")}"></label></div>` : ""}
+    ${list === "life" ? `<label>সদস্য নং<input id="peNo" value="${v("memberNo")}"></label>` : ""}
+    <label>মন্তব্য<input id="peNote" value="${v("note")}"></label>
+    <button class="btn wide">${p ? "হালনাগাদ করুন" : "যোগ করুন"}</button>
+    ${p || isAdmin() ? "" : `<p class="note">যোগ করার পর বদলাতে বা মুছতে অ্যাডমিন লাগবে।</p>`}</form>`, b => {
+    b.querySelector("#peForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      const g = id => (b.querySelector("#" + id) || {}).value ?? "";
+      const body = {list, name: g("peName"), address: g("peAddr"), mobile: g("peMob"), area: g("peArea"), amount: toEn(g("peAmt")), date: g("peDate"),
+        land: g("peLand"), details: g("peDet"), memberNo: toEn(g("peNo")), note: g("peNote")};
+      if (p) await api("people_update", {...body, id: p.id}); else await api("people_add", body);
+      closeSheet(); toast(p ? "হালনাগাদ হয়েছে।" : "যোগ হয়েছে।"); await reload(); render(); }); };
+  });
+}
+function showPerson(id) {
+  const p = D.people.find(x => x.id === id); if (!p) return;
+  const paid = Object.keys(p.paid || {}).sort().reverse();
+  const rows = [["ঠিকানা", p.address], ["মোবাইল", p.mobile], ["এলাকা", p.area], [p.list === "life" ? "সদস্য ফি" : "মাসিক প্রণামী", p.amount ? tk(p.amount) : ""],
+    ["জমির পরিমাণ", p.land], ["মৌজা / দাগ", p.details], ["সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : "শুরু", p.date ? fmtDate(p.date) : ""],
+    ["মন্তব্য", p.note], ["যোগ করেছেন", (D.names[p.by] || "") + " · " + fmtDate((p.createdAt || "").slice(0, 10))]].filter(r => r[1]);
+  openSheet(p.name, `<table><tbody>${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table>
+    ${paid.length ? `<h3 class="sub" style="margin-top:12px">জমার ইতিহাস</h3><table><tbody>${paid.slice(0, 24).map(m => `<tr><td>${monthName(m)}</td><td>${fmtDate(p.paid[m].date)}</td><td class="n">${tk(p.paid[m].amount)}</td></tr>`).join("")}</tbody></table>` : ""}
+    ${isAdmin() ? `<div class="actions"><button class="btn ghost" id="psEdit">সম্পাদনা</button><button class="btn danger" id="psDel">তালিকা থেকে মুছুন</button></div>` : ""}`, b => {
+    if (!isAdmin()) return;
+    b.querySelector("#psEdit").onclick = () => personForm(p.list, p);
+    b.querySelector("#psDel").onclick = () => openSheet("তালিকা থেকে মুছবেন?", `<form class="form" id="pdForm"><p><b>${esc(p.name)}</b> (${LIST_LABEL[p.list]})</p>
+      <label>কারণ<input id="pdR" required></label><button class="btn danger wide">মুছে ফেলুন</button><p class="note">আগের জমার হিসাব থেকে যাবে। রেকর্ড থেকে ফিরিয়ে আনা যাবে।</p></form>`, bb => {
+      bb.querySelector("#pdForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => { await api("people_delete", {id: p.id, reason: bb.querySelector("#pdR").value}); closeSheet(); toast("মুছে ফেলা হয়েছে।"); await reload(); render(); }); };
+    });
+  });
+}
+
+/* ================= admin: dashboard ================= */
+function live() { return D.ledger.filter(r => !r.deleted); }
+function sums(list) { const s = {income: 0, daily: 0, construction: 0}; list.forEach(r => s[r.kind] += Number(r.amount) || 0); s.cost = s.daily + s.construction; s.net = s.income - s.cost; return s; }
+function inRange(a, b) { return live().filter(r => r.date >= a && r.date <= b); }
+function groupBy(list, key) { const m = new Map(); list.forEach(r => { const k = r[key] || "—"; m.set(k, (m.get(k) || 0) + (Number(r.amount) || 0)); }); return [...m].sort((a, b) => b[1] - a[1]); }
+const signed = n => (n < 0 ? "− " : "") + tk(Math.abs(n));
+function kpiHTML(s) {
+  return `<div class="kpi"><div class="lbl">জমা / আয়</div><div class="val inc">${tk(s.income)}</div></div>
+  <div class="kpi"><div class="lbl">দৈনিক খরচ</div><div class="val exp">${tk(s.daily)}</div></div>
+  <div class="kpi"><div class="lbl">নির্মাণ খরচ</div><div class="val con">${tk(s.construction)}</div></div>
+  <div class="kpi"><div class="lbl">উদ্বৃত্ত / ঘাটতি</div><div class="val ${s.net < 0 ? "exp" : "inc"}">${signed(s.net)}</div><div class="s">মোট খরচ ${tk(s.cost)}</div></div>`;
+}
+function barChart(buckets) {
+  const W = Math.max(520, buckets.length * 38), H = 220, pl = 64, pb = 28, pt = 10, cw = (W - pl - 8) / Math.max(1, buckets.length);
+  const max = Math.max(1, ...buckets.map(b => Math.max(b.income, b.daily + b.construction)));
+  const p10 = Math.pow(10, Math.floor(Math.log10(max))), f = max / p10, nice = (f <= 2 ? 2 : f <= 5 ? 5 : 10) * p10;
+  const y = v => pt + (H - pt - pb) * (1 - v / nice); let g = "";
+  for (let i = 0; i <= 4; i++) { const v = nice * i / 4; g += `<line x1="${pl}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${bn(v)}</text>`; }
+  buckets.forEach((b, i) => { const x = pl + i * cw, bw = Math.min(14, cw / 2 - 3);
+    g += `<rect x="${x + cw / 2 - bw - 1}" y="${y(b.income)}" width="${bw}" height="${y(0) - y(b.income)}" fill="var(--inc)" rx="2"><title>${esc(b.label)} জমা ${tk(b.income)}</title></rect>`;
+    g += `<rect x="${x + cw / 2 + 1}" y="${y(b.daily)}" width="${bw}" height="${y(0) - y(b.daily)}" fill="var(--exp)"><title>${esc(b.label)} দৈনিক খরচ ${tk(b.daily)}</title></rect>`;
+    g += `<rect x="${x + cw / 2 + 1}" y="${y(b.daily + b.construction)}" width="${bw}" height="${y(b.daily) - y(b.daily + b.construction)}" fill="var(--con)"><title>${esc(b.label)} নির্মাণ ${tk(b.construction)}</title></rect>`;
+    g += `<text x="${x + cw / 2}" y="${H - 10}" text-anchor="middle" font-size="10" fill="var(--muted)">${esc(b.label)}</text>`; });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="আয়-ব্যয় চার্ট">${g}</svg>`;
+}
+function renderDash() {
+  const t = D.today, Y = t.slice(0, 4), M = t.slice(5, 7);
+  $("todayTitle").textContent = "আজ · " + fmtDate(t); $("todayKpis").innerHTML = kpiHTML(sums(inRange(t, t)));
+  $("monthTitle").textContent = "এই মাস · " + BN_MONTHS[+M - 1] + " " + bnd(Y); $("monthKpis").innerHTML = kpiHTML(sums(inRange(`${Y}-${M}-01`, `${Y}-${M}-31`)));
+  const b = []; for (let i = 13; i >= 0; i--) { const d = addDays(t, -i); b.push({label: bnd(+d.slice(8)), ...sums(inRange(d, d))}); }
+  $("dashChart").innerHTML = barChart(b);
+  const proj = groupBy(live().filter(r => r.kind === "construction"), "project");
+  $("projList").innerHTML = proj.length ? `<table><tbody>${proj.map(([p, v]) => `<tr><td>${esc(p)}</td><td class="n con">${tk(v)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">এখনো নির্মাণ খরচের এন্ট্রি নেই।</div>`;
+  const ym = t.slice(0, 7);
+  const rows = ["monthly", "land"].map(list => { const ppl = D.people.filter(p => p.list === list && !p.deleted && (!p.date || p.date.slice(0, 7) <= ym));
+    const paid = ppl.filter(p => p.paid?.[ym]); return [LIST_LABEL[list], ppl.length, paid.length, paid.reduce((s, p) => s + Number(p.paid[ym].amount || 0), 0), ppl.filter(p => !p.paid?.[ym]).reduce((s, p) => s + Number(p.amount || 0), 0)]; });
+  $("monthlyCollect").innerHTML = `<table><thead><tr><th>তালিকা</th><th class="n">মোট জন</th><th class="n">জমা দিয়েছেন</th><th class="n">আদায়</th><th class="n">বকেয়া (আনুমানিক)</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td class="n">${bnd(r[1])}</td><td class="n">${bnd(r[2])}</td><td class="n inc">${tk(r[3])}</td><td class="n exp">${tk(r[4])}</td></tr>`).join("")}</tbody></table>`;
+}
+
+/* ================= admin: daily entries by user ================= */
+$("dailyPick").addEventListener("input", renderDaily);
+function renderDaily() {
+  const d = $("dailyPick").value || D.today;
+  const led = live().filter(r => r.date === d || (r.createdAt || "").slice(0, 10) === d);
+  const ppl = D.people.filter(p => (p.createdAt || "").slice(0, 10) === d);
+  const uids = [...new Set([...led.map(r => r.by), ...ppl.map(p => p.by)])];
+  if (!uids.length) { $("dailyBody").innerHTML = `<div class="card"><div class="empty">${fmtDate(d)} তারিখে কেউ কোনো এন্ট্রি দেননি।</div></div>`; return; }
+  $("dailyBody").innerHTML = uids.map(uid => {
+    const l = led.filter(r => r.by === uid).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    const pp = ppl.filter(p => p.by === uid); const s = sums(l);
+    return `<div class="card"><div class="card-head"><h2>${esc(D.names[uid] || "অজানা ইউজার")}</h2><span class="muted">${bnd(l.length)}টি হিসাব${pp.length ? ", " + bnd(pp.length) + " জন নতুন নাম" : ""}</span></div>
+      <div class="daysum"><span>জমা <b class="inc">${tk(s.income)}</b></span><span>দৈনিক খরচ <b class="exp">${tk(s.daily)}</b></span><span>নির্মাণ <b class="con">${tk(s.construction)}</b></span></div>
+      ${l.map(r => entryRow(r, {ops: true}) .replace('<div class="s">', `<div class="s">${r.date !== d ? "হিসাবের তারিখ " + fmtDate(r.date) + " · " : ""}এন্ট্রির সময় ${esc((r.createdAt || "").slice(11, 16))} · `)).join("")}
+      ${pp.length ? `<h3 class="sub" style="margin-top:10px">তালিকায় নতুন যোগ</h3>` + pp.map(p => `<div class="item"><div class="sn"></div><div><div class="t">${esc(p.name)}</div><div class="s">${LIST_LABEL[p.list]} · ${esc([p.area, p.address, p.mobile].filter(Boolean).join(" · "))}</div></div><div class="amt">${p.amount ? tk(p.amount) : ""}</div></div>`).join("") : ""}</div>`;
+  }).join("");
+}
+$("dailyBody").addEventListener("click", e => { const t = e.target.closest("button"); if (!t) return; if (t.dataset.edit) editEntry(t.dataset.edit); else if (t.dataset.del) deleteEntry(t.dataset.del); });
+
+/* ================= admin: reports ================= */
+function initReport() { const t = D.today; $("rMonth").value = t.slice(0, 7); $("rYear").value = t.slice(0, 4); $("rFrom").value = t.slice(0, 7) + "-01"; $("rTo").value = t; }
+["rType", "rMonth", "rYear", "rHalf", "rFrom", "rTo"].forEach(id => $(id).addEventListener("input", renderReport));
+function period() {
+  const t = $("rType").value; ["rMonthW", "rYearW", "rHalfW", "rFromW", "rToW"].forEach(id => $(id).hidden = true);
+  if (t === "month") { $("rMonthW").hidden = false; const [y, m] = $("rMonth").value.split("-"); return {a: `${y}-${m}-01`, b: `${y}-${m}-31`, title: `মাসিক রিপোর্ট · ${BN_MONTHS[+m - 1]} ${bnd(y)}`, by: "day"}; }
+  const y = +$("rYear").value;
+  if (t === "half") { $("rYearW").hidden = false; $("rHalfW").hidden = false; return $("rHalf").value === "1" ? {a: `${y}-01-01`, b: `${y}-06-30`, title: `ষাণ্মাসিক রিপোর্ট · জানুয়ারি–জুন ${bnd(y)}`, by: "month"} : {a: `${y}-07-01`, b: `${y}-12-31`, title: `ষাণ্মাসিক রিপোর্ট · জুলাই–ডিসেম্বর ${bnd(y)}`, by: "month"}; }
+  if (t === "year") { $("rYearW").hidden = false; return {a: `${y}-01-01`, b: `${y}-12-31`, title: `বার্ষিক রিপোর্ট · ${bnd(y)}`, by: "month"}; }
+  if (t === "fy") { $("rYearW").hidden = false; return {a: `${y}-07-01`, b: `${y + 1}-06-30`, title: `অর্থবছর ${bnd(y)}–${bnd(y + 1)} রিপোর্ট`, by: "month"}; }
+  $("rFromW").hidden = false; $("rToW").hidden = false; return {a: $("rFrom").value, b: $("rTo").value, title: `রিপোর্ট · ${fmtDate($("rFrom").value)} থেকে ${fmtDate($("rTo").value)}`, by: "month"};
+}
+function catTable(list, cls) { const g = groupBy(list, "category"); if (!g.length) return `<div class="empty">—</div>`; const tot = g.reduce((s, x) => s + x[1], 0);
+  return `<table><tbody>${g.map(([c, v]) => `<tr><td>${esc(c)}</td><td class="n">${bn((v / tot * 100).toFixed(1))}%</td><td class="n ${cls}">${tk(v)}</td></tr>`).join("")}<tr class="tot"><td>মোট</td><td></td><td class="n ${cls}">${tk(tot)}</td></tr></tbody></table>`; }
+let curPeriod = null;
+function renderReport() {
+  if (!isAdmin()) return;
+  const p = period(); curPeriod = p;
+  if (!p.a || !p.b || p.a.includes("undefined")) { $("reportBody").innerHTML = `<div class="empty">সময়সীমা বেছে নিন।</div>`; return; }
+  const list = inRange(p.a, p.b), s = sums(list);
+  const opening = sums(live().filter(r => r.date < p.a)).net, closing = opening + s.net;
+  const buckets = [];
+  if (p.by === "day") { for (let d = p.a; d <= p.b && d.slice(0, 7) === p.a.slice(0, 7); d = addDays(d, 1)) buckets.push({key: d, label: bnd(+d.slice(8)), ...sums(list.filter(r => r.date === d))}); }
+  else { let [y, m] = p.a.split("-").map(Number); const end = p.b.slice(0, 7); for (;;) { const k = `${y}-${String(m).padStart(2, "0")}`; if (k > end) break; buckets.push({key: k, label: BN_MS[m - 1], ...sums(list.filter(r => r.date.startsWith(k)))}); if (++m > 12) { m = 1; y++; } } }
+  const donors = groupBy(list.filter(r => r.kind === "income" && r.name), "name");
+  const proj = groupBy(list.filter(r => r.kind === "construction"), "project");
+  const active = buckets.filter(b => b.income || b.cost);
+  $("reportBody").innerHTML = `<div class="rhead"><h2>${p.title}</h2><span class="note">শ্রীশ্রী বাসুদেব যোগাশ্রম, নেহালপুর · প্রস্তুত ${fmtDate(D.today)}</span></div>
+    <div class="kpis">${kpiHTML(s)}</div>
+    <p class="bal">প্রারম্ভিক জের ${signed(opening)} + এই সময়ের উদ্বৃত্ত ${signed(s.net)} = সমাপনী জের <span class="${closing < 0 ? "exp" : "inc"}">${signed(closing)}</span></p>
+    <div class="chart" style="margin-block:14px">${barChart(buckets)}</div>
+    <div class="two"><div><h3 class="sub inc">আয়ের খাত</h3>${catTable(list.filter(r => r.kind === "income"), "inc")}</div><div><h3 class="sub exp">দৈনিক খরচের খাত</h3>${catTable(list.filter(r => r.kind === "daily"), "exp")}</div></div>
+    <div class="two" style="margin-top:14px"><div><h3 class="sub con">নির্মাণ: প্রকল্প অনুযায়ী</h3>${proj.length ? `<table><tbody>${proj.map(([c, v]) => `<tr><td>${esc(c)}</td><td class="n con">${tk(v)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">—</div>`}
+      <h3 class="sub con" style="margin-top:12px">নির্মাণ: উপকরণ অনুযায়ী</h3>${catTable(list.filter(r => r.kind === "construction"), "con")}</div>
+      <div><h3 class="sub">দাতা অনুযায়ী জমা</h3>${donors.length ? `<div class="tbl"><table><tbody>${donors.slice(0, 50).map(([c, v]) => `<tr><td>${esc(c)}</td><td class="n inc">${tk(v)}</td></tr>`).join("")}</tbody></table></div>${donors.length > 50 ? `<p class="note">আরও ${bnd(donors.length - 50)} জন CSV-তে আছেন।</p>` : ""}` : `<div class="empty">—</div>`}</div></div>
+    <h3 class="sub" style="margin-top:16px">${p.by === "day" ? "দিনভিত্তিক" : "মাসভিত্তিক"} হিসাব</h3>
+    <div class="tbl"><table><thead><tr><th>${p.by === "day" ? "তারিখ" : "মাস"}</th><th class="n">জমা</th><th class="n">দৈনিক খরচ</th><th class="n">নির্মাণ</th><th class="n">উদ্বৃত্ত</th></tr></thead><tbody>
+    ${active.map(b => `<tr><td>${p.by === "day" ? fmtDate(b.key) : monthName(b.key)}</td><td class="n inc">${tk(b.income)}</td><td class="n exp">${tk(b.daily)}</td><td class="n con">${tk(b.construction)}</td><td class="n">${signed(b.net)}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">এই সময়ে কোনো এন্ট্রি নেই।</td></tr>`}
+    <tr class="tot"><td>মোট</td><td class="n inc">${tk(s.income)}</td><td class="n exp">${tk(s.daily)}</td><td class="n con">${tk(s.construction)}</td><td class="n">${signed(s.net)}</td></tr></tbody></table></div>`;
+}
+async function download(what, from, to) { const j = await api("export_link", {what, from, to}); window.location.href = j.url; }
+$("csvBtn").onclick = e => guard(e.target, () => download("ledger", curPeriod?.a, curPeriod?.b));
+$("csvPeople").onclick = e => guard(e.target, () => download("people"));
+
+/* ================= admin: users & areas ================= */
+async function renderUsers() {
+  let j; try { j = await api("users"); } catch (e) { $("userList").innerHTML = `<div class="msg">${esc(e.message)}</div>`; return; }
+  const n = j.users.filter(u => u.role === "user" && u.active).length;
+  $("userList").innerHTML = `<div class="card-head"><h3 class="sub">ইউজার (${bnd(n)} / ${bnd(j.max)})</h3></div>` + j.users.map(u => `<div class="item"><div class="sn">${u.role === "admin" ? "★" : ""}</div>
+    <div><div class="t">${esc(u.name)}</div><div class="s">আইডি: ${esc(u.username)} · ${u.role === "admin" ? "অ্যাডমিন" : "ইউজার"} ${u.active ? "" : '<span class="chip bad">বন্ধ</span>'}</div>
+    ${u.id !== me.id ? `<div class="ops" style="margin-top:6px"><button class="btn ghost small" data-reset="${u.id}" data-n="${esc(u.name)}">পাসওয়ার্ড রিসেট</button><button class="btn ghost small" data-toggle="${u.id}">${u.active ? "বন্ধ করুন" : "চালু করুন"}</button></div>` : ""}</div><div></div></div>`).join("");
+}
+$("userList").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.toggle) guard(b, async () => { await api("user_toggle", {id: b.dataset.toggle}); toast("হালনাগাদ হয়েছে।"); renderUsers(); });
+  if (b.dataset.reset) openSheet("পাসওয়ার্ড রিসেট: " + b.dataset.n, `<form class="form" id="rsF"><label>নতুন পাসওয়ার্ড<input id="rsP" required minlength="6"></label><button class="btn wide">রিসেট করুন</button></form>`, bb => {
+    bb.querySelector("#rsF").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => { await api("user_reset", {id: b.dataset.reset, password: bb.querySelector("#rsP").value}); closeSheet(); toast("পাসওয়ার্ড বদলানো হয়েছে। নতুন পাসওয়ার্ড ইউজারকে জানিয়ে দিন।"); }); };
+  });
+});
+$("userForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
+  await api("user_add", {name: $("uName").value, username: $("uUser").value, password: $("uPass").value});
+  toast(`ইউজার যোগ হয়েছে। আইডি: ${$("uUser").value.trim().toLowerCase()}`); $("userForm").reset(); await reload(); renderUsers(); }); });
+$("areaForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => { const j = await api("area_add", {name: $("areaName").value}); D.areas = j.areas; $("areaName").value = ""; toast("এলাকা যোগ হয়েছে।"); }); });
+
+/* ================= admin: SMS ================= */
+async function loadSms() {
+  try { const {cfg} = await api("sms_get");
+    $("smsEnabled").checked = cfg.enabled; $("smsAuto").checked = cfg.auto; $("smsMethod").value = cfg.method; $("smsNum").value = cfg.number_format;
+    $("smsUrl").value = cfg.url; $("smsParams").value = cfg.params; $("smsSuccess").value = cfg.success; $("smsTpl").value = cfg.template; smsLen();
+  } catch (e) { toast(e.message); }
+}
+function smsLen() { const t = $("smsTpl").value.replace("{নাম}", "শ্রী রতন দাশ").replace("{টাকা}", "৫০০").replace("{তারিখ}", "৬ নভেম্বর ২০২৬").replace("{মাস}", "নভেম্বর ২০২৬").replace(/\{(রসিদ|ক্রমিক)\}/g, "১২");
+  const n = [...t].length, parts = n <= 70 ? 1 : Math.ceil(n / 67); $("smsLen").textContent = `নমুনা বার্তা প্রায় ${bnd(n)} অক্ষর, অর্থাৎ প্রতি দাতায় ${bnd(parts)}টি SMS। ৭০ অক্ষরের মধ্যে রাখলে খরচ সবচেয়ে কম। {মাস} দিলে মাসিক প্রণামীর মাসের নাম বসবে।`; }
+$("smsTpl").addEventListener("input", smsLen);
+$("smsForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
+  await api("sms_set", {enabled: $("smsEnabled").checked, auto: $("smsAuto").checked, method: $("smsMethod").value, number_format: $("smsNum").value,
+    url: $("smsUrl").value, params: $("smsParams").value, success: $("smsSuccess").value, template: $("smsTpl").value});
+  await reload(); toast("SMS সেটিংস সংরক্ষিত।"); }); });
+$("smsTestForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
+  const j = await api("sms_test", {mobile: $("smsTestNo").value}); $("smsTestMsg").className = "msg" + (j.sent ? " ok" : "");
+  $("smsTestMsg").textContent = (j.sent ? "পাঠানো হয়েছে। " : "যায়নি। ") + j.info; }); });
+
+/* ================= admin: records ================= */
+async function renderRecords() {
+  const del = D.ledger.filter(r => r.deleted);
+  $("delLog").innerHTML = (del.length ? del.map(r => `<div class="item"><div class="sn">${bnd(r.serial)}</div><div><div class="t">${esc(r.name || r.category)} · ${fmtDate(r.date)}</div>
+    <div class="s">${KLABEL[r.kind]} · ${esc(r.category)} · এন্ট্রি: ${esc(D.names[r.by] || "")}</div><div class="s">মুছেছেন ${esc(D.names[r.deletedBy] || "")}, ${esc(r.deletedAt)} · কারণ: ${esc(r.deleteReason)}</div>
+    <div class="ops"><button class="btn ghost small" data-undel="${r.id}" data-y="${r.date.slice(0, 4)}">ফিরিয়ে আনুন</button></div></div><div class="amt">${tk(r.amount)}</div></div>`).join("") : `<div class="empty">কোনো এন্ট্রি মুছে ফেলা হয়নি।</div>`)
+    + (D.people.some(p => p.deleted) ? `<h3 class="sub" style="margin-top:10px">তালিকা থেকে মুছে ফেলা নাম</h3>` + D.people.filter(p => p.deleted).map(p => `<div class="item"><div class="sn"></div><div><div class="t">${esc(p.name)}</div><div class="s">${LIST_LABEL[p.list]} · কারণ: ${esc(p.deleteReason)} · ${esc(p.deletedAt)}</div><div class="ops"><button class="btn ghost small" data-unp="${p.id}">ফিরিয়ে আনুন</button></div></div><div></div></div>`).join("") : "");
+  const ed = D.ledger.filter(r => r.history?.length);
+  $("editLog").innerHTML = ed.length ? `<div class="tbl"><table><thead><tr><th>এন্ট্রি</th><th>আগে</th><th>পরে</th><th>কবে</th></tr></thead><tbody>${ed.flatMap(r => r.history.map((h, i) => { const nx = r.history[i + 1] || r;
+    return `<tr><td>${fmtDate(r.date)} · ক্রমিক ${bnd(r.serial)}</td><td>${tk(h.amount)} · ${esc(h.category)}${h.name ? " · " + esc(h.name) : ""}</td><td>${tk(nx.amount)} · ${esc(nx.category)}${nx.name ? " · " + esc(nx.name) : ""}</td><td>${esc(h.changedAt)}</td></tr>`; })).join("")}</tbody></table></div>` : `<div class="empty">কোনো এন্ট্রি সম্পাদনা হয়নি।</div>`;
+  try { const {log} = await api("audit");
+    $("auditLog").innerHTML = `<div class="tbl"><table><tbody>${log.slice(0, 200).map(l => `<tr><td style="white-space:nowrap">${esc(l.t)}</td><td>${esc(l.who)}</td><td>${esc(l.what)}${l.amount ? " · " + tk(l.amount) : ""}${l.reason ? " · " + esc(l.reason) : ""}</td></tr>`).join("")}</tbody></table></div>`;
+  } catch (e) { $("auditLog").textContent = e.message; }
+}
+$("v-records").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.undel) guard(b, async () => { await api("ledger_restore", {id: b.dataset.undel, year: b.dataset.y}); await reload(); renderRecords(); toast("ফিরিয়ে আনা হয়েছে।"); });
+  if (b.dataset.unp) guard(b, async () => { await api("people_restore", {id: b.dataset.unp}); await reload(); renderRecords(); toast("ফিরিয়ে আনা হয়েছে।"); }); });
+
+/* ================= password ================= */
+$("pwForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => { await api("password", {old: $("pwOld").value, new: $("pwNew").value}); $("pwForm").reset(); toast("পাসওয়ার্ড বদলানো হয়েছে।"); go("ledger"); }); });
+
+/* Android back button support (called by the app shell) */
+window.byaBack = function () {
+  if (!$("sheet").hidden) { closeSheet(); return true; }
+  if (!$("menu").hidden) { closeMenu(); return true; }
+  if (view === "monthly" && curArea !== null) { curArea = null; renderMonthly(); return true; }
+  if (view !== "ledger" && !$("appScreen").hidden) { go("ledger"); return true; }
+  return false;
+};
+window.addEventListener("online", () => $("offline").hidden = true);
+window.addEventListener("offline", () => $("offline").hidden = false);
+boot();

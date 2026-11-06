@@ -4,6 +4,7 @@ basudevyogashram.org-এর সোর্স।
 
 - `index.php` — মূল পাতা (খবর, উৎসবসূচি, ভূমিদাতা, গ্যালারি, যোগাযোগ ও দানের তথ্য ডেটা থেকে আসে)
 - `admin/` — বাংলা অ্যাডমিন প্যানেল (basudevyogashram.org/admin)
+- `app/` — আশ্রমের হিসাব খাতা (basudevyogashram.org/app), Android অ্যাপও এই পাতাই খোলে। ডেটা থাকে `ashram-data/hisab/`-এ। অ্যাপের খোলস `android-app` ব্রাঞ্চে।
 - `inc/` — কোড; `seed/` — প্রথমবারের ডেটা
 - আপলোড করা ছবি ও সম্পাদিত ডেটা থাকে public_html-এর বাইরে `ashram-data/` ফোল্ডারে, তাই GitHub deploy এগুলো মুছে না।
 

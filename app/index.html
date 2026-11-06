@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1F2A5C">
+<meta name="robots" content="noindex,nofollow">
+<title>বাসুদেব যোগাশ্রম হিসাব</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="app.css?v=1">
+</head>
+<body>
+
+<!-- ===== login / setup ===== -->
+<div id="authScreen" class="auth" hidden>
+  <div class="auth-card">
+    <div class="om" aria-hidden="true">ॐ</div>
+    <h1>বাসুদেব যোগাশ্রম</h1>
+    <p class="muted">হিসাব খাতা · নেহালপুর, হাটহাজারী</p>
+    <form id="loginForm" hidden>
+      <label>ইউজার আইডি<input id="lUser" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+      <label>পাসওয়ার্ড<input id="lPass" type="password" autocomplete="current-password" required></label>
+      <button class="btn wide" type="submit">লগইন</button>
+    </form>
+    <form id="setupForm" hidden>
+      <p class="note">প্রথমবার চালু হচ্ছে। গুরুদেবের অ্যাডমিন অ্যাকাউন্ট তৈরি করুন। ওয়েবসাইট সেটআপের সময় যে সেটআপ কী দেওয়া হয়েছিল সেটা লাগবে।</p>
+      <label>সেটআপ কী<input id="sKey" autocomplete="off" required></label>
+      <label>অ্যাডমিনের নাম<input id="sName" value="গুরুদেব" required></label>
+      <label>অ্যাডমিন ইউজার আইডি (ইংরেজিতে)<input id="sUser" autocapitalize="none" spellcheck="false" placeholder="যেমন: gurudev" required></label>
+      <label>পাসওয়ার্ড (অন্তত ৮ অক্ষর)<input id="sPass" type="password" autocomplete="new-password" required minlength="8"></label>
+      <button class="btn wide" type="submit">অ্যাডমিন অ্যাকাউন্ট তৈরি করুন</button>
+    </form>
+    <div class="msg" id="authMsg" role="status"></div>
+  </div>
+</div>
+
+<!-- ===== app ===== -->
+<div id="appScreen" hidden>
+  <header class="top">
+    <div class="top-in">
+      <div class="brand"><span class="om-sm" aria-hidden="true">ॐ</span><div><b>বাসুদেব যোগাশ্রম</b><small id="whoami"></small></div></div>
+      <button class="icon-btn" id="menuBtn" aria-label="মেনু" aria-haspopup="true">☰</button>
+    </div>
+    <div class="offline" id="offline" hidden>ইন্টারনেট সংযোগ নেই। সংযোগ এলে আবার চেষ্টা করুন।</div>
+  </header>
+
+  <main class="main" id="main">
+
+    <!-- Tab 1: আয়/ব্যয় -->
+    <section class="view" id="v-ledger">
+      <div class="card">
+        <div class="seg" id="kindSeg">
+          <button type="button" data-k="income" aria-pressed="true">জমা / অনুদান</button>
+          <button type="button" data-k="daily" aria-pressed="false">দৈনিক খরচ</button>
+          <button type="button" data-k="construction" aria-pressed="false">নির্মাণ খরচ</button>
+        </div>
+        <form id="ledgerForm" autocomplete="off" class="form">
+          <div class="banner" id="prefillNote" hidden></div>
+          <div class="row2">
+            <label>তারিখ<input type="date" id="fDate" required></label>
+            <label>টাকা (৳)<input id="fAmount" inputmode="decimal" required placeholder="০"></label>
+          </div>
+          <label>খাত<select id="fCat"></select></label>
+          <label id="projWrap" hidden>প্রকল্পের নাম<input id="fProj" list="projOptions" placeholder="যেমন: স্কুল ভবন ২য় তলা"><datalist id="projOptions"></datalist></label>
+          <label><span id="nameLbl">ভক্তের নাম</span><input id="fName" list="nameOptions"><datalist id="nameOptions"></datalist></label>
+          <div class="row2" id="donorExtra">
+            <label>মোবাইল নম্বর<input id="fMobile" type="tel" inputmode="numeric" placeholder="01XXXXXXXXX" maxlength="14"></label>
+            <label>ঠিকানা<input id="fAddr" placeholder="গ্রাম, থানা"></label>
+          </div>
+          <div class="row2">
+            <label>রসিদ / ভাউচার নং<input id="fRef"></label>
+            <label>মাধ্যম<select id="fMode"><option>নগদ</option><option>বিকাশ</option><option>নগদ (মোবাইল)</option><option>রকেট</option><option>ব্যাংক</option><option>চেক</option></select></label>
+          </div>
+          <label>মন্তব্য<input id="fNote"></label>
+          <button class="btn wide" id="saveBtn" type="submit">সংরক্ষণ করুন</button>
+          <p class="note" id="lockNote">সংরক্ষণের পর এন্ট্রি আর বদলানো বা মোছা যাবে না। ভুল হলে অ্যাডমিনকে জানান।</p>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>দিনের এন্ট্রি</h2>
+          <input type="date" id="dayPick" aria-label="তারিখ">
+        </div>
+        <div class="daysum" id="daySum"></div>
+        <div id="smsBox"></div>
+        <div id="dayList"></div>
+      </div>
+    </section>
+
+    <!-- Tab 2: মাসিক প্রণামী -->
+    <section class="view" id="v-monthly" hidden>
+      <div id="areaGrid"></div>
+      <div id="areaDetail" hidden>
+        <div class="card-head sticky-sub">
+          <button class="link-btn" id="areaBack" type="button">← সব এলাকা</button>
+          <h2 id="areaTitle"></h2>
+        </div>
+        <input class="search" id="mSearch" placeholder="নাম, ঠিকানা বা মোবাইল খুঁজুন">
+        <div id="mList"></div>
+      </div>
+    </section>
+
+    <!-- Tab 3: ভূমিদাতা -->
+    <section class="view" id="v-land" hidden>
+      <div class="card-head"><h2>ভূমিদাতাদের তালিকা</h2><span class="muted" id="landCount"></span></div>
+      <input class="search" id="landSearch" placeholder="নাম, ঠিকানা, মৌজা বা মোবাইল খুঁজুন">
+      <div id="landList"></div>
+    </section>
+
+    <!-- Tab 4: আজীবন সদস্য -->
+    <section class="view" id="v-life" hidden>
+      <div class="card-head"><h2>আজীবন সদস্যদের তালিকা</h2><span class="muted" id="lifeCount"></span></div>
+      <input class="search" id="lifeSearch" placeholder="নাম, ঠিকানা বা মোবাইল খুঁজুন">
+      <div id="lifeList"></div>
+    </section>
+
+    <!-- Tab 5: অন্যান্য -->
+    <section class="view" id="v-other" hidden>
+      <div class="empty big">এই অংশটি পরে যোগ হবে।</div>
+    </section>
+
+    <!-- ===== admin views ===== -->
+    <section class="view" id="v-dash" hidden>
+      <h2 class="vh">সারসংক্ষেপ</h2>
+      <h3 id="todayTitle" class="sub"></h3><div class="kpis" id="todayKpis"></div>
+      <h3 id="monthTitle" class="sub"></h3><div class="kpis" id="monthKpis"></div>
+      <div class="card"><h3 class="sub">গত ১৪ দিনের আয়-ব্যয়</h3>
+        <div class="legend"><span><i class="sw inc-bg"></i>জমা/আয়</span><span><i class="sw exp-bg"></i>দৈনিক খরচ</span><span><i class="sw con-bg"></i>নির্মাণ</span></div>
+        <div class="chart" id="dashChart"></div></div>
+      <div class="card"><h3 class="sub">নির্মাণ প্রকল্প (মোট খরচ)</h3><div id="projList"></div></div>
+      <div class="card"><h3 class="sub">মাসিক প্রণামী আদায় (এই মাস)</h3><div id="monthlyCollect"></div></div>
+    </section>
+
+    <section class="view" id="v-daily" hidden>
+      <div class="card-head"><h2 class="vh">দৈনিক এন্ট্রি: ইউজার অনুযায়ী</h2><input type="date" id="dailyPick" aria-label="তারিখ"></div>
+      <div id="dailyBody"></div>
+    </section>
+
+    <section class="view" id="v-report" hidden>
+      <h2 class="vh">রিপোর্ট</h2>
+      <div class="card">
+        <div class="row2">
+          <label>রিপোর্টের ধরন<select id="rType">
+            <option value="month">মাসিক</option><option value="half">ষাণ্মাসিক</option>
+            <option value="year">বার্ষিক (জানু–ডিসে)</option><option value="fy">অর্থবছর (জুলাই–জুন)</option><option value="custom">নির্দিষ্ট সময়সীমা</option>
+          </select></label>
+          <label id="rMonthW">মাস<input type="month" id="rMonth"></label>
+          <label id="rYearW" hidden>বছর<input type="number" id="rYear" min="2000" max="2100"></label>
+          <label id="rHalfW" hidden>অর্ধ<select id="rHalf"><option value="1">জানুয়ারি–জুন</option><option value="2">জুলাই–ডিসেম্বর</option></select></label>
+          <label id="rFromW" hidden>শুরু<input type="date" id="rFrom"></label>
+          <label id="rToW" hidden>শেষ<input type="date" id="rTo"></label>
+        </div>
+        <div class="actions"><button class="btn ghost" id="csvBtn" type="button">এই সময়ের হিসাব CSV (Excel)</button><button class="btn ghost" id="csvPeople" type="button">সব তালিকা CSV</button></div>
+      </div>
+      <div class="card" id="reportBody"></div>
+    </section>
+
+    <section class="view" id="v-users" hidden>
+      <h2 class="vh">ইউজার</h2>
+      <div class="card"><div id="userList"></div></div>
+      <div class="card">
+        <h3 class="sub">নতুন ইউজার যোগ করুন</h3>
+        <form id="userForm" class="form">
+          <div class="row2"><label>নাম<input id="uName" required></label><label>ইউজার আইডি (ইংরেজিতে)<input id="uUser" autocapitalize="none" spellcheck="false" required placeholder="যেমন: ratan"></label></div>
+          <label>পাসওয়ার্ড (অন্তত ৬ অক্ষর)<input id="uPass" required minlength="6" autocomplete="new-password"></label>
+          <button class="btn" type="submit">ইউজার যোগ করুন</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3 class="sub">মাসিক প্রণামীর নতুন এলাকা (থানা)</h3>
+        <form id="areaForm" class="inline"><input id="areaName" placeholder="যেমন: বোয়ালখালী" required><button class="btn" type="submit">যোগ করুন</button></form>
+      </div>
+    </section>
+
+    <section class="view" id="v-sms" hidden>
+      <h2 class="vh">SMS সেটিংস (Robi)</h2>
+      <div class="card">
+        <form id="smsForm" class="form">
+          <p class="note">Robi থেকে বাল্ক SMS অ্যাকাউন্ট নিলে তারা একটা API লিংক, ইউজারনেম/পাসওয়ার্ড বা API key দেবে। নিচে সেগুলো বসান। প্যারামিটারে <code>{to}</code> মানে দাতার মোবাইল নম্বর আর <code>{msg}</code> মানে বার্তা, এগুলো নিজে থেকে বসে যাবে।</p>
+          <label class="chk"><input type="checkbox" id="smsEnabled"> SMS চালু</label>
+          <label class="chk"><input type="checkbox" id="smsAuto"> এন্ট্রি সংরক্ষণের সাথে সাথেই SMS পাঠাও (বন্ধ থাকলে দিন শেষে বাটন চেপে পাঠাতে হবে)</label>
+          <div class="row2">
+            <label>পদ্ধতি<select id="smsMethod"><option>GET</option><option>POST</option></select></label>
+            <label>নম্বরের ধরন<select id="smsNum"><option value="880">8801XXXXXXXXX</option><option value="0">01XXXXXXXXX</option></select></label>
+          </div>
+          <label>API লিংক<input id="smsUrl" placeholder="https://..." inputmode="url" autocapitalize="none" spellcheck="false"></label>
+          <label>প্যারামিটার<textarea id="smsParams" rows="3" spellcheck="false" placeholder="username=XXXX&amp;password=XXXX&amp;to={to}&amp;message={msg}"></textarea></label>
+          <label>সফল হলে উত্তরে যে লেখা থাকে (ঐচ্ছিক)<input id="smsSuccess" placeholder="যেমন: success বা 1000" spellcheck="false"></label>
+          <label>বার্তার নমুনা ({নাম} {টাকা} {তারিখ} {রসিদ} {ক্রমিক})<textarea id="smsTpl" rows="3"></textarea></label>
+          <p class="note" id="smsLen"></p>
+          <button class="btn" type="submit">সেটিংস সংরক্ষণ</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3 class="sub">পরীক্ষামূলক SMS</h3>
+        <form id="smsTestForm" class="inline"><input id="smsTestNo" type="tel" placeholder="01XXXXXXXXX" required><button class="btn ghost" type="submit">পাঠান</button></form>
+        <div class="msg" id="smsTestMsg"></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-records" hidden>
+      <h2 class="vh">মুছে ফেলা ও সম্পাদনার রেকর্ড</h2>
+      <div class="card"><h3 class="sub">মুছে ফেলা এন্ট্রি</h3><div id="delLog"></div></div>
+      <div class="card"><h3 class="sub">সম্পাদিত এন্ট্রি</h3><div id="editLog"></div></div>
+      <div class="card"><h3 class="sub">সব কার্যক্রম (কে কখন কী করেছেন)</h3><div id="auditLog"></div></div>
+    </section>
+
+    <section class="view" id="v-password" hidden>
+      <h2 class="vh">পাসওয়ার্ড বদলান</h2>
+      <div class="card"><form id="pwForm" class="form">
+        <label>বর্তমান পাসওয়ার্ড<input id="pwOld" type="password" required autocomplete="current-password"></label>
+        <label>নতুন পাসওয়ার্ড<input id="pwNew" type="password" required autocomplete="new-password"></label>
+        <button class="btn" type="submit">বদলান</button>
+      </form></div>
+    </section>
+  </main>
+
+  <button class="fab" id="fab" type="button" aria-label="নতুন যোগ করুন" hidden>+</button>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="ledger" aria-current="page"><span class="ti">৳</span>আয়/ব্যয়</button>
+    <button data-tab="monthly"><span class="ti">◷</span>মাসিক প্রণামী</button>
+    <button data-tab="land"><span class="ti">▦</span>ভূমিদাতা</button>
+    <button data-tab="life"><span class="ti">✦</span>আজীবন সদস্য</button>
+    <button data-tab="other"><span class="ti">⋯</span>অন্যান্য</button>
+  </nav>
+</div>
+
+<!-- menu sheet -->
+<div class="scrim" id="menuScrim" hidden></div>
+<div class="sheet menu" id="menu" hidden role="menu">
+  <div class="admin-only">
+    <button data-go="dash">সারসংক্ষেপ</button>
+    <button data-go="daily">দৈনিক এন্ট্রি: কে কী দিয়েছেন</button>
+    <button data-go="report">রিপোর্ট (মাসিক / ষাণ্মাসিক / বার্ষিক)</button>
+    <button data-go="records">মুছে ফেলা ও সম্পাদনার রেকর্ড</button>
+    <button data-go="users">ইউজার ও এলাকা</button>
+    <button data-go="sms">SMS সেটিংস</button>
+    <hr>
+  </div>
+  <button data-go="password">পাসওয়ার্ড বদলান</button>
+  <button id="refreshBtn">তথ্য রিফ্রেশ করুন</button>
+  <button id="logoutBtn" class="danger">লগআউট</button>
+</div>
+
+<!-- generic form / confirm sheet -->
+<div class="scrim" id="sheetScrim" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-head"><h2 id="sheetTitle"></h2><button class="icon-btn" id="sheetClose" aria-label="বন্ধ">✕</button></div>
+  <div id="sheetBody"></div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="app.js?v=1"></script>
+</body>
+</html>
