@@ -9,7 +9,7 @@ const CON_CATS = ["রড","সিমেন্ট","ইট","বালু / প�
 const CATS = {income: INC_CATS, daily: DAILY_CATS, construction: CON_CATS};
 const KLABEL = {income: "জমা/আয়", daily: "দৈনিক খরচ", construction: "নির্মাণ খরচ"};
 const LIST_LABEL = {monthly: "মাসিক প্রণামী", land: "ভূমিদাতা", life: "আজীবন সদস্য"};
-const LIST_CAT = {monthly: "মাসিক প্রণামী", land: "ভূমিদাতা প্রণামী"};
+const LIST_CAT = {monthly: "মাসিক প্রণামী"};
 
 const bn = n => Number(n || 0).toLocaleString("bn-BD", {maximumFractionDigits: 2});
 const bnd = s => String(s).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
@@ -96,7 +96,7 @@ function go(v) {
   render();
 }
 function render() {
-  ({ledger: renderLedger, monthly: renderMonthly, land: () => renderGridList("land"), life: renderLife, dash: renderDash, daily: renderDaily,
+  ({ledger: renderLedger, monthly: renderMonthly, land: renderLand, life: renderLife, dash: renderDash, daily: renderDaily,
     report: renderReport, users: renderUsers, sms: loadSms, records: renderRecords}[view] || (() => {}))();
 }
 $("menuBtn").onclick = () => { $("menu").hidden = false; $("menuScrim").hidden = false; };
@@ -210,7 +210,7 @@ function deleteEntry(id) {
 }
 
 /* ================= Tab 2/3: মাসিক প্রণামী + ভূমিদাতা (১২ মাসের ঘর) ================= */
-const gridYear = {monthly: null, land: null};
+const gridYear = {monthly: null};
 function renderMonthly() {
   const ppl = D.people.filter(p => p.list === "monthly" && !p.deleted);
   const curM = D.today.slice(0, 7);
@@ -229,14 +229,18 @@ function renderMonthly() {
 $("areaGrid").addEventListener("click", e => { const b = e.target.closest("[data-area]"); if (b) { curArea = b.dataset.area; $("mSearch").value = ""; renderMonthly(); window.scrollTo(0, 0); } });
 $("areaBack").onclick = () => { curArea = null; renderMonthly(); };
 $("mSearch").addEventListener("input", renderMonthly);
-$("landSearch").addEventListener("input", () => renderGridList("land"));
+$("landSearch").addEventListener("input", renderLand);
 
 function matches(p, q) { q = toEn(q).trim().toLowerCase(); return !q || [p.name, p.address, p.mobile, p.area, p.details, p.memberNo, p.land].join(" ").toLowerCase().includes(q); }
-function renderGridList(list) {
-  const ppl = D.people.filter(p => p.list === list && !p.deleted);
-  $("landCount").textContent = bnd(ppl.length) + " জন";
-  $("landList").innerHTML = gridHTML(list, ppl, $("landSearch").value);
-  scrollGrid($("landList"), list);
+function renderLand() {
+  const all = D.people.filter(p => p.list === "land" && !p.deleted);
+  const ppl = all.filter(p => matches(p, $("landSearch").value)).sort((a, b) => a.name.localeCompare(b.name, "bn"));
+  $("landCount").textContent = bnd(all.length) + " জন";
+  $("landList").innerHTML = `<div class="card">` + (ppl.length ? ppl.map((p, i) => `<div class="item"><div class="sn">${bnd(i + 1)}</div>
+    <div><button class="link-btn" data-person="${p.id}" style="padding:0;color:inherit;text-align:left"><span class="t">${esc(p.name)}</span></button>
+    <div class="s">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</div>
+    <div class="s">${esc([p.land ? "জমি " + p.land : "", p.details, p.area].filter(Boolean).join(" · "))}${p.date ? " · দান " + fmtDate(p.date) : ""}</div></div>
+    <div></div></div>`).join("") : `<div class="empty">${$("landSearch").value ? "কিছু পাওয়া যায়নি।" : "এখনো কেউ যোগ হয়নি। নিচের + বাটন চেপে যোগ করুন।"}</div>`) + `</div>`;
 }
 function scrollGrid(box, list) {
   const w = box.querySelector(".mgrid-wrap"); if (!w) return;
@@ -262,8 +266,8 @@ function gridHTML(list, ppl, q) {
       return `<td class="m"><button class="mc future" data-pay="${p.id}" data-m="${m}">—</button></td>`;
     }).join("");
     return `<tr><td class="pin"><button class="link-btn" data-person="${p.id}" style="text-align:left;padding:0;color:inherit"><span class="t">${esc(p.name)}</span></button>
-      <div class="s">${esc(p.address || "")}</div><div class="s">${esc(p.mobile || "")}${list === "land" && p.land ? " · " + esc(p.land) : ""}</div>
-      <div class="s">${p.amount ? "মাসিক " + tk(p.amount) : ""}${list === "land" && p.area ? " · " + esc(p.area) : ""}</div></td>${cells}</tr>`;
+      <div class="s">${esc(p.address || "")}</div><div class="s">${esc(p.mobile || "")}</div>
+      <div class="s">${p.amount ? "মাসিক " + tk(p.amount) : ""}</div></td>${cells}</tr>`;
   }).join("");
   const sum = isAdmin() ? `<span class="muted">${bnd(y)}: ${bnd(paidCount)}টি মাস জমা (${tk(paidSum)}), ${bnd(dueCount)}টি বকেয়া</span>` : `<span class="muted">${bnd(rows.length)} জন</span>`;
   return `<div class="gridbar"><label style="display:flex;gap:6px;align-items:center">বছর <select data-year="${list}">${years.map(v => `<option value="${v}"${v === y ? " selected" : ""}>${bnd(v)}</option>`).join("")}</select></label>${sum}</div>
@@ -326,8 +330,8 @@ function personForm(list, p) {
     <label>ঠিকানা<input id="peAddr" value="${v("address")}" placeholder="গ্রাম, ডাকঘর, থানা"></label>
     <div class="row2"><label>মোবাইল নম্বর<input id="peMob" type="tel" inputmode="numeric" value="${v("mobile")}" placeholder="01XXXXXXXXX"></label>
       <label>এলাকা (থানা)<select id="peArea"${list === "monthly" ? " required" : ""}>${areaOpts(areaSel, list !== "monthly")}</select></label></div>
-    <div class="row2"><label>${list === "life" ? "সদস্য ফি (টাকা)" : "মাসিক প্রণামী (টাকা)"}<input id="peAmt" inputmode="decimal" value="${v("amount")}"${list !== "land" ? " required" : ""}></label>
-      <label>${list === "life" ? "সদস্য হওয়ার তারিখ" : "কোন মাস থেকে"}<input type="date" id="peDate" value="${v("date") || D.today}"></label></div>
+    <div class="row2">${list === "land" ? "" : `<label>${list === "life" ? "সদস্য ফি (টাকা)" : "মাসিক প্রণামী (টাকা)"}<input id="peAmt" inputmode="decimal" value="${v("amount")}" required></label>`}
+      <label>${list === "life" ? "সদস্য হওয়ার তারিখ" : list === "land" ? "জমি দানের তারিখ" : "কোন মাস থেকে"}<input type="date" id="peDate" value="${v("date") || (list === "land" ? "" : D.today)}"></label></div>
     ${list === "land" ? `<div class="row2"><label>জমির পরিমাণ<input id="peLand" value="${v("land")}" placeholder="যেমন: ১০ শতক"></label><label>মৌজা / দাগ নং<input id="peDet" value="${v("details")}"></label></div>` : ""}
     ${list === "life" ? `<label>সদস্য নং<input id="peNo" value="${v("memberNo")}"></label>` : ""}
     <label>মন্তব্য<input id="peNote" value="${v("note")}"></label>
@@ -344,8 +348,8 @@ function personForm(list, p) {
 function showPerson(id) {
   const p = D.people.find(x => x.id === id); if (!p) return;
   const paid = Object.keys(p.paid || {}).sort().reverse();
-  const rows = [["ঠিকানা", p.address], ["মোবাইল", p.mobile], ["এলাকা", p.area], [p.list === "life" ? "সদস্য ফি" : "মাসিক প্রণামী", p.amount ? tk(p.amount) : ""],
-    ["জমির পরিমাণ", p.land], ["মৌজা / দাগ", p.details], ["সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : "শুরু", p.date ? fmtDate(p.date) : ""],
+  const rows = [["ঠিকানা", p.address], ["মোবাইল", p.mobile], ["এলাকা", p.area], [p.list === "life" ? "সদস্য ফি" : "মাসিক প্রণামী", p.amount && p.list !== "land" ? tk(p.amount) : ""],
+    ["জমির পরিমাণ", p.land], ["মৌজা / দাগ", p.details], ["সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : p.list === "land" ? "জমি দানের তারিখ" : "শুরু", p.date ? fmtDate(p.date) : ""],
     ["মন্তব্য", p.note], ["যোগ করেছেন", (D.names[p.by] || "") + " · " + fmtDate((p.createdAt || "").slice(0, 10))]].filter(r => r[1]);
   openSheet(p.name, `<table><tbody>${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table>
     ${paid.length ? `<h3 class="sub" style="margin-top:12px">জমার ইতিহাস</h3><table><tbody>${paid.slice(0, 24).map(m => `<tr><td>${monthName(m)}</td><td>${fmtDate(p.paid[m].date)}</td><td class="n">${tk(p.paid[m].amount)}</td></tr>`).join("")}</tbody></table>` : ""}
@@ -393,7 +397,7 @@ function renderDash() {
   const proj = groupBy(live().filter(r => r.kind === "construction"), "project");
   $("projList").innerHTML = proj.length ? `<table><tbody>${proj.map(([p, v]) => `<tr><td>${esc(p)}</td><td class="n con">${tk(v)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">এখনো নির্মাণ খরচের এন্ট্রি নেই।</div>`;
   const ym = t.slice(0, 7);
-  const rows = ["monthly", "land"].map(list => { const ppl = D.people.filter(p => p.list === list && !p.deleted && (!p.date || p.date.slice(0, 7) <= ym));
+  const rows = ["monthly"].map(list => { const ppl = D.people.filter(p => p.list === list && !p.deleted && (!p.date || p.date.slice(0, 7) <= ym));
     const paid = ppl.filter(p => p.paid?.[ym]); return [LIST_LABEL[list], ppl.length, paid.length, paid.reduce((s, p) => s + Number(p.paid[ym].amount || 0), 0), ppl.filter(p => !p.paid?.[ym]).reduce((s, p) => s + Number(p.amount || 0), 0)]; });
   $("monthlyCollect").innerHTML = `<table><thead><tr><th>তালিকা</th><th class="n">মোট জন</th><th class="n">জমা দিয়েছেন</th><th class="n">আদায়</th><th class="n">বকেয়া (আনুমানিক)</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td class="n">${bnd(r[1])}</td><td class="n">${bnd(r[2])}</td><td class="n inc">${tk(r[3])}</td><td class="n exp">${tk(r[4])}</td></tr>`).join("")}</tbody></table>`;
 }

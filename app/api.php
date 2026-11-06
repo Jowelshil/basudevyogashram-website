@@ -263,7 +263,7 @@ case 'ledger_add': {
         if ($kind !== 'income' || !preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $rec['month'])) fail('মাস ঠিক নেই।');
         $rec = hmutate('people', function (&$p) use (&$rec, $addLedger, $u) {
             foreach ($p as &$x) if ($x['id'] === $rec['personId'] && empty($x['deleted'])) {
-                if (!in_array($x['list'], ['monthly', 'land'], true)) fail('এই তালিকায় মাসিক জমা নেওয়া হয় না।');
+                if ($x['list'] !== 'monthly') fail('এই তালিকায় মাসিক জমা নেওয়া হয় না।');
                 if (!empty($x['paid'][$rec['month']])) fail('এই মাসের প্রণামী আগেই জমা হয়েছে।');
                 $rec['name'] = $rec['name'] ?: $x['name']; $rec['mobile'] = $rec['mobile'] ?: $x['mobile']; $rec['address'] = $rec['address'] ?: $x['address'];
                 $saved = $addLedger($rec);
