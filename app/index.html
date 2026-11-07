@@ -193,6 +193,14 @@
       </div>
     </section>
 
+    <section class="view" id="v-invite" hidden>
+      <div class="card-head"><h2 class="vh">আমন্ত্রণ SMS</h2><button class="btn small" id="evNew" type="button">+ নতুন অনুষ্ঠান</button></div>
+      <p class="note">আশ্রমের বার্ষিক অনুষ্ঠানগুলো একবার লিখে রাখুন। প্রতি বছর অনুষ্ঠানের আগে "আমন্ত্রণ পাঠান" চাপলেই মাসিক প্রণামী দাতা, ভূমিদাতা ও আজীবন সদস্যদের মোবাইলে আমন্ত্রণ যাবে।</p>
+      <div id="smsOffNote"></div>
+      <div class="card"><h3 class="sub">বার্ষিক অনুষ্ঠান</h3><div id="evList"></div></div>
+      <div class="card"><h3 class="sub">আগে পাঠানো আমন্ত্রণ</h3><div id="campList"></div></div>
+    </section>
+
     <section class="view" id="v-sms" hidden>
       <h2 class="vh">SMS সেটিংস (Robi)</h2>
       <div class="card">
@@ -256,6 +264,7 @@
     <button data-go="report">রিপোর্ট (মাসিক / ষাণ্মাসিক / বার্ষিক)</button>
     <button data-go="records">মুছে ফেলা ও সম্পাদনার রেকর্ড</button>
     <button data-go="users">ইউজার, এলাকা ও খাত</button>
+    <button data-go="invite">আমন্ত্রণ SMS (বার্ষিক অনুষ্ঠান)</button>
     <button data-go="sms">SMS সেটিংস</button>
     <button id="backupBtn">পূর্ণ ব্যাকআপ ডাউনলোড</button>
     <button id="restoreBtn">ব্যাকআপ থেকে পুনরুদ্ধার</button>
@@ -275,6 +284,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

@@ -155,9 +155,7 @@ function sms_text(array $r, array $c): string {
         '{রসিদ}' => $r['ref'] ?: bn_digits((string)$r['serial']), '{ক্রমিক}' => bn_digits((string)$r['serial']),
         '{মাস}' => !empty($r['month']) ? (['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'][(int)substr($r['month'], 5, 2) - 1] . ' ' . bn_digits(substr($r['month'], 0, 4))) : bn_date($r['date'])]);
 }
-function sms_send(string $mobile, string $text, array $c): array {
-    if (!$c['enabled'] || $c['url'] === '') return [false, 'SMS সেটিংস চালু করা হয়নি'];
-    if (!function_exists('curl_init')) return [false, 'সার্ভারে curl নেই'];
+function sms_handle(string $mobile, string $text, array $c) {
     $to = $c['number_format'] === '880' ? '88' . $mobile : $mobile;
     $fill = fn(string $s, bool $enc) => strtr($s, ['{to}' => $enc ? rawurlencode($to) : $to, '{msg}' => $enc ? rawurlencode($text) : $text]);
     $ch = curl_init();
@@ -175,13 +173,34 @@ function sms_send(string $mobile, string $text, array $c): array {
         curl_setopt($ch, CURLOPT_HTTPHEADER, [$isJson ? 'Content-Type: application/json' : 'Content-Type: application/x-www-form-urlencoded']);
     }
     curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 10]);
-    $resp = (string)curl_exec($ch);
+    return $ch;
+}
+function sms_result($ch, string $resp, array $c): array {
     $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err = curl_error($ch);
-    curl_close($ch);
     if ($err) return [false, 'সংযোগ ব্যর্থ: ' . $err];
     $ok = $code >= 200 && $code < 300 && ($c['success'] === '' || stripos($resp, $c['success']) !== false);
     return [$ok, mb_substr("HTTP $code: " . trim(strip_tags($resp)), 0, 200)];
+}
+function sms_send(string $mobile, string $text, array $c): array {
+    if (!$c['enabled'] || $c['url'] === '') return [false, 'SMS সেটিংস চালু করা হয়নি'];
+    if (!function_exists('curl_init')) return [false, 'সার্ভারে curl নেই'];
+    $ch = sms_handle($mobile, $text, $c);
+    $resp = (string)curl_exec($ch);
+    $r = sms_result($ch, $resp, $c);
+    curl_close($ch);
+    return $r;
+}
+/* many messages at once: [[mobile, text], ...] -> [[ok, info], ...] in the same order */
+function sms_send_many(array $jobs, array $c): array {
+    if (!$c['enabled'] || $c['url'] === '') return array_fill(0, count($jobs), [false, 'SMS সেটিংস চালু করা হয়নি']);
+    $mh = curl_multi_init(); $hs = [];
+    foreach ($jobs as $k => [$m, $t]) { $hs[$k] = sms_handle($m, $t, $c); curl_multi_add_handle($mh, $hs[$k]); }
+    do { $st = curl_multi_exec($mh, $running); if ($running) curl_multi_select($mh, 1.0); } while ($running && $st === CURLM_OK);
+    $out = [];
+    foreach ($hs as $k => $ch) { $out[$k] = sms_result($ch, (string)curl_multi_getcontent($ch), $c); curl_multi_remove_handle($mh, $ch); curl_close($ch); }
+    curl_multi_close($mh);
+    return $out;
 }
 /* send all pending receipts for a date; returns [sent, failed] */
 function sms_flush(array $u, string $date, ?string $onlyId = null): array {
@@ -589,9 +608,91 @@ case 'restore': {
     if (!empty($b['areas']) && is_array($b['areas'])) hwrite('areas', array_values(array_filter($b['areas'], fn($x) => $x !== 'অন্যান্য')));
     if (!empty($b['cats']) && is_array($b['cats'])) hwrite('categories', $b['cats']);
     if (!empty($b['sms']) && is_array($b['sms'])) hwrite('sms', $b['sms']);
+    if (!empty($b['events']) && is_array($b['events'])) hwrite('events', $b['events']);
     $n = array_sum(array_map(fn($r) => is_array($r) ? count($r) : 0, $b['ledger']));
     audit($u, 'ব্যাকআপ থেকে পুনরুদ্ধার', ['name' => ($b['created'] ?? '') . ' এর ব্যাকআপ, ' . $n . 'টি এন্ট্রি', 'saved' => basename($snap)]);
     out(['ok' => true, 'entries' => $n, 'people' => count($b['people'])]);
+}
+
+/* ----- invitation SMS for the ashram's yearly events ----- */
+case 'events': {
+    auth(true);
+    $camps = array_map(function ($c) {
+        $n = ['sent' => 0, 'failed' => 0, 'pending' => 0];
+        foreach ($c['to'] as $r) $n[$r['s']]++;
+        unset($c['to']); return $c + $n;
+    }, hread('invites'));
+    out(['ok' => true, 'events' => hread('events'), 'campaigns' => array_reverse(array_slice($camps, -30))]);
+}
+case 'event_save': {
+    $u = auth(true);
+    $ev = ['id' => str_in($IN, 'id', 20) ?: new_id(), 'name' => str_in($IN, 'name', 80), 'when' => str_in($IN, 'when', 60), 'template' => str_in($IN, 'template', 600)];
+    if ($ev['name'] === '') fail('অনুষ্ঠানের নাম লিখুন।');
+    if ($ev['template'] === '') fail('আমন্ত্রণের বার্তা লিখুন।');
+    hmutate('events', function (&$e) use ($ev) { foreach ($e as &$x) if ($x['id'] === $ev['id']) { $x = $ev; return; } $e[] = $ev; });
+    audit($u, 'অনুষ্ঠান সংরক্ষণ', ['name' => $ev['name']]);
+    out(['ok' => true, 'events' => hread('events')]);
+}
+case 'event_delete': {
+    $u = auth(true);
+    $id = str_in($IN, 'id', 20);
+    hmutate('events', function (&$e) use ($id) { $e = array_values(array_filter($e, fn($x) => $x['id'] !== $id)); });
+    audit($u, 'অনুষ্ঠান মুছে ফেলা', ['id' => $id]);
+    out(['ok' => true, 'events' => hread('events')]);
+}
+case 'invite_start': {
+    $u = auth(true);
+    if (!sms_cfg()['enabled']) fail('SMS এখনো চালু হয়নি। আগে SMS সেটিংসে Robi-র তথ্য দিয়ে চালু করুন।');
+    $groups = array_values(array_intersect((array)($IN['groups'] ?? []), array_keys(LISTS)));
+    if (!$groups) fail('কাদের পাঠাবেন, অন্তত একটি তালিকা বেছে নিন।');
+    $text = str_in($IN, 'text', 600); $name = str_in($IN, 'name', 80); $when = str_in($IN, 'when', 60);
+    if ($text === '') fail('বার্তা খালি রাখা যাবে না।');
+    /* one message per mobile number, even if the person is in two lists */
+    $to = [];
+    foreach (hread('people') as $p) {
+        if (!empty($p['deleted']) || !in_array($p['list'], $groups, true) || !$p['mobile'] || isset($to[$p['mobile']])) continue;
+        $to[$p['mobile']] = ['m' => $p['mobile'], 'n' => $p['name'], 's' => 'pending', 'i' => ''];
+    }
+    if (!$to) fail('বেছে নেওয়া তালিকায় মোবাইল নম্বরসহ কেউ নেই।');
+    $camp = ['id' => new_id(), 'event' => $name, 'when' => $when, 'text' => $text, 'groups' => $groups, 'at' => date('Y-m-d H:i'), 'by' => $u['id'], 'to' => array_values($to)];
+    hmutate('invites', function (&$c) use ($camp) { $c[] = $camp; });
+    audit($u, 'আমন্ত্রণ SMS শুরু', ['name' => $name, 'count' => count($to)]);
+    out(['ok' => true, 'id' => $camp['id'], 'total' => count($to)]);
+}
+case 'invite_send': {
+    /* sends the next batch; the app calls this again until nothing is pending */
+    $u = auth(true);
+    $id = str_in($IN, 'id', 20); $retry = !empty($IN['retry']);
+    $c = sms_cfg();
+    $camp = null;
+    foreach (hread('invites') as $x) if ($x['id'] === $id) $camp = $x;
+    if (!$camp) fail('এই আমন্ত্রণ পাওয়া যায়নি।', 404);
+    if ($retry) {
+        hmutate('invites', function (&$all) use ($id) { foreach ($all as &$x) if ($x['id'] === $id) foreach ($x['to'] as &$r) if ($r['s'] === 'failed') $r['s'] = 'pending'; });
+        foreach (hread('invites') as $x) if ($x['id'] === $id) $camp = $x;
+    }
+    $want = 'pending';
+    $batch = [];
+    foreach ($camp['to'] as $k => $r) { if ($r['s'] === $want) $batch[$k] = $r; if (count($batch) >= 20) break; }
+    $res = [];
+    if ($batch) {
+        $jobs = [];
+        foreach ($batch as $k => $r) $jobs[$k] = [$r['m'], strtr($camp['text'], ['{নাম}' => $r['n'] ?: 'ভক্ত', '{অনুষ্ঠান}' => $camp['event'], '{তারিখ}' => $camp['when']])];
+        $res = sms_send_many($jobs, $c);
+        hmutate('invites', function (&$all) use ($id, $res) {
+            foreach ($all as &$x) if ($x['id'] === $id) foreach ($res as $k => [$ok, $info]) { $x['to'][$k]['s'] = $ok ? 'sent' : 'failed'; $x['to'][$k]['i'] = $info; }
+        });
+    }
+    $n = ['sent' => 0, 'failed' => 0, 'pending' => 0];
+    foreach (hread('invites') as $x) if ($x['id'] === $id) foreach ($x['to'] as $r) $n[$r['s']]++;
+    if (!$batch || !$n['pending']) audit($u, 'আমন্ত্রণ SMS পাঠানো', ['name' => $camp['event'], 'sent' => $n['sent'], 'failed' => $n['failed']]);
+    out(['ok' => true, 'done' => $n['pending'] === 0] + $n);
+}
+case 'invite_detail': {
+    auth(true);
+    $id = str_in($IN, 'id', 20);
+    foreach (hread('invites') as $x) if ($x['id'] === $id) out(['ok' => true, 'campaign' => $x]);
+    fail('পাওয়া যায়নি।', 404);
 }
 
 case 'ping': { auth(); out(['ok' => true]); }
@@ -621,7 +722,7 @@ case 'export': {
     if ($job['what'] === 'backup') {
         /* everything needed to rebuild the ledger; password hashes and login sessions are left out */
         $b = ['app' => 'basudev-hisab', 'version' => 1, 'created' => date('Y-m-d H:i:s'),
-              'users' => array_map('public_user', hread('users')), 'areas' => areas_list(), 'cats' => cats_list(), 'people' => hread('people'), 'sms' => sms_cfg(), 'ledger' => []];
+              'users' => array_map('public_user', hread('users')), 'areas' => areas_list(), 'cats' => cats_list(), 'events' => hread('events'), 'people' => hread('people'), 'sms' => sms_cfg(), 'ledger' => []];
         foreach (glob(hdir() . '/ledger-*.json') ?: [] as $f) $b['ledger'][basename($f, '.json')] = hread(basename($f, '.json'));
         $f = hdir() . '/audit.log';
         $b['audit'] = file_exists($f) ? array_map(fn($l) => json_decode($l, true), file($f, FILE_IGNORE_NEW_LINES) ?: []) : [];

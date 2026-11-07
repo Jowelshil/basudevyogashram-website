@@ -134,7 +134,7 @@ function go(v) {
 }
 function render() {
   ({ledger: renderLedger, monthly: renderMonthly, land: renderLand, life: renderLife, dash: renderDash, daily: renderDaily,
-    report: renderReport, users: renderUsers, sms: loadSms, records: renderRecords}[view] || (() => {}))();
+    report: renderReport, invite: renderInvite, users: renderUsers, sms: loadSms, records: renderRecords}[view] || (() => {}))();
 }
 document.querySelector(".brand").onclick = () => go(isAdmin() ? "dash" : "ledger");
 $("menuBtn").onclick = () => { $("menu").hidden = false; $("menuScrim").hidden = false; };
@@ -589,6 +589,87 @@ $("userForm").addEventListener("submit", e => { e.preventDefault(); guard(e.subm
   await api("user_add", {name: $("uName").value, username: $("uUser").value, password: $("uPass").value});
   toast(`ইউজার যোগ হয়েছে। আইডি: ${$("uUser").value.trim().toLowerCase()}`); $("userForm").reset(); await reload(); renderUsers(); }); });
 $("areaForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => { const j = await api("area_add", {name: $("areaName").value}); D.areas = j.areas; $("areaName").value = ""; renderAreasCats(); toast("এলাকা যোগ হয়েছে।"); }); });
+
+/* ================= admin: invitation SMS for yearly events ================= */
+const INV_DEFAULT = "জয় গুরু। {নাম}, {তারিখ} শ্রীশ্রী বাসুদেব যোগাশ্রমে {অনুষ্ঠান} উপলক্ষে আপনাকে সপরিবারে আমন্ত্রণ জানাই। - বাসুদেব যোগাশ্রম, নেহালপুর";
+let EV = {events: [], campaigns: []};
+const smsParts = t => { const n = [...t].length; return n <= 70 ? 1 : Math.ceil(n / 67); };
+function invRecipients(groups) {
+  const seen = new Set();
+  D.people.forEach(p => { if (!p.deleted && groups.includes(p.list) && p.mobile) seen.add(p.mobile); });
+  return seen.size;
+}
+async function renderInvite() {
+  $("smsOffNote").innerHTML = D.sms.enabled ? "" : `<p class="banner">SMS এখনো চালু হয়নি। অনুষ্ঠান লিখে রাখা যাবে, কিন্তু পাঠাতে আগে ☰ → "SMS সেটিংস"-এ Robi-র তথ্য দিয়ে চালু করতে হবে।</p>`;
+  try { EV = await api("events"); } catch (e) { $("evList").textContent = e.message; return; }
+  $("evList").innerHTML = EV.events.length ? EV.events.map(ev => `<div class="item"><div class="sn"></div><div>
+      <div class="t">${esc(ev.name)}</div><div class="s">${esc(ev.when || "")}</div><div class="s" style="margin-top:4px">${esc(ev.template)}</div>
+      <div class="ops" style="margin-top:8px"><button class="btn small" data-evsend="${ev.id}">আমন্ত্রণ পাঠান</button><button class="btn ghost small" data-evedit="${ev.id}">সম্পাদনা</button><button class="btn ghost small" data-evdel="${ev.id}">মুছুন</button></div>
+    </div><div></div></div>`).join("") : `<div class="empty">এখনো কোনো অনুষ্ঠান লেখা হয়নি। উপরের "+ নতুন অনুষ্ঠান" চাপুন।</div>`;
+  $("campList").innerHTML = EV.campaigns.length ? EV.campaigns.map(c => `<div class="item"><div class="sn"></div><div>
+      <div class="t">${esc(c.event || "আমন্ত্রণ")}</div><div class="s">${esc(c.at)} · ${c.groups.map(g => LIST_LABEL[g]).join(", ")}</div>
+      <div class="s"><span class="chip ok">${bnd(c.sent)} জন পেয়েছেন</span> ${c.failed ? `<span class="chip bad">${bnd(c.failed)} জন পাননি</span>` : ""} ${c.pending ? `<span class="chip wait">${bnd(c.pending)} বাকি</span>` : ""}</div>
+      ${c.failed || c.pending ? `<div class="ops" style="margin-top:6px"><button class="btn ghost small" data-cresume="${c.id}" data-retry="${c.failed ? 1 : 0}">${c.pending ? "বাকিগুলো পাঠান" : "যাঁরা পাননি তাঁদের আবার পাঠান"}</button></div>` : ""}
+    </div><div></div></div>`).join("") : `<div class="empty">এখনো কোনো আমন্ত্রণ পাঠানো হয়নি।</div>`;
+}
+function eventForm(ev) {
+  openSheet(ev ? "অনুষ্ঠান সম্পাদনা" : "নতুন বার্ষিক অনুষ্ঠান", `<form class="form" id="evF">
+    <label>অনুষ্ঠানের নাম<input id="evN" value="${esc(ev?.name || "")}" placeholder="যেমন: শ্রীশ্রী বাসুদেবানন্দ গিরি মহারাজের আবির্ভাব উৎসব" required></label>
+    <label>তারিখ ও সময় (প্রতি বছর পাঠানোর আগে মিলিয়ে নেবেন)<input id="evW" value="${esc(ev?.when || "")}" placeholder="যেমন: ১৫ ফাল্গুন, শুক্রবার সকাল ১০টা"></label>
+    <label>আমন্ত্রণের বার্তা ({নাম} {অনুষ্ঠান} {তারিখ} নিজে থেকে বসবে)<textarea id="evT" rows="4" required>${esc(ev?.template || INV_DEFAULT)}</textarea></label>
+    <p class="note" id="evLen"></p><button class="btn wide">সংরক্ষণ করুন</button></form>`, b => {
+    const len = () => { const t = b.querySelector("#evT").value; b.querySelector("#evLen").textContent = `প্রায় ${bnd([...t].length)} অক্ষর (নাম বসার আগে), প্রতি জনে ${bnd(smsParts(t))}টি SMS।`; };
+    b.querySelector("#evT").addEventListener("input", len); len();
+    b.querySelector("#evF").onsubmit = ev2 => { ev2.preventDefault(); guard(ev2.submitter, async () => {
+      await api("event_save", {id: ev?.id || "", name: b.querySelector("#evN").value, when: b.querySelector("#evW").value, template: b.querySelector("#evT").value});
+      closeSheet(); toast("অনুষ্ঠান সংরক্ষিত।"); renderInvite(); }); };
+  });
+}
+$("evNew").onclick = () => eventForm(null);
+function inviteSheet(ev) {
+  const counts = {monthly: invRecipients(["monthly"]), land: invRecipients(["land"]), life: invRecipients(["life"])};
+  openSheet("আমন্ত্রণ পাঠান: " + ev.name, `<form class="form" id="ivF">
+    <label>তারিখ ও সময় (এ বছরের জন্য ঠিক করে নিন)<input id="ivW" value="${esc(ev.when || "")}"></label>
+    <div><div class="note" style="margin-bottom:4px">কাদের পাঠাবেন</div>
+      ${["monthly", "land", "life"].map(g => `<label class="chk"><input type="checkbox" name="ivG" value="${g}" checked> ${LIST_LABEL[g]}${g === "monthly" ? " দাতা" : ""} (${bnd(counts[g])} জন)</label>`).join("")}</div>
+    <label>বার্তা<textarea id="ivT" rows="4">${esc(ev.template)}</textarea></label>
+    <p class="banner" id="ivSum"></p>
+    <label class="chk"><input type="checkbox" id="ivOk" required> বার্তা আর তারিখ মিলিয়ে দেখেছি, এখন পাঠান</label>
+    <button class="btn wide" id="ivBtn">আমন্ত্রণ পাঠান</button>
+    <p class="msg ok" id="ivProg"></p></form>`, b => {
+    const groups = () => [...b.querySelectorAll("[name=ivG]:checked")].map(x => x.value);
+    const upd = () => { const n = invRecipients(groups()), t = b.querySelector("#ivT").value.replace(/\{অনুষ্ঠান\}/g, ev.name).replace(/\{তারিখ\}/g, b.querySelector("#ivW").value).replace(/\{নাম\}/g, "শ্রী রতন দাশ"), parts = smsParts(t);
+      b.querySelector("#ivSum").innerHTML = `${bnd(n)} জন পাবেন (একই নম্বর দুই তালিকায় থাকলে একবারই যাবে)। প্রতি জনে ${bnd(parts)}টি, মোট প্রায় ${bnd(n * parts)}টি SMS খরচ হবে।<br><span class="note">নমুনা: ${esc(t)}</span>`; };
+    b.querySelectorAll("input,textarea").forEach(x => x.addEventListener("input", upd)); upd();
+    b.querySelector("#ivF").onsubmit = e => { e.preventDefault(); guard(b.querySelector("#ivBtn"), async () => {
+      const j = await api("invite_start", {name: ev.name, when: b.querySelector("#ivW").value, text: b.querySelector("#ivT").value, groups: groups()});
+      await runInvite(j.id, false, b.querySelector("#ivProg"), j.total);
+    }); };
+  });
+}
+async function runInvite(id, retry, progEl, total) {
+  let r, first = true;
+  do {
+    lastAct = Date.now(); // a long send is activity, so auto logout waits
+    r = await api("invite_send", {id, retry: retry && first}); first = false;
+    const all = r.sent + r.failed + r.pending;
+    if (progEl) progEl.textContent = `পাঠানো হচ্ছে… ${bnd(r.sent + r.failed)} / ${bnd(total || all)}`;
+  } while (!r.done);
+  toast(`আমন্ত্রণ গেছে ${bnd(r.sent)} জনের কাছে` + (r.failed ? `, ${bnd(r.failed)} জনের কাছে যায়নি` : "") + "।");
+  closeSheet(); if (view === "invite") renderInvite();
+}
+$("v-invite").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return;
+  const ev = EV.events.find(x => x.id === (b.dataset.evsend || b.dataset.evedit || b.dataset.evdel));
+  if (b.dataset.evsend) { if (!D.sms.enabled) { toast("আগে SMS সেটিংসে SMS চালু করুন।"); return; } inviteSheet(ev); }
+  if (b.dataset.evedit) eventForm(ev);
+  if (b.dataset.evdel) openSheet("অনুষ্ঠান মুছবেন?", `<p><b>${esc(ev.name)}</b> তালিকা থেকে মুছে যাবে। আগে পাঠানো আমন্ত্রণের হিসাব থেকে যাবে।</p><button class="btn danger wide" id="evDelOk">মুছুন</button>`, bb => {
+    bb.querySelector("#evDelOk").onclick = x => guard(x.target, async () => { await api("event_delete", {id: ev.id}); closeSheet(); renderInvite(); });
+  });
+  if (b.dataset.cresume) { const c = EV.campaigns.find(x => x.id === b.dataset.cresume);
+    openSheet("আবার পাঠান", `<p>${esc(c.event)}: ${bnd(c.failed + c.pending)} জনের কাছে পাঠানো হবে।</p><button class="btn wide" id="crOk">পাঠান</button><p class="msg ok" id="crProg"></p>`, bb => {
+      bb.querySelector("#crOk").onclick = x => guard(x.target, () => runInvite(c.id, b.dataset.retry === "1", bb.querySelector("#crProg"), c.sent + c.failed + c.pending));
+    }); }
+});
 
 /* ================= admin: SMS ================= */
 async function loadSms() {
