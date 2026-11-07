@@ -219,6 +219,17 @@ function sms_flush(array $u, string $date, ?string $onlyId = null): array {
     return [$sent, count($res) - $sent];
 }
 
+/* add one ledger entry with the next serial number for its day and type */
+function ledger_insert(array $rec): array {
+    return hmutate('ledger-' . substr($rec['date'], 0, 4), function (&$l) use ($rec) {
+        $max = 0;
+        foreach ($l as $r) if ($r['date'] === $rec['date'] && $r['kind'] === $rec['kind']) $max = max($max, (int)$r['serial']);
+        $rec['serial'] = $max + 1;
+        $l[] = $rec;
+        return $rec;
+    });
+}
+
 /* ---------- request ---------- */
 $IN = json_decode((string)file_get_contents('php://input'), true) ?: $_POST;
 $act = (string)($_GET['a'] ?? $IN['a'] ?? '');
@@ -355,6 +366,8 @@ case 'ledger_update': {
         return false;
     });
     if (!$done) fail('এন্ট্রি পাওয়া যায়নি।', 404);
+    if (is_array($done) && !empty($done['lifeOf']))
+        hmutate('people', function (&$p) use ($done) { foreach ($p as &$x) if ($x['id'] === $done['lifeOf'] && ($x['feePaid']['entry'] ?? '') === $done['id']) $x['feePaid']['amount'] = $done['amount']; });
     if (is_array($done) && $done['personId'] !== '' && $done['month'] !== '')
         hmutate('people', function (&$p) use ($done) { foreach ($p as &$x) if ($x['id'] === $done['personId'] && ($x['paid'][$done['month']]['entry'] ?? '') === $done['id']) $x['paid'][$done['month']]['amount'] = $done['amount']; });
     audit($u, 'এন্ট্রি সম্পাদনা', ['id' => $id]);
@@ -376,6 +389,14 @@ case 'ledger_restore': {
         return false;
     });
     if (!$done) fail('এন্ট্রি পাওয়া যায়নি।', 404);
+    if (is_array($done) && !empty($done['lifeOf'])) {
+        hmutate('people', function (&$p) use ($done, $act) {
+            foreach ($p as &$x) if ($x['id'] === $done['lifeOf']) {
+                if ($act === 'ledger_delete') unset($x['feePaid']);
+                else $x['feePaid'] = ['entry' => $done['id'], 'date' => $done['date'], 'amount' => $done['amount']];
+            }
+        });
+    }
     if (is_array($done) && $done['personId'] !== '' && $done['month'] !== '') {
         hmutate('people', function (&$p) use ($done, $act, $u) {
             foreach ($p as &$x) if ($x['id'] === $done['personId']) {
@@ -405,9 +426,22 @@ case 'people_update': {
         'date' => valid_date(str_in($IN, 'date', 10)) ? str_in($IN, 'date', 10) : '', 'memberNo' => str_in($IN, 'memberNo', 30), 'note' => str_in($IN, 'note', 300)];
     if ($act === 'people_add') {
         $rec = ['id' => new_id()] + $fields + ['by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s')];
+        $fee = $list === 'life' ? str_in($IN, 'fee', 10) : '';
+        if ($list === 'life' && !in_array($fee, ['now', 'old'], true)) fail('সদস্য ফি আজ জমা নিচ্ছেন, নাকি আগেই পরিশোধিত, বেছে নিন।');
+        $rec['feeStatus'] = $fee; // now = taken today and added to income, old = paid before the app
+        $entry = null;
+        if ($fee === 'now') {
+            $entry = ledger_insert(['id' => new_id(), 'date' => date('Y-m-d'), 'kind' => 'income', 'category' => 'আজীবন সদস্য ফি', 'amount' => $fields['amount'],
+                'name' => $name, 'mobile' => $mobile, 'address' => $fields['address'], 'project' => '', 'ref' => str_in($IN, 'ref', 40), 'mode' => str_in($IN, 'mode', 30),
+                'note' => 'আজীবন সদস্য' . ($fields['memberNo'] !== '' ? ' নং ' . $fields['memberNo'] : ''), 'personId' => '', 'month' => '', 'lifeOf' => $rec['id'],
+                'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s'), 'sms' => ['status' => 'pending']]);
+            $rec['feePaid'] = ['entry' => $entry['id'], 'date' => $entry['date'], 'amount' => $entry['amount']];
+        }
         hmutate('people', function (&$p) use ($rec) { $p[] = $rec; });
-        audit($u, LISTS[$list] . ' যোগ', ['id' => $rec['id'], 'name' => $name]);
-        out(['ok' => true, 'person' => $rec]);
+        audit($u, LISTS[$list] . ' যোগ', ['id' => $rec['id'], 'name' => $name] + ($entry ? ['amount' => $entry['amount']] : []));
+        $smsInfo = null;
+        if ($entry && $mobile && sms_cfg()['auto'] && sms_cfg()['enabled']) { [$s] = sms_flush($u, $entry['date'], $entry['id']); $smsInfo = $s ? 'sent' : 'failed'; }
+        out(['ok' => true, 'person' => $rec, 'entry' => $entry, 'sms' => $smsInfo]);
     }
     $id = str_in($IN, 'id', 20);
     $done = hmutate('people', function (&$p) use ($id, $fields, $u) {

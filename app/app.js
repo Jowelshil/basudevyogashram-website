@@ -353,7 +353,8 @@ function renderLife() {
   $("lifeCount").textContent = bnd(D.people.filter(p => p.list === "life" && !p.deleted).length) + " জন" + (isAdmin() ? " · মোট " + tk(D.people.filter(p => p.list === "life" && !p.deleted).reduce((s, p) => s + Number(p.amount || 0), 0)) : "");
   $("lifeList").innerHTML = `<div class="card">` + (ppl.length ? ppl.map(p => `<div class="item"><div class="sn">${esc(bnd(p.memberNo || ""))}</div>
     <div><button class="link-btn" data-person="${p.id}" style="padding:0;color:inherit;text-align:left"><span class="t">${esc(p.name)}</span></button>
-    <div class="s">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</div><div class="s">${p.date ? "সদস্য হয়েছেন " + fmtDate(p.date) : ""}${p.area ? " · " + esc(p.area) : ""}</div></div>
+    <div class="s">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</div><div class="s">${p.date ? "সদস্য হয়েছেন " + fmtDate(p.date) : ""}${p.area ? " · " + esc(p.area) : ""}</div>
+    <div class="s">${p.feePaid ? `<span class="chip ok">ফি জমা ${fmtDate(p.feePaid.date)}</span>` : p.feeStatus === "now" ? `<span class="chip bad">ফির এন্ট্রি মুছে ফেলা হয়েছে</span>` : `<span class="chip wait">পুরনো সদস্য</span>`}</div></div>
     <div class="amt inc">${p.amount ? tk(p.amount) : ""}</div></div>`).join("") : `<div class="empty">এখনো কেউ যোগ হয়নি। নিচের + বাটন চেপে যোগ করুন।</div>`) + `</div>`;
 }
 
@@ -372,16 +373,24 @@ function personForm(list, p) {
       <label>${list === "life" ? "সদস্য হওয়ার তারিখ" : list === "land" ? "জমি দানের তারিখ" : "কোন মাস থেকে"}<input type="date" id="peDate" value="${v("date") || (list === "land" ? "" : D.today)}"></label></div>
     ${list === "land" ? `<div class="row2"><label>জমির পরিমাণ<input id="peLand" value="${v("land")}" placeholder="যেমন: ১০ শতক"></label><label>মৌজা / দাগ নং<input id="peDet" value="${v("details")}"></label></div>` : ""}
     ${list === "life" ? `<label>সদস্য নং<input id="peNo" value="${v("memberNo")}"></label>` : ""}
+    ${list === "life" && !p ? `<div class="banner" style="display:grid;gap:8px"><b>সদস্য ফি</b>
+      <label class="chk"><input type="radio" name="peFee" value="now"> আজ জমা নিচ্ছি (আজকের আয়ে যোগ হবে)</label>
+      <label class="chk"><input type="radio" name="peFee" value="old"> আগেই পরিশোধিত, পুরনো সদস্য (আয়ে যোগ হবে না)</label>
+      <div class="row2" id="peFeeNow" hidden><label>মাধ্যম<select id="peMode"><option>নগদ</option><option>বিকাশ</option><option>নগদ (মোবাইল)</option><option>রকেট</option><option>ব্যাংক</option><option>চেক</option></select></label><label>রসিদ নং<input id="peRef"></label></div></div>` : ""}
     <label>মন্তব্য<input id="peNote" value="${v("note")}"></label>
     <button class="btn wide">${p ? "হালনাগাদ করুন" : "যোগ করুন"}</button>
     ${p || isAdmin() ? "" : `<p class="note">যোগ করার পর বদলাতে বা মুছতে অ্যাডমিন লাগবে।</p>`}</form>`, b => {
+    b.querySelectorAll("[name=peFee]").forEach(r => r.addEventListener("change", () => { b.querySelector("#peFeeNow").hidden = r.value !== "now" || !r.checked; }));
     ["peLand", "peDet"].forEach(id => { const el = b.querySelector("#" + id); if (el) el.addEventListener("blur", () => el.value = landBn(el.value)); });
     b.querySelector("#peForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
       const g = id => (b.querySelector("#" + id) || {}).value ?? "";
       const body = {list, name: g("peName"), address: g("peAddr"), mobile: g("peMob"), area: g("peArea"), amount: toEn(g("peAmt")), date: g("peDate"),
-        land: landBn(g("peLand")), details: landBn(g("peDet")), memberNo: toEn(g("peNo")), note: g("peNote")};
-      if (p) await api("people_update", {...body, id: p.id}); else await api("people_add", body);
-      closeSheet(); toast(p ? "হালনাগাদ হয়েছে।" : "যোগ হয়েছে।"); await reload(); render(); }); };
+        land: landBn(g("peLand")), details: landBn(g("peDet")), memberNo: toEn(g("peNo")), note: g("peNote"),
+        fee: (b.querySelector("[name=peFee]:checked") || {}).value || "", mode: g("peMode"), ref: g("peRef")};
+      if (list === "life" && !p && !body.fee) throw new Error("সদস্য ফি আজ জমা নিচ্ছেন, নাকি আগেই পরিশোধিত, বেছে নিন।");
+      let res = null;
+      if (p) await api("people_update", {...body, id: p.id}); else res = await api("people_add", body);
+      closeSheet(); toast(p ? "হালনাগাদ হয়েছে।" : res && res.entry ? `যোগ হয়েছে। ${tk(res.entry.amount)} আজকের আয়ে জমা হয়েছে (ক্রমিক ${bnd(res.entry.serial)})` + (res.sms === "sent" ? ", SMS গেছে।" : "।") : "যোগ হয়েছে।"); await reload(); render(); }); };
   });
 }
 function showPerson(id) {
