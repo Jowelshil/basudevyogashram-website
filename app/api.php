@@ -219,6 +219,14 @@ function sms_flush(array $u, string $date, ?string $onlyId = null): array {
     return [$sent, count($res) - $sent];
 }
 
+/* land donors carry a running S/N: 001, 002, ... */
+function land_next_sn(array $people): string {
+    $max = 0;
+    foreach ($people as $x) if ($x['list'] === 'land' && empty($x['deleted']) && preg_match('/^\d+$/', (string)($x['memberNo'] ?? ''))) $max = max($max, (int)$x['memberNo']);
+    return str_pad((string)($max + 1), 3, '0', STR_PAD_LEFT);
+}
+function old_ids(array $x): array { preg_match_all('/LD-\d+/', ($x['memberNo'] ?? '') . ' ' . ($x['note'] ?? ''), $m); return $m[0]; }
+
 /* add one ledger entry with the next serial number for its day and type */
 function ledger_insert(array $rec): array {
     return hmutate('ledger-' . substr($rec['date'], 0, 4), function (&$l) use ($rec) {
@@ -437,7 +445,10 @@ case 'people_update': {
                 'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s'), 'sms' => ['status' => 'pending']]);
             $rec['feePaid'] = ['entry' => $entry['id'], 'date' => $entry['date'], 'amount' => $entry['amount']];
         }
-        hmutate('people', function (&$p) use ($rec) { $p[] = $rec; });
+        $rec = hmutate('people', function (&$p) use ($rec) {
+            if ($rec['list'] === 'land' && $rec['memberNo'] === '') $rec['memberNo'] = land_next_sn($p);
+            $p[] = $rec; return $rec;
+        });
         audit($u, LISTS[$list] . ' যোগ', ['id' => $rec['id'], 'name' => $name] + ($entry ? ['amount' => $entry['amount']] : []));
         $smsInfo = null;
         if ($entry && $mobile && sms_cfg()['auto'] && sms_cfg()['enabled']) { [$s] = sms_flush($u, $entry['date'], $entry['id']); $smsInfo = $s ? 'sent' : 'failed'; }
@@ -463,7 +474,8 @@ case 'people_import': {
     if (count($rows) > 3000) fail('একবারে সর্বোচ্চ ৩০০০ জন ইমপোর্ট করা যায়।');
     $areas = areas_list();
     $res = hmutate('people', function (&$p) use ($rows, $list, $u, $areas) {
-        $have = []; $haveName = [];
+        $have = []; $haveName = []; $haveOld = [];
+        foreach ($p as $x) if ($x['list'] === $list && empty($x['deleted'])) foreach (old_ids($x) as $o) $haveOld[$o] = 1;
         foreach ($p as $x) if ($x['list'] === $list && empty($x['deleted'])) { if (($x['memberNo'] ?? '') !== '') $have[$x['memberNo']] = 1; $haveName[$x['name'] . '|' . $x['mobile']] = 1; }
         $added = 0; $skipped = 0; $badMobile = [];
         foreach ($rows as $r) {
@@ -474,7 +486,9 @@ case 'people_import': {
             $no = $get('memberNo', 30);
             $mob = norm_mobile($get('mobile', 20));
             if ($get('mobile', 20) !== '' && $mob === '') $badMobile[] = $name;
-            if (($no !== '' && isset($have[$no])) || ($no === '' && isset($haveName[$name . '|' . $mob]))) { $skipped++; continue; }
+            $olds = old_ids(['memberNo' => $no, 'note' => $get('note', 300)]);
+            if (($no !== '' && isset($have[$no])) || ($no === '' && isset($haveName[$name . '|' . $mob])) || array_filter($olds, fn($o) => isset($haveOld[$o]))) { $skipped++; continue; }
+            foreach ($olds as $o) $haveOld[$o] = 1;
             $area = $get('area', 60);
             if ($list === 'monthly' && !in_array($area, $areas, true)) $area = 'অন্যান্য';
             $amt = (float)strtr(str_replace(',', '', $get('amount', 20)), ['০'=>'0','১'=>'1','২'=>'2','৩'=>'3','৪'=>'4','৫'=>'5','৬'=>'6','৭'=>'7','৮'=>'8','৯'=>'9']);
@@ -490,6 +504,25 @@ case 'people_import': {
     });
     audit($u, LISTS[$list] . ' ইমপোর্ট', ['count' => $res[0], 'skipped' => $res[1]]);
     out(['ok' => true, 'added' => $res[0], 'skipped' => $res[1], 'badMobile' => $res[2]]);
+}
+
+case 'land_renumber': {
+    /* gives every land donor a clean S/N 001, 002, ... in the current order; an old LD-xxxxx id is kept in the note */
+    $u = auth(true);
+    $n = hmutate('people', function (&$p) {
+        $idx = [];
+        foreach ($p as $k => $x) if ($x['list'] === 'land' && empty($x['deleted'])) $idx[] = $k;
+        $num = fn($x) => (int)preg_replace('/\D/', '', (string)($x['memberNo'] ?? '')) ?: PHP_INT_MAX;
+        usort($idx, fn($a, $b) => [$num($p[$a]), $p[$a]['createdAt'] ?? ''] <=> [$num($p[$b]), $p[$b]['createdAt'] ?? '']);
+        foreach ($idx as $i => $k) {
+            $old = (string)($p[$k]['memberNo'] ?? '');
+            if (preg_match('/^LD-\d+$/', $old) && !str_contains((string)$p[$k]['note'], $old)) $p[$k]['note'] = trim('পুরনো আইডি ' . $old . '; ' . $p[$k]['note'], '; ');
+            $p[$k]['memberNo'] = str_pad((string)($i + 1), 3, '0', STR_PAD_LEFT);
+        }
+        return count($idx);
+    });
+    audit($u, 'ভূমিদাতাদের S/N নতুন করে সাজানো', ['count' => $n]);
+    out(['ok' => true, 'count' => $n]);
 }
 
 case 'people_delete':

@@ -270,10 +270,17 @@ $("mSearch").addEventListener("input", renderMonthly);
 $("landSearch").addEventListener("input", renderLand);
 
 function matches(p, q) { q = toEn(q).trim().toLowerCase(); return !q || [p.name, p.address, p.mobile, p.area, p.details, p.memberNo, p.land].join(" ").toLowerCase().includes(q); }
+function landNextSn() {
+  const max = D.people.filter(p => p.list === "land" && !p.deleted && /^\d+$/.test(p.memberNo || "")).reduce((m, p) => Math.max(m, +p.memberNo), 0);
+  return String(max + 1).padStart(3, "0");
+}
 function renderLand() {
   const all = D.people.filter(p => p.list === "land" && !p.deleted);
   const ppl = all.filter(p => matches(p, $("landSearch").value)).sort((a, b) => (!a.memberNo - !b.memberNo) || (a.memberNo || "").localeCompare(b.memberNo || "", "en", {numeric: true}) || a.name.localeCompare(b.name, "bn"));
-  $("landCount").textContent = bnd(all.length) + " জন";
+  $("landCount").innerHTML = bnd(all.length) + " জন" + (isAdmin() && all.some(p => !/^\d{3,}$/.test(p.memberNo || "")) ? ` <button class="btn ghost small" id="landRenum" type="button">S/N ০০১ থেকে সাজান</button>` : "");
+  if ($("landRenum")) $("landRenum").onclick = () => openSheet("S/N নতুন করে সাজাবেন?", `<p>সব ভূমিদাতা এখনকার ক্রম অনুযায়ী ০০১, ০০২, ০০৩… নম্বর পাবেন। পুরনো LD-আইডি থাকলে সেটা মন্তব্যে লেখা থাকবে।</p><button class="btn wide" id="renOk">সাজান</button>`, bb => {
+    bb.querySelector("#renOk").onclick = e => guard(e.target, async () => { const j = await api("land_renumber"); closeSheet(); await reload(); render(); toast(`${bnd(j.count)} জনের S/N ০০১ থেকে সাজানো হয়েছে।`); });
+  });
   $("landList").innerHTML = `<div class="card">` + (ppl.length ? ppl.map((p, i) => `<div class="item"><div class="sn" style="font-size:.8rem">${p.memberNo ? esc(p.memberNo) : bnd(i + 1)}</div>
     <div><button class="link-btn" data-person="${p.id}" style="padding:0;color:inherit;text-align:left"><span class="t">${esc(p.name)}</span></button>
     <div class="s">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</div>
@@ -372,7 +379,7 @@ function personForm(list, p) {
     <div class="row2">${list === "land" ? "" : `<label>${list === "life" ? "সদস্য ফি (টাকা)" : "মাসিক প্রণামী (টাকা)"}<input id="peAmt" inputmode="decimal" value="${v("amount")}" required></label>`}
       <label>${list === "life" ? "সদস্য হওয়ার তারিখ" : list === "land" ? "জমি দানের তারিখ" : "কোন মাস থেকে"}<input type="date" id="peDate" value="${v("date") || (list === "land" ? "" : D.today)}"></label></div>
     ${list === "land" ? `<div class="row2"><label>জমির পরিমাণ<input id="peLand" value="${v("land")}" placeholder="যেমন: ১০ শতক"></label><label>মৌজা / দাগ নং<input id="peDet" value="${v("details")}"></label></div>` : ""}
-    ${list === "life" || list === "land" ? `<label>${list === "land" ? "দাতা নং" : "সদস্য নং"}<input id="peNo" value="${v("memberNo")}"></label>` : ""}
+    ${list === "life" || list === "land" ? `<label>${list === "land" ? "S/N" : "সদস্য নং"}<input id="peNo" value="${p ? v("memberNo") : list === "land" ? landNextSn() : ""}"></label>` : ""}
     ${list === "life" && !p ? `<div class="banner" style="display:grid;gap:8px"><b>সদস্য ফি</b>
       <label class="chk"><input type="radio" name="peFee" value="now"> আজ জমা নিচ্ছি (আজকের আয়ে যোগ হবে)</label>
       <label class="chk"><input type="radio" name="peFee" value="old"> আগেই পরিশোধিত, পুরনো সদস্য (আয়ে যোগ হবে না)</label>
@@ -397,7 +404,7 @@ function showPerson(id) {
   const p = D.people.find(x => x.id === id); if (!p) return;
   const paid = Object.keys(p.paid || {}).sort().reverse();
   const rows = [["ঠিকানা", p.address], ["মোবাইল", p.mobile], ["এলাকা", p.area], [p.list === "life" ? "সদস্য ফি" : "মাসিক প্রণামী", p.amount && p.list !== "land" ? tk(p.amount) : ""],
-    ["জমির পরিমাণ", landBn(p.land)], ["মৌজা / দাগ", landBn(p.details)], [p.list === "land" ? "দাতা নং" : "সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : p.list === "land" ? "জমি দানের তারিখ" : "শুরু", p.date ? fmtDate(p.date) : ""],
+    ["জমির পরিমাণ", landBn(p.land)], ["মৌজা / দাগ", landBn(p.details)], [p.list === "land" ? "S/N" : "সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : p.list === "land" ? "জমি দানের তারিখ" : "শুরু", p.date ? fmtDate(p.date) : ""],
     ["মন্তব্য", p.note], ["যোগ করেছেন", (D.names[p.by] || "") + " · " + fmtDate((p.createdAt || "").slice(0, 10))]].filter(r => r[1]);
   openSheet(p.name, `<table><tbody>${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table>
     ${paid.length ? `<h3 class="sub" style="margin-top:12px">জমার ইতিহাস</h3><table><tbody>${paid.slice(0, 24).map(m => `<tr><td>${monthName(m)}</td><td>${fmtDate(p.paid[m].date)}</td><td class="n">${tk(p.paid[m].amount)}</td></tr>`).join("")}</tbody></table>` : ""}
