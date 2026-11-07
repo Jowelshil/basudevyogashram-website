@@ -480,7 +480,7 @@ function renderPranamiStatus() {
   const months = lastMonths(3), cur = D.today.slice(0, 7);
   $("pm3").innerHTML = months.map(ym => { const r = pmMonth(ppl, ym), pct = r.total ? Math.round(r.paid / r.total * 100) : 0;
     return `<div class="pmc${ym === cur ? " cur" : ""}"><h3><span>${monthName(ym)}</span>${ym === cur ? '<span class="chip wait">চলতি মাস</span>' : ""}</h3>
-      <div class="big"><button class="pmbtn" data-pm="${ym}|paid|"><b class="inc">${bnd(r.paid)}</b><span>জন পেইড ›</span></button><button class="pmbtn" data-pm="${ym}|due|"><b class="exp">${bnd(r.unpaid)}</b><span>জন বকেয়া ›</span></button><div><b>${bnd(r.total)}</b><span>মোট সদস্য</span></div></div>
+      <div class="big"><button class="pmbtn" data-pm="${ym}|paid|"><b class="inc">${bnd(r.paid)}</b><span>পেইড ›</span></button><button class="pmbtn" data-pm="${ym}|due|"><b class="exp">${bnd(r.unpaid)}</b><span>বকেয়া ›</span></button><div><b>${bnd(r.total)}</b><span>মোট সদস্য</span></div></div>
       <div class="pmbar" role="img" aria-label="${bnd(pct)}% পেইড"><i style="width:${pct}%"></i></div>
       <div class="s">${bnd(pct)}% আদায় · জমা ${tk(r.got)} · বকেয়া প্রায় ${tk(r.owed)}</div></div>`; }).join("");
   const areas = D.areas.filter(a => ppl.some(p => p.area === a));
