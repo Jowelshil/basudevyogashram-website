@@ -272,9 +272,9 @@ $("landSearch").addEventListener("input", renderLand);
 function matches(p, q) { q = toEn(q).trim().toLowerCase(); return !q || [p.name, p.address, p.mobile, p.area, p.details, p.memberNo, p.land].join(" ").toLowerCase().includes(q); }
 function renderLand() {
   const all = D.people.filter(p => p.list === "land" && !p.deleted);
-  const ppl = all.filter(p => matches(p, $("landSearch").value)).sort((a, b) => a.name.localeCompare(b.name, "bn"));
+  const ppl = all.filter(p => matches(p, $("landSearch").value)).sort((a, b) => (!a.memberNo - !b.memberNo) || (a.memberNo || "").localeCompare(b.memberNo || "", "en", {numeric: true}) || a.name.localeCompare(b.name, "bn"));
   $("landCount").textContent = bnd(all.length) + " জন";
-  $("landList").innerHTML = `<div class="card">` + (ppl.length ? ppl.map((p, i) => `<div class="item"><div class="sn">${bnd(i + 1)}</div>
+  $("landList").innerHTML = `<div class="card">` + (ppl.length ? ppl.map((p, i) => `<div class="item"><div class="sn" style="font-size:.8rem">${p.memberNo ? esc(p.memberNo) : bnd(i + 1)}</div>
     <div><button class="link-btn" data-person="${p.id}" style="padding:0;color:inherit;text-align:left"><span class="t">${esc(p.name)}</span></button>
     <div class="s">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</div>
     <div class="s">${esc([p.land ? "জমি " + landBn(p.land) : "", landBn(p.details), p.area].filter(Boolean).join(" · "))}${p.date ? " · দান " + fmtDate(p.date) : ""}</div></div>
@@ -372,7 +372,7 @@ function personForm(list, p) {
     <div class="row2">${list === "land" ? "" : `<label>${list === "life" ? "সদস্য ফি (টাকা)" : "মাসিক প্রণামী (টাকা)"}<input id="peAmt" inputmode="decimal" value="${v("amount")}" required></label>`}
       <label>${list === "life" ? "সদস্য হওয়ার তারিখ" : list === "land" ? "জমি দানের তারিখ" : "কোন মাস থেকে"}<input type="date" id="peDate" value="${v("date") || (list === "land" ? "" : D.today)}"></label></div>
     ${list === "land" ? `<div class="row2"><label>জমির পরিমাণ<input id="peLand" value="${v("land")}" placeholder="যেমন: ১০ শতক"></label><label>মৌজা / দাগ নং<input id="peDet" value="${v("details")}"></label></div>` : ""}
-    ${list === "life" ? `<label>সদস্য নং<input id="peNo" value="${v("memberNo")}"></label>` : ""}
+    ${list === "life" || list === "land" ? `<label>${list === "land" ? "দাতা নং" : "সদস্য নং"}<input id="peNo" value="${v("memberNo")}"></label>` : ""}
     ${list === "life" && !p ? `<div class="banner" style="display:grid;gap:8px"><b>সদস্য ফি</b>
       <label class="chk"><input type="radio" name="peFee" value="now"> আজ জমা নিচ্ছি (আজকের আয়ে যোগ হবে)</label>
       <label class="chk"><input type="radio" name="peFee" value="old"> আগেই পরিশোধিত, পুরনো সদস্য (আয়ে যোগ হবে না)</label>
@@ -397,7 +397,7 @@ function showPerson(id) {
   const p = D.people.find(x => x.id === id); if (!p) return;
   const paid = Object.keys(p.paid || {}).sort().reverse();
   const rows = [["ঠিকানা", p.address], ["মোবাইল", p.mobile], ["এলাকা", p.area], [p.list === "life" ? "সদস্য ফি" : "মাসিক প্রণামী", p.amount && p.list !== "land" ? tk(p.amount) : ""],
-    ["জমির পরিমাণ", landBn(p.land)], ["মৌজা / দাগ", landBn(p.details)], ["সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : p.list === "land" ? "জমি দানের তারিখ" : "শুরু", p.date ? fmtDate(p.date) : ""],
+    ["জমির পরিমাণ", landBn(p.land)], ["মৌজা / দাগ", landBn(p.details)], [p.list === "land" ? "দাতা নং" : "সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : p.list === "land" ? "জমি দানের তারিখ" : "শুরু", p.date ? fmtDate(p.date) : ""],
     ["মন্তব্য", p.note], ["যোগ করেছেন", (D.names[p.by] || "") + " · " + fmtDate((p.createdAt || "").slice(0, 10))]].filter(r => r[1]);
   openSheet(p.name, `<table><tbody>${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table>
     ${paid.length ? `<h3 class="sub" style="margin-top:12px">জমার ইতিহাস</h3><table><tbody>${paid.slice(0, 24).map(m => `<tr><td>${monthName(m)}</td><td>${fmtDate(p.paid[m].date)}</td><td class="n">${tk(p.paid[m].amount)}</td></tr>`).join("")}</tbody></table>` : ""}
@@ -576,6 +576,48 @@ $("areaList").addEventListener("click", e => { const b = e.target.closest("butto
     bb.querySelector("#arF").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => { await api("area_rename", {old: b.dataset.arename, name: bb.querySelector("#arN").value}); closeSheet(); await reload(); renderAreasCats(); toast("নাম বদলানো হয়েছে।"); }); };
   });
   if (b.dataset.adel) guard(b, async () => { await api("area_delete", {old: b.dataset.adel}); await reload(); renderAreasCats(); toast("এলাকা মুছে ফেলা হয়েছে।"); });
+});
+
+/* import a list from a CSV file (Excel "Save as CSV UTF-8") */
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  text = text.replace(/^﻿/, "");
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ",") { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += ch;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ""));
+}
+const IMPORT_COLS = [["memberNo", /নং|id|no\b|ক্রম/i], ["name", /নাম|name/i], ["mobile", /মোবাইল|ফোন|mobile|phone/i], ["address", /ঠিকানা|address/i],
+  ["land", /জমি|land/i], ["details", /মৌজা|দাগ|mouza|dag/i], ["area", /এলাকা|থানা|area/i], ["amount", /টাকা|পরিমাণ|ফি|amount/i], ["date", /তারিখ|date/i], ["note", /মন্তব্য|note/i]];
+$("importFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  const list = $("importList").value;
+  const rows = parseCSV(await f.text());
+  if (rows.length < 2) { toast("ফাইলে কোনো তথ্য পাওয়া যায়নি।"); return; }
+  const head = rows[0].map(h => h.trim()), map = {};
+  head.forEach((h, i) => { const hit = IMPORT_COLS.find(([k, re]) => !(k in map) && re.test(h) && !(k === "amount" && /জমি/.test(h))); if (hit) map[hit[0]] = i; });
+  if (!("name" in map)) { toast("ফাইলের প্রথম সারিতে \"নাম\" কলাম পাওয়া যায়নি।"); return; }
+  const data = rows.slice(1).map(r => Object.fromEntries(Object.entries(map).map(([k, i]) => [k, (r[i] || "").trim()]))).filter(r => r.name);
+  const withMob = data.filter(r => r.mobile).length;
+  openSheet("তালিকা ইমপোর্ট: " + LIST_LABEL[list], `<form class="form" id="impF">
+    <p>${bnd(data.length)} জনের নাম পাওয়া গেছে, তার মধ্যে ${bnd(withMob)} জনের মোবাইল নম্বর আছে।</p>
+    <p class="note">যে কলামগুলো চেনা গেছে: ${Object.keys(map).map(k => ({memberNo: "নং", name: "নাম", mobile: "মোবাইল", address: "ঠিকানা", land: "জমি", details: "মৌজা/দাগ", area: "এলাকা", amount: "টাকা", date: "তারিখ", note: "মন্তব্য"})[k]).join(", ")}</p>
+    <div class="tbl"><table><tbody>${data.slice(0, 5).map(r => `<tr><td>${esc(r.memberNo || "")}</td><td>${esc(r.name)}</td><td>${esc(r.mobile || "")}</td></tr>`).join("")}</tbody></table></div>
+    ${data.length > 5 ? `<p class="note">… আরও ${bnd(data.length - 5)} জন</p>` : ""}
+    <p class="banner">একই নং আগে থেকে তালিকায় থাকলে সেটা আবার যোগ হবে না, তাই ভুল করে দুবার ইমপোর্ট করলেও সমস্যা নেই।${list === "life" ? " আজীবন সদস্যরা \"পুরনো সদস্য\" হিসেবে উঠবেন, আয়ে কিছু যোগ হবে না।" : ""}</p>
+    <button class="btn wide">ইমপোর্ট করুন</button></form>`, b => {
+    b.querySelector("#impF").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      const j = await api("people_import", {list, rows: data});
+      closeSheet(); await reload(); render();
+      toast(`${bnd(j.added)} জন যোগ হয়েছে` + (j.skipped ? `, ${bnd(j.skipped)} জন আগে থেকেই ছিলেন` : "") + (j.badMobile.length ? `, ${bnd(j.badMobile.length)} জনের মোবাইল নম্বর ঠিক না থাকায় নম্বর ছাড়া উঠেছে` : "") + "।");
+    }); };
+  });
 });
 
 /* restore from a backup file */

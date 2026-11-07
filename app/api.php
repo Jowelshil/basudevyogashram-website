@@ -453,6 +453,45 @@ case 'people_update': {
     out(['ok' => true]);
 }
 
+case 'people_import': {
+    /* admin brings in an existing list (e.g. from the old system) in one go; rows already imported are skipped */
+    $u = auth(true);
+    $list = str_in($IN, 'list');
+    if (!isset(LISTS[$list])) fail('তালিকা ঠিক নেই।');
+    $rows = $IN['rows'] ?? null;
+    if (!is_array($rows) || !$rows) fail('ফাইলে কোনো সারি পাওয়া যায়নি।');
+    if (count($rows) > 3000) fail('একবারে সর্বোচ্চ ৩০০০ জন ইমপোর্ট করা যায়।');
+    $areas = areas_list();
+    $res = hmutate('people', function (&$p) use ($rows, $list, $u, $areas) {
+        $have = []; $haveName = [];
+        foreach ($p as $x) if ($x['list'] === $list && empty($x['deleted'])) { if (($x['memberNo'] ?? '') !== '') $have[$x['memberNo']] = 1; $haveName[$x['name'] . '|' . $x['mobile']] = 1; }
+        $added = 0; $skipped = 0; $badMobile = [];
+        foreach ($rows as $r) {
+            if (!is_array($r)) continue;
+            $get = fn($k, $n = 200) => mb_substr(trim((string)($r[$k] ?? '')), 0, $n);
+            $name = $get('name', 100);
+            if ($name === '') continue;
+            $no = $get('memberNo', 30);
+            $mob = norm_mobile($get('mobile', 20));
+            if ($get('mobile', 20) !== '' && $mob === '') $badMobile[] = $name;
+            if (($no !== '' && isset($have[$no])) || ($no === '' && isset($haveName[$name . '|' . $mob]))) { $skipped++; continue; }
+            $area = $get('area', 60);
+            if ($list === 'monthly' && !in_array($area, $areas, true)) $area = 'অন্যান্য';
+            $amt = (float)strtr(str_replace(',', '', $get('amount', 20)), ['০'=>'0','১'=>'1','২'=>'2','৩'=>'3','৪'=>'4','৫'=>'5','৬'=>'6','৭'=>'7','৮'=>'8','৯'=>'9']);
+            $d = $get('date', 10);
+            $p[] = ['id' => new_id(), 'list' => $list, 'area' => $area, 'name' => $name, 'address' => $get('address'), 'mobile' => $mob,
+                'amount' => max(0, round($amt, 2)), 'land' => land_bn($get('land', 60)), 'details' => land_bn($get('details', 300)),
+                'date' => valid_date($d) ? $d : '', 'memberNo' => $no, 'note' => $get('note', 300),
+                'feeStatus' => $list === 'life' ? 'old' : '', 'imported' => true, 'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s')];
+            if ($no !== '') $have[$no] = 1; else $haveName[$name . '|' . $mob] = 1;
+            $added++;
+        }
+        return [$added, $skipped, $badMobile];
+    });
+    audit($u, LISTS[$list] . ' ইমপোর্ট', ['count' => $res[0], 'skipped' => $res[1]]);
+    out(['ok' => true, 'added' => $res[0], 'skipped' => $res[1], 'badMobile' => $res[2]]);
+}
+
 case 'people_delete':
 case 'people_restore': {
     $u = auth(true);

@@ -186,6 +186,12 @@
         <div id="catList" style="margin-top:6px"></div>
         <form id="catForm" class="inline" style="margin-top:10px"><input id="catName" placeholder="নতুন খাতের নাম" required><button class="btn" type="submit">যোগ করুন</button></form>
       </div>
+      <div class="card">
+        <h3 class="sub">তালিকা ইমপোর্ট (CSV ফাইল থেকে)</h3>
+        <p class="note">পুরনো খাতা বা অন্য সফটওয়্যারের তালিকা একবারে তুলতে। ফাইলের প্রথম সারিতে কলামের নাম থাকবে: নং, নাম, মোবাইল, ঠিকানা ইত্যাদি। Excel থেকে "CSV UTF-8" হিসেবে সেভ করুন।</p>
+        <label>কোন তালিকায়<select id="importList"><option value="land">ভূমিদাতা</option><option value="life">আজীবন সদস্য</option><option value="monthly">মাসিক প্রণামী</option></select></label>
+        <label class="btn ghost" style="display:inline-block;margin-top:8px;color:var(--ink)">CSV ফাইল বেছে নিন<input type="file" id="importFile" accept=".csv,text/csv" hidden></label>
+      </div>
       <div class="card" id="restoreCard">
         <h3 class="sub">ব্যাকআপ থেকে পুনরুদ্ধার</h3>
         <p class="note">"পূর্ণ ব্যাকআপ ডাউনলোড" দিয়ে রাখা ফাইলটি বেছে নিন। সব হিসাব ওই ব্যাকআপের অবস্থায় ফিরে যাবে।</p>
@@ -284,6 +290,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
