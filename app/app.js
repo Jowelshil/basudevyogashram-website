@@ -451,11 +451,66 @@ function renderDash() {
   $("dashChart").innerHTML = barChart(b);
   const proj = groupBy(live().filter(r => r.kind === "construction"), "project");
   $("projList").innerHTML = proj.length ? `<table><tbody>${proj.map(([p, v]) => `<tr><td>${esc(p)}</td><td class="n con">${tk(v)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">এখনো নির্মাণ খরচের এন্ট্রি নেই।</div>`;
-  const ym = t.slice(0, 7);
-  const rows = ["monthly"].map(list => { const ppl = D.people.filter(p => p.list === list && !p.deleted && (!p.date || p.date.slice(0, 7) <= ym));
-    const paid = ppl.filter(p => p.paid?.[ym]); return [LIST_LABEL[list], ppl.length, paid.length, paid.reduce((s, p) => s + Number(p.paid[ym].amount || 0), 0), ppl.filter(p => !p.paid?.[ym]).reduce((s, p) => s + Number(p.amount || 0), 0)]; });
-  $("monthlyCollect").innerHTML = `<table><thead><tr><th>তালিকা</th><th class="n">মোট জন</th><th class="n">জমা দিয়েছেন</th><th class="n">আদায়</th><th class="n">বকেয়া (আনুমানিক)</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td class="n">${bnd(r[1])}</td><td class="n">${bnd(r[2])}</td><td class="n inc">${tk(r[3])}</td><td class="n exp">${tk(r[4])}</td></tr>`).join("")}</tbody></table>`;
+  renderPranamiStatus();
 }
+
+/* summary tab: monthly pranami status for the current month and the 2 before it */
+let dashTab = "money";
+document.querySelectorAll("#dashSeg button").forEach(b => b.onclick = () => {
+  dashTab = b.dataset.d;
+  document.querySelectorAll("#dashSeg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  $("dashMoney").hidden = dashTab !== "money"; $("dashPranami").hidden = dashTab !== "pranami";
+});
+function lastMonths(n) {
+  const out = []; let [y, m] = D.today.slice(0, 7).split("-").map(Number);
+  for (let i = 0; i < n; i++) { out.unshift(`${y}-${String(m).padStart(2, "0")}`); if (--m < 1) { m = 12; y--; } }
+  return out;
+}
+/* who is expected to pay in a month: started on or before it (members brought in from old records count from the start) */
+const pmStart = p => (p.date || (p.imported ? "" : (p.createdAt || ""))).slice(0, 7);
+function pmMonth(ppl, ym) {
+  const due = ppl.filter(p => !pmStart(p) || pmStart(p) <= ym);
+  const paid = due.filter(p => p.paid?.[ym]);
+  return {total: due.length, paid: paid.length, unpaid: due.length - paid.length,
+    got: paid.reduce((s, p) => s + Number(p.paid[ym].amount || 0), 0),
+    owed: due.filter(p => !p.paid?.[ym]).reduce((s, p) => s + Number(p.amount || 0), 0)};
+}
+function renderPranamiStatus() {
+  const ppl = D.people.filter(p => p.list === "monthly" && !p.deleted);
+  const months = lastMonths(3), cur = D.today.slice(0, 7);
+  $("pm3").innerHTML = months.map(ym => { const r = pmMonth(ppl, ym), pct = r.total ? Math.round(r.paid / r.total * 100) : 0;
+    return `<div class="pmc${ym === cur ? " cur" : ""}"><h3><span>${monthName(ym)}</span>${ym === cur ? '<span class="chip wait">চলতি মাস</span>' : ""}</h3>
+      <div class="big"><button class="pmbtn" data-pm="${ym}|paid|"><b class="inc">${bnd(r.paid)}</b><span>জন পেইড ›</span></button><button class="pmbtn" data-pm="${ym}|due|"><b class="exp">${bnd(r.unpaid)}</b><span>জন বকেয়া ›</span></button><div><b>${bnd(r.total)}</b><span>মোট সদস্য</span></div></div>
+      <div class="pmbar" role="img" aria-label="${bnd(pct)}% পেইড"><i style="width:${pct}%"></i></div>
+      <div class="s">${bnd(pct)}% আদায় · জমা ${tk(r.got)} · বকেয়া প্রায় ${tk(r.owed)}</div></div>`; }).join("");
+  const areas = D.areas.filter(a => ppl.some(p => p.area === a));
+  $("pmArea").innerHTML = areas.length ? `<table><thead><tr><th>এলাকা</th>${months.map(ym => `<th class="n">${BN_MS[+ym.slice(5) - 1]}</th>`).join("")}</tr></thead><tbody>${areas.map(a => { const pa = ppl.filter(p => p.area === a);
+      return `<tr><td>${esc(a)}</td>${months.map(ym => { const r = pmMonth(pa, ym); return `<td class="n"><button class="pmlink" data-pm="${ym}|paid|${esc(a)}"><b class="inc">${bnd(r.paid)}</b></button> / ${bnd(r.total)}${r.unpaid ? `<br><button class="pmlink note exp" data-pm="${ym}|due|${esc(a)}">${bnd(r.unpaid)} বকেয়া</button>` : ""}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table>`
+    : `<div class="empty">মাসিক প্রণামীর তালিকায় এখনো কেউ নেই।</div>`;
+}
+
+/* tap a paid / due figure: the list of those devotees */
+function pmList(ym, kind, area) {
+  let ppl = D.people.filter(p => p.list === "monthly" && !p.deleted && (!pmStart(p) || pmStart(p) <= ym));
+  if (area) ppl = ppl.filter(p => p.area === area);
+  const draw = (k, q) => {
+    const l = ppl.filter(p => (k === "paid") === !!p.paid?.[ym]).filter(p => matches(p, q))
+      .sort((a, b) => a.area.localeCompare(b.area, "bn") || a.name.localeCompare(b.name, "bn"));
+    const sum = l.reduce((s, p) => s + Number(k === "paid" ? p.paid[ym].amount : p.amount || 0), 0);
+    return `<p class="note">${bnd(l.length)} জন · ${k === "paid" ? "জমা" : "বকেয়া প্রায়"} ${tk(sum)}</p>` + (l.length ? l.map((p, i) => `<div class="item"><div class="sn">${bnd(i + 1)}</div>
+      <div><div class="t">${esc(p.name)}</div><div class="s">${esc([area ? "" : p.area, p.address, p.mobile].filter(Boolean).join(" · "))}</div>
+      ${k === "paid" ? `<div class="s">জমা ${fmtDate(p.paid[ym].date)}${p.paid[ym].by ? " · " + esc(D.names[p.paid[ym].by] || "") : ""}</div>` : ""}</div>
+      <div class="amt ${k === "paid" ? "inc" : "exp"}">${tk(k === "paid" ? p.paid[ym].amount : p.amount)}</div></div>`).join("") : `<div class="empty">কেউ নেই।</div>`);
+  };
+  openSheet(`${monthName(ym)}${area ? " · " + area : ""}`, `<div class="seg" style="grid-template-columns:1fr 1fr" id="pmSeg">
+      <button type="button" data-k="income" data-pk="paid" aria-pressed="${kind === "paid"}">পেইড</button><button type="button" data-k="daily" data-pk="due" aria-pressed="${kind === "due"}">বকেয়া</button></div>
+    <input class="search" id="pmQ" placeholder="নাম, ঠিকানা বা মোবাইল খুঁজুন" style="margin-bottom:6px"><div id="pmBody">${draw(kind, "")}</div>`, b => {
+    const upd = () => b.querySelector("#pmBody").innerHTML = draw(kind, b.querySelector("#pmQ").value);
+    b.querySelectorAll("#pmSeg button").forEach(x => x.onclick = () => { kind = x.dataset.pk; b.querySelectorAll("#pmSeg button").forEach(y => y.setAttribute("aria-pressed", y === x)); upd(); });
+    b.querySelector("#pmQ").addEventListener("input", upd);
+  });
+}
+$("dashPranami").addEventListener("click", e => { const b = e.target.closest("[data-pm]"); if (!b) return; const [ym, k, a] = b.dataset.pm.split("|"); pmList(ym, k, a); });
 
 /* ================= admin: daily entries by user ================= */
 $("dailyPick").addEventListener("input", renderDaily);

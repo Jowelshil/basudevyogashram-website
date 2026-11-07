@@ -175,3 +175,23 @@ tr.tot td{font-weight:700;border-bottom:0}
   .main.slide-l{animation:fromRight .2s ease-out}.main.slide-r{animation:fromLeft .2s ease-out}
   @keyframes fromRight{from{transform:translateX(40px);opacity:.4}}@keyframes fromLeft{from{transform:translateX(-40px);opacity:.4}}
 }
+
+/* summary: monthly pranami status */
+.dashseg button[aria-pressed="true"]{background:var(--surface);color:var(--saffron);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.pm3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:720px){.pm3{grid-template-columns:1fr}}
+.pmc{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:8px;min-width:0}
+.pmc.cur{border-color:var(--saffron)}
+.pmc h3{font-family:var(--body);font-weight:700;font-size:1rem;display:flex;justify-content:space-between;gap:8px}
+.pmc .big{display:flex;gap:16px;flex-wrap:wrap}
+.pmc .big div{display:grid}
+.pmc .big b{font-size:1.5rem;font-variant-numeric:tabular-nums;line-height:1.2}
+.pmc .big span{font-size:.78rem;color:var(--muted);font-weight:600}
+.pmbar{height:10px;border-radius:99px;background:var(--exp-soft);overflow:hidden}
+.pmbar i{display:block;height:100%;background:var(--inc);border-radius:99px}
+.pmc .s{font-size:.82rem;color:var(--muted)}
+.subview{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+.subview>*{min-width:0}
+.pmbtn{background:none;border:0;padding:4px 8px 4px 0;margin:-4px 0;text-align:left;display:grid;cursor:pointer;border-radius:8px}
+.pmbtn:hover{background:var(--bg)}
+.pmlink{background:none;border:0;padding:0;font:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
