@@ -617,12 +617,12 @@ $("importFile").addEventListener("change", async e => {
     <p class="note">যে কলামগুলো চেনা গেছে: ${Object.keys(map).map(k => ({memberNo: "নং", name: "নাম", mobile: "মোবাইল", address: "ঠিকানা", land: "জমি", details: "মৌজা/দাগ", area: "এলাকা", amount: "টাকা", date: "তারিখ", note: "মন্তব্য"})[k]).join(", ")}</p>
     <div class="tbl"><table><tbody>${data.slice(0, 5).map(r => `<tr><td>${esc(r.memberNo || "")}</td><td>${esc(r.name)}</td><td>${esc(r.mobile || "")}</td></tr>`).join("")}</tbody></table></div>
     ${data.length > 5 ? `<p class="note">… আরও ${bnd(data.length - 5)} জন</p>` : ""}
-    <p class="banner">একই নং আগে থেকে তালিকায় থাকলে সেটা আবার যোগ হবে না, তাই ভুল করে দুবার ইমপোর্ট করলেও সমস্যা নেই।${list === "life" ? " আজীবন সদস্যরা \"পুরনো সদস্য\" হিসেবে উঠবেন, আয়ে কিছু যোগ হবে না।" : ""}</p>
+    <p class="banner">একই নং আগে থেকে তালিকায় থাকলে নতুন করে যোগ হবে না, শুধু তাঁর ফাঁকা ঘর (ঠিকানা, মোবাইল ইত্যাদি) ফাইল থেকে পূরণ হবে। আগে থেকে লেখা কিছু বদলাবে না।${list === "life" ? " আজীবন সদস্যরা \"পুরনো সদস্য\" হিসেবে উঠবেন, আয়ে কিছু যোগ হবে না।" : ""}</p>
     <button class="btn wide">ইমপোর্ট করুন</button></form>`, b => {
     b.querySelector("#impF").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
       const j = await api("people_import", {list, rows: data});
       closeSheet(); await reload(); render();
-      toast(`${bnd(j.added)} জন যোগ হয়েছে` + (j.skipped ? `, ${bnd(j.skipped)} জন আগে থেকেই ছিলেন` : "") + (j.badMobile.length ? `, ${bnd(j.badMobile.length)} জনের মোবাইল নম্বর ঠিক না থাকায় নম্বর ছাড়া উঠেছে` : "") + "।");
+      toast(`${bnd(j.added)} জন যোগ হয়েছে` + (j.updated ? `, ${bnd(j.updated)} জনের ফাঁকা তথ্য (ঠিকানা ইত্যাদি) পূরণ হয়েছে` : "") + (j.skipped ? `, ${bnd(j.skipped)} জন আগে থেকেই ছিলেন` : "") + (j.badMobile.length ? `, ${bnd(j.badMobile.length)} জনের মোবাইল নম্বর ঠিক না থাকায় নম্বর ছাড়া উঠেছে` : "") + "।");
     }); };
   });
 });

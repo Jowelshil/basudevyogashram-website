@@ -475,7 +475,10 @@ case 'people_import': {
     $areas = areas_list();
     $res = hmutate('people', function (&$p) use ($rows, $list, $u, $areas) {
         $have = []; $haveName = []; $haveOld = [];
-        foreach ($p as $x) if ($x['list'] === $list && empty($x['deleted'])) foreach (old_ids($x) as $o) $haveOld[$o] = 1;
+        foreach ($p as $k => $x) if ($x['list'] === $list && empty($x['deleted'])) foreach (old_ids($x) as $o) $haveOld[$o] = $k;
+        $byNo = [];
+        foreach ($p as $k => $x) if ($x['list'] === $list && empty($x['deleted']) && ($x['memberNo'] ?? '') !== '') $byNo[$x['memberNo']] = $k;
+        $updated = 0;
         foreach ($p as $x) if ($x['list'] === $list && empty($x['deleted'])) { if (($x['memberNo'] ?? '') !== '') $have[$x['memberNo']] = 1; $haveName[$x['name'] . '|' . $x['mobile']] = 1; }
         $added = 0; $skipped = 0; $badMobile = [];
         foreach ($rows as $r) {
@@ -487,7 +490,19 @@ case 'people_import': {
             $mob = norm_mobile($get('mobile', 20));
             if ($get('mobile', 20) !== '' && $mob === '') $badMobile[] = $name;
             $olds = old_ids(['memberNo' => $no, 'note' => $get('note', 300)]);
-            if (($no !== '' && isset($have[$no])) || ($no === '' && isset($haveName[$name . '|' . $mob])) || array_filter($olds, fn($o) => isset($haveOld[$o]))) { $skipped++; continue; }
+            $hit = null;
+            foreach ($olds as $o) if (isset($haveOld[$o]) && is_int($haveOld[$o])) { $hit = $haveOld[$o]; break; }
+            if ($hit === null && $no !== '' && isset($byNo[$no])) $hit = $byNo[$no];
+            if ($hit !== null || ($no !== '' && isset($have[$no])) || ($no === '' && isset($haveName[$name . '|' . $mob])) || array_filter($olds, fn($o) => isset($haveOld[$o]))) {
+                /* already in the list: only fill details that are still empty, never overwrite */
+                if ($hit !== null) {
+                    $fill = ['address' => $get('address'), 'mobile' => $mob, 'land' => land_bn($get('land', 60)), 'details' => land_bn($get('details', 300)), 'area' => $get('area', 60)];
+                    $ch = false;
+                    foreach ($fill as $f => $v) if ($v !== '' && trim((string)($p[$hit][$f] ?? '')) === '') { $p[$hit][$f] = $v; $ch = true; }
+                    if ($ch) { $updated++; continue; }
+                }
+                $skipped++; continue;
+            }
             foreach ($olds as $o) $haveOld[$o] = 1;
             $area = $get('area', 60);
             if ($list === 'monthly' && !in_array($area, $areas, true)) $area = 'অন্যান্য';
@@ -500,10 +515,10 @@ case 'people_import': {
             if ($no !== '') $have[$no] = 1; else $haveName[$name . '|' . $mob] = 1;
             $added++;
         }
-        return [$added, $skipped, $badMobile];
+        return [$added, $skipped, $badMobile, $updated];
     });
-    audit($u, LISTS[$list] . ' ইমপোর্ট', ['count' => $res[0], 'skipped' => $res[1]]);
-    out(['ok' => true, 'added' => $res[0], 'skipped' => $res[1], 'badMobile' => $res[2]]);
+    audit($u, LISTS[$list] . ' ইমপোর্ট', ['count' => $res[0], 'skipped' => $res[1], 'updated' => $res[3]]);
+    out(['ok' => true, 'added' => $res[0], 'skipped' => $res[1], 'badMobile' => $res[2], 'updated' => $res[3]]);
 }
 
 case 'land_renumber': {
