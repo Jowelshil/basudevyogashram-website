@@ -263,9 +263,10 @@ function sms_flush(array $u, string $date, ?string $onlyId = null): array {
 }
 
 /* land donors carry a running S/N: 001, 002, ... */
-function land_next_sn(array $people, string $list = 'land'): string {
+function land_next_sn(array $people, string $list = 'land', string $area = ''): string {
     $max = 0;
-    foreach ($people as $x) if ($x['list'] === $list && empty($x['deleted']) && preg_match('/^\d+$/', (string)($x['memberNo'] ?? ''))) $max = max($max, (int)$x['memberNo']);
+    foreach ($people as $x) if ($x['list'] === $list && empty($x['deleted']) && ($list !== 'monthly' || ($x['area'] ?? '') === $area) && preg_match('/^\d+$/', (string)($x['memberNo'] ?? ''))) $max = max($max, (int)$x['memberNo']);
+    if ($list === 'monthly') return $max ? (string)($max + 1) : '';
     return str_pad((string)($max + 1), 3, '0', STR_PAD_LEFT);
 }
 function old_ids(array $x): array { preg_match_all('/LD-\d+/', ($x['memberNo'] ?? '') . ' ' . ($x['note'] ?? ''), $m); return $m[0]; }
@@ -490,7 +491,7 @@ case 'people_update': {
             $rec['feePaid'] = ['entry' => $entry['id'], 'date' => $entry['date'], 'amount' => $entry['amount']];
         }
         $rec = hmutate('people', function (&$p) use ($rec) {
-            if (in_array($rec['list'], ['land', 'monthly'], true) && $rec['memberNo'] === '') $rec['memberNo'] = land_next_sn($p, $rec['list']);
+            if (in_array($rec['list'], ['land', 'monthly'], true) && $rec['memberNo'] === '') $rec['memberNo'] = land_next_sn($p, $rec['list'], $rec['area'] ?? '');
             $p[] = $rec; return $rec;
         });
         audit($u, LISTS[$list] . ' যোগ', ['id' => $rec['id'], 'name' => $name] + ($entry ? ['amount' => $entry['amount']] : []));
@@ -521,9 +522,11 @@ case 'people_import': {
         $have = []; $haveName = []; $haveOld = [];
         foreach ($p as $k => $x) if ($x['list'] === $list && empty($x['deleted'])) foreach (old_ids($x) as $o) $haveOld[$o] = $k;
         $byNo = [];
-        foreach ($p as $k => $x) if ($x['list'] === $list && empty($x['deleted']) && ($x['memberNo'] ?? '') !== '') $byNo[$x['memberNo']] = $k;
+        foreach ($p as $k => $x) if ($x['list'] === $list && empty($x['deleted']) && ($x['memberNo'] ?? '') !== '') $byNo[$x['memberNo']][] = $k;
+        /* the monthly register has a few serials shared by two different people, so there a match also needs the same name */
+        $same = fn($k, string $name) => $list !== 'monthly' || (is_int($k) ? ($p[$k]['name'] ?? '') : (string)$k) === $name;
         $updated = 0;
-        foreach ($p as $x) if ($x['list'] === $list && empty($x['deleted'])) { if (($x['memberNo'] ?? '') !== '') $have[$x['memberNo']] = 1; $haveName[$x['name'] . '|' . $x['mobile']] = 1; }
+        foreach ($p as $x) if ($x['list'] === $list && empty($x['deleted'])) { if (($x['memberNo'] ?? '') !== '') $have[$x['memberNo'] . '|' . $x['name']] = 1; $haveName[$x['name'] . '|' . $x['mobile']] = 1; }
         $added = 0; $skipped = 0; $badMobile = [];
         foreach ($rows as $r) {
             if (!is_array($r)) continue;
@@ -535,9 +538,9 @@ case 'people_import': {
             if ($get('mobile', 20) !== '' && $mob === '') $badMobile[] = $name;
             $olds = old_ids(['memberNo' => $no, 'note' => $get('note', 300)]);
             $hit = null;
-            foreach ($olds as $o) if (isset($haveOld[$o]) && is_int($haveOld[$o])) { $hit = $haveOld[$o]; break; }
-            if ($hit === null && $no !== '' && isset($byNo[$no])) $hit = $byNo[$no];
-            if ($hit !== null || ($no !== '' && isset($have[$no])) || ($no === '' && isset($haveName[$name . '|' . $mob])) || array_filter($olds, fn($o) => isset($haveOld[$o]))) {
+            foreach ($olds as $o) if (isset($haveOld[$o]) && is_int($haveOld[$o]) && $same($haveOld[$o], $name)) { $hit = $haveOld[$o]; break; }
+            if ($hit === null && $no !== '') foreach ($byNo[$no] ?? [] as $k) if ($same($k, $name)) { $hit = $k; break; }
+            if ($hit !== null || ($no !== '' && isset($have[$no . '|' . $name])) || ($no === '' && isset($haveName[$name . '|' . $mob])) || array_filter($olds, fn($o) => isset($haveOld[$o]) && $same($haveOld[$o], $name))) {
                 /* already in the list: only fill details that are still empty, never overwrite */
                 if ($hit !== null) {
                     $fill = ['address' => $get('address'), 'mobile' => $mob, 'land' => land_bn($get('land', 60)), 'details' => land_bn($get('details', 300)), 'area' => $get('area', 60)];
@@ -547,7 +550,7 @@ case 'people_import': {
                 }
                 $skipped++; continue;
             }
-            foreach ($olds as $o) $haveOld[$o] = 1;
+            foreach ($olds as $o) $haveOld[$o] = $list === 'monthly' ? $name : 1;
             $area = $get('area', 60);
             if ($list === 'monthly' && !in_array($area, $areas, true)) $area = 'অন্যান্য';
             $amt = (float)strtr(str_replace(',', '', $get('amount', 20)), ['০'=>'0','১'=>'1','২'=>'2','৩'=>'3','৪'=>'4','৫'=>'5','৬'=>'6','৭'=>'7','৮'=>'8','৯'=>'9']);
@@ -556,7 +559,7 @@ case 'people_import': {
                 'amount' => max(0, round($amt, 2)), 'land' => land_bn($get('land', 60)), 'details' => land_bn($get('details', 300)),
                 'date' => valid_date($d) ? $d : '', 'memberNo' => $no, 'note' => $get('note', 300),
                 'feeStatus' => $list === 'life' ? 'old' : '', 'imported' => true, 'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s')];
-            if ($no !== '') $have[$no] = 1; else $haveName[$name . '|' . $mob] = 1;
+            if ($no !== '') $have[$no . '|' . $name] = 1; else $haveName[$name . '|' . $mob] = 1;
             $added++;
         }
         return [$added, $skipped, $badMobile, $updated];

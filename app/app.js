@@ -284,8 +284,10 @@ $("mAllSearch").addEventListener("input", renderMonthly);
 $("landSearch").addEventListener("input", renderLand);
 
 function matches(p, q) { q = toEn(q).trim().toLowerCase(); return !q || [p.name, p.address, p.mobile, p.area, p.details, p.memberNo, p.land].join(" ").toLowerCase().includes(q); }
-function landNextSn(list = "land") {
-  const max = D.people.filter(p => p.list === list && !p.deleted && /^\d+$/.test(p.memberNo || "")).reduce((m, p) => Math.max(m, +p.memberNo), 0);
+/* next সদস্য নং: land runs over the whole list; monthly pranami counts on inside the area (each area has its own range in the register) */
+function landNextSn(list = "land", area = "") {
+  const max = D.people.filter(p => p.list === list && !p.deleted && (list !== "monthly" || p.area === area) && /^\d+$/.test(p.memberNo || "")).reduce((m, p) => Math.max(m, +p.memberNo), 0);
+  if (list === "monthly") return max ? String(max + 1) : "";
   return String(max + 1).padStart(3, "0");
 }
 function renderLand() {
@@ -392,7 +394,7 @@ function personForm(list, p) {
     <div class="row2">${list === "land" ? "" : `<label>${list === "life" ? "সদস্য ফি (টাকা)" : "মাসিক প্রণামী (টাকা)"}<input id="peAmt" inputmode="decimal" value="${v("amount")}" required></label>`}
       <label>${list === "life" ? "সদস্য হওয়ার তারিখ" : list === "land" ? "জমি দানের তারিখ" : "কোন মাস থেকে"}<input type="date" id="peDate" value="${v("date") || (list === "land" ? "" : D.today)}"></label></div>
     ${list === "land" ? `<div class="row2"><label>জমির পরিমাণ<input id="peLand" value="${v("land")}" placeholder="যেমন: ১০ শতক"></label><label>মৌজা / দাগ নং<input id="peDet" value="${v("details")}"></label></div>` : ""}
-    ${list === "life" || list === "land" || list === "monthly" ? `<label>সদস্য নং<input id="peNo" value="${p ? v("memberNo") : list !== "life" ? landNextSn(list) : ""}"></label>` : ""}
+    ${list === "life" || list === "land" || list === "monthly" ? `<label>সদস্য নং<input id="peNo" value="${p ? v("memberNo") : list !== "life" ? landNextSn(list, areaSel) : ""}"></label>` : ""}
     ${list === "life" && !p ? `<div class="banner" style="display:grid;gap:8px"><b>সদস্য ফি</b>
       <label class="chk"><input type="radio" name="peFee" value="now"> আজ জমা নিচ্ছি (আজকের আয়ে যোগ হবে)</label>
       <label class="chk"><input type="radio" name="peFee" value="old"> আগেই পরিশোধিত, পুরনো সদস্য (আয়ে যোগ হবে না)</label>
@@ -401,6 +403,8 @@ function personForm(list, p) {
     <button class="btn wide">${p ? "হালনাগাদ করুন" : "যোগ করুন"}</button>
     ${p || isAdmin() ? "" : `<p class="note">যোগ করার পর বদলাতে বা মুছতে অ্যাডমিন লাগবে।</p>`}</form>`, b => {
     b.querySelectorAll("[name=peFee]").forEach(r => r.addEventListener("change", () => { b.querySelector("#peFeeNow").hidden = r.value !== "now" || !r.checked; }));
+    const ar = b.querySelector("#peArea"), no = b.querySelector("#peNo");
+    if (list === "monthly" && !p && ar && no) ar.addEventListener("change", () => { no.value = landNextSn("monthly", ar.value); });
     ["peLand", "peDet"].forEach(id => { const el = b.querySelector("#" + id); if (el) el.addEventListener("blur", () => el.value = landBn(el.value)); });
     b.querySelector("#peForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
       const g = id => (b.querySelector("#" + id) || {}).value ?? "";
