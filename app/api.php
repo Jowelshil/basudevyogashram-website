@@ -13,9 +13,13 @@ const MAX_USERS = 10;
 const TOKEN_DAYS = 30;
 const IDLE_SECONDS = 300; // server-side idle limit; the app itself logs out after 3 minutes
 /* the 14 areas of the মাসিক প্রণামী register book, in its খাতা order */
-const AREAS_DEFAULT = ['১নং রাউজান এলাকা', '১নং রাংগুনিয়া এলাকা', '২নং রাংগুনিয়া এলাকা', '১নং চৌধুরীহাট এলাকা', '১নং হাটহাজারী এলাকা',
-    '১নং শহর এলাকা', '২নং শহর এলাকা', '৩নং শহর এলাকা', '৪নং শহর এলাকা', '২নং রাউজান এলাকা', '১নং ফটিকছড়ি এলাকা',
-    '১নং পটিয়া এলাকা', '১নং নন্দীরহাট/নেহালপুর এলাকা', '২নং চৌধুরীহাট এলাকা'];
+const AREAS_DEFAULT = ['রাউজান-১', 'রাংগুনিয়া-১', 'রাংগুনিয়া-২', 'চৌধুরীহাট-১', 'হাটহাজারী-১',
+    'শহর-১', 'শহর-২', 'শহর-৩', 'শহর-৪', 'রাউজান-২', 'ফটিকছড়ি-১',
+    'পটিয়া-১', 'নন্দীরহাট/নেহালপুর-১', 'চৌধুরীহাট-২'];
+/* "১নং রাংগুনিয়া এলাকা" (register style) → "রাংগুনিয়া-১" */
+function short_area(string $a): string {
+    return preg_match('/^(\S+)নং\s+(.+?)\s+এলাকা$/u', trim($a), $m) ? $m[2] . '-' . $m[1] : $a;
+}
 const CATS_DEFAULT = [
     'income' => ['এককালীন অনুদান', 'মাসিক প্রণামী', 'আজীবন সদস্য ফি', 'প্রণামী / দানবাক্স', 'পূজা-যজ্ঞ-উৎসব অনুদান', 'প্রসাদ সেবা', 'অনাথ আশ্রম অনুদান', 'বিদ্যালয় অনুদান', 'নির্মাণ অনুদান', 'অন্যান্য আয়'],
     'daily' => ['বাজার ও খাদ্য সামগ্রী', 'চাল-ডাল (মজুদ)', 'পূজা ও ভোগ সামগ্রী', 'বিদ্যুৎ বিল', 'গ্যাস / জ্বালানি', 'কর্মচারী বেতন', 'শিক্ষক বেতন', 'চিকিৎসা', 'শিক্ষা উপকরণ', 'যাতায়াত', 'মেরামত ও রক্ষণাবেক্ষণ', 'অন্যান্য খরচ'],
@@ -118,7 +122,8 @@ function cats_migrate(): void {
 }
 /* one-time switch from the first 5 areas to the register's 14; people move to the matching ১নং area */
 function areas_migrate(): void {
-    if (hread('migrations', [])['areas_2026_11_register'] ?? false) return;
+    $mg = hread('migrations', []);
+    if (($mg['areas_2026_11_register'] ?? false) && ($mg['areas_2026_11_short'] ?? false)) return;
     $lock = fopen(hdir() . '/migrations.lock', 'c'); flock($lock, LOCK_EX);
     if (!(hread('migrations', [])['areas_2026_11_register'] ?? false)) {
         $map = ['রাউজান' => '১নং রাউজান এলাকা', 'রাঙ্গুনিয়া' => '১নং রাংগুনিয়া এলাকা', 'হাটহাজারী' => '১নং হাটহাজারী এলাকা',
@@ -128,6 +133,12 @@ function areas_migrate(): void {
         hwrite('areas', array_merge(AREAS_DEFAULT, $extra)); // areas the admin added stay, after the 14
         hmutate('people', function (&$p) use ($map) { foreach ($p as &$x) if (isset($map[$x['area'] ?? ''])) $x['area'] = $map[$x['area']]; });
         hwrite('migrations', hread('migrations', []) + ['areas_2026_11_register' => date('Y-m-d H:i:s')]);
+    }
+    if (!(hread('migrations', [])['areas_2026_11_short'] ?? false)) {
+        /* register names shortened: ১নং রাংগুনিয়া এলাকা → রাংগুনিয়া-১, order and admin-added areas kept */
+        hwrite('areas', array_values(array_unique(array_map('short_area', hread('areas', AREAS_DEFAULT)))));
+        hmutate('people', function (&$p) { foreach ($p as &$x) if (isset($x['area'])) $x['area'] = short_area((string)$x['area']); });
+        hwrite('migrations', hread('migrations', []) + ['areas_2026_11_short' => date('Y-m-d H:i:s')]);
     }
     flock($lock, LOCK_UN); fclose($lock);
 }
@@ -543,7 +554,7 @@ case 'people_import': {
             if ($hit !== null || ($no !== '' && isset($have[$no . '|' . $name])) || ($no === '' && isset($haveName[$name . '|' . $mob])) || array_filter($olds, fn($o) => isset($haveOld[$o]) && $same($haveOld[$o], $name))) {
                 /* already in the list: only fill details that are still empty, never overwrite */
                 if ($hit !== null) {
-                    $fill = ['address' => $get('address'), 'mobile' => $mob, 'land' => land_bn($get('land', 60)), 'details' => land_bn($get('details', 300)), 'area' => $get('area', 60)];
+                    $fill = ['address' => $get('address'), 'mobile' => $mob, 'land' => land_bn($get('land', 60)), 'details' => land_bn($get('details', 300)), 'area' => short_area($get('area', 60))];
                     $ch = false;
                     foreach ($fill as $f => $v) if ($v !== '' && trim((string)($p[$hit][$f] ?? '')) === '') { $p[$hit][$f] = $v; $ch = true; }
                     if ($ch) { $updated++; continue; }
@@ -551,7 +562,7 @@ case 'people_import': {
                 $skipped++; continue;
             }
             foreach ($olds as $o) $haveOld[$o] = $list === 'monthly' ? $name : 1;
-            $area = $get('area', 60);
+            $area = short_area($get('area', 60));
             if ($list === 'monthly' && !in_array($area, $areas, true)) $area = 'অন্যান্য';
             $amt = (float)strtr(str_replace(',', '', $get('amount', 20)), ['০'=>'0','১'=>'1','২'=>'2','৩'=>'3','৪'=>'4','৫'=>'5','৬'=>'6','৭'=>'7','৮'=>'8','৯'=>'9']);
             $d = $get('date', 10);
