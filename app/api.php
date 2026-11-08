@@ -14,7 +14,7 @@ const TOKEN_DAYS = 30;
 const IDLE_SECONDS = 300; // server-side idle limit; the app itself logs out after 3 minutes
 const AREAS_DEFAULT = ['চট্টগ্রাম শহর', 'রাঙ্গুনিয়া', 'রাউজান', 'ফটিকছড়ি', 'হাটহাজারী'];
 const CATS_DEFAULT = [
-    'income' => ['এককালীন অনুদান', 'মাসিক প্রণামী', 'আজীবন সদস্য ফি', 'প্রণামী / দানবাক্স', 'পূজা-উৎসব অনুদান', 'অনাথ আশ্রম অনুদান', 'বিদ্যালয় অনুদান', 'নির্মাণ অনুদান', 'অন্যান্য আয়'],
+    'income' => ['এককালীন অনুদান', 'মাসিক প্রণামী', 'আজীবন সদস্য ফি', 'প্রণামী / দানবাক্স', 'পূজা-যজ্ঞ-উৎসব অনুদান', 'প্রসাদ সেবা', 'অনাথ আশ্রম অনুদান', 'বিদ্যালয় অনুদান', 'নির্মাণ অনুদান', 'অন্যান্য আয়'],
     'daily' => ['বাজার ও খাদ্য সামগ্রী', 'চাল-ডাল (মজুদ)', 'পূজা ও ভোগ সামগ্রী', 'বিদ্যুৎ বিল', 'গ্যাস / জ্বালানি', 'কর্মচারী বেতন', 'শিক্ষক বেতন', 'চিকিৎসা', 'শিক্ষা উপকরণ', 'যাতায়াত', 'মেরামত ও রক্ষণাবেক্ষণ', 'অন্যান্য খরচ'],
     'construction' => ['রড', 'সিমেন্ট', 'ইট', 'বালু / পাথর', 'শ্রমিক মজুরি', 'ঠিকাদার বিল', 'কাঠ / দরজা-জানালা', 'বিদ্যুৎ ও স্যানিটারি', 'রং', 'পরিবহন', 'অন্যান্য নির্মাণ'],
 ];
@@ -85,9 +85,33 @@ function amount_in(array $in, string $k = 'amount', bool $required = true): floa
 }
 /* area list for মাসিক প্রণামী; "অন্যান্য" is always there and always last */
 function cats_list(): array {
+    cats_migrate();
     $c = hread('categories', CATS_DEFAULT) + CATS_DEFAULT;
     if (!in_array(CAT_FIXED, $c['income'], true)) array_splice($c['income'], 1, 0, [CAT_FIXED]);
     return $c;
+}
+/* one-time category changes for lists already saved on the server (runs once, so the admin can still remove them later) */
+function cats_migrate(): void {
+    if (hread('migrations', [])['cats_2026_11_puja'] ?? false) return;
+    $lock = fopen(hdir() . '/migrations.lock', 'c'); flock($lock, LOCK_EX);
+    if (!(hread('migrations', [])['cats_2026_11_puja'] ?? false)) {
+        $old = 'পূজা-উৎসব অনুদান'; $new = 'পূজা-যজ্ঞ-উৎসব অনুদান';
+        $c = hread('categories', null);
+        if (is_array($c) && isset($c['income'])) {
+            foreach ($c['income'] as &$x) if ($x === $old) $x = $new;
+            unset($x);
+            if (!in_array('প্রসাদ সেবা', $c['income'], true)) {
+                $i = array_search($new, $c['income'], true);
+                array_splice($c['income'], $i === false ? count($c['income']) : $i + 1, 0, ['প্রসাদ সেবা']);
+            }
+            hwrite('categories', $c);
+        }
+        /* earlier entries move to the new name so reports show one line */
+        foreach (glob(hdir() . '/ledger-*.json') ?: [] as $f)
+            hmutate(basename($f, '.json'), function (&$l) use ($old, $new) { foreach ($l as &$r) if (($r['category'] ?? '') === $old) $r['category'] = $new; });
+        hwrite('migrations', hread('migrations', []) + ['cats_2026_11_puja' => date('Y-m-d H:i:s')]);
+    }
+    flock($lock, LOCK_UN); fclose($lock);
 }
 function areas_list(): array {
     $a = array_values(array_filter(hread('areas', AREAS_DEFAULT), fn($x) => $x !== 'অন্যান্য'));
