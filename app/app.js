@@ -263,7 +263,11 @@ function renderMonthly() {
   const curM = D.today.slice(0, 7);
   if (curArea === null) {
     $("areaGrid").hidden = false; $("areaDetail").hidden = true;
-    $("areaGrid").innerHTML = `<div class="card-head"><h2>মাসিক প্রণামী</h2><span class="muted">এলাকা বেছে নিন</span></div><div class="areas">` +
+    const q = $("mAllSearch").value.trim();
+    $("areaCards").hidden = !!q; $("mAllList").hidden = !q;
+    $("areaHint").textContent = q ? "সব এলাকার খোঁজের ফল" : "এলাকা বেছে নিন";
+    if (q) { $("mAllList").innerHTML = gridHTML("monthly", ppl, q, true); scrollGrid($("mAllList"), "monthly"); return; }
+    $("areaCards").innerHTML = `<div class="areas">` +
       D.areas.map(a => { const l = ppl.filter(p => p.area === a); const paid = l.filter(p => p.paid?.[curM]).length;
         return `<button class="area" data-area="${esc(a)}"><b>${esc(a)}</b><span>${bnd(l.length)} জন ভক্ত</span><span>${BN_MONTHS[+curM.slice(5) - 1]}: ${bnd(paid)} জন জমা দিয়েছেন</span>${isAdmin() ? `<span>মাসিক মোট ${tk(l.reduce((s, p) => s + Number(p.amount || 0), 0))}</span>` : ""}</button>`; }).join("") + `</div>`;
     return;
@@ -276,6 +280,7 @@ function renderMonthly() {
 $("areaGrid").addEventListener("click", e => { const b = e.target.closest("[data-area]"); if (b) { curArea = b.dataset.area; $("mSearch").value = ""; renderMonthly(); window.scrollTo(0, 0); } });
 $("areaBack").onclick = () => { curArea = null; renderMonthly(); };
 $("mSearch").addEventListener("input", renderMonthly);
+$("mAllSearch").addEventListener("input", renderMonthly);
 $("landSearch").addEventListener("input", renderLand);
 
 function matches(p, q) { q = toEn(q).trim().toLowerCase(); return !q || [p.name, p.address, p.mobile, p.area, p.details, p.memberNo, p.land].join(" ").toLowerCase().includes(q); }
@@ -303,7 +308,7 @@ function scrollGrid(box, list) {
   const th = w.querySelectorAll("thead th")[col], pin = w.querySelector("th.pin");
   if (th && pin) w.scrollLeft = Math.max(0, th.offsetLeft - pin.offsetWidth - th.offsetWidth * 2.5);
 }
-function gridHTML(list, ppl, q) {
+function gridHTML(list, ppl, q, showArea) {
   const y = gridYear[list] || +D.today.slice(0, 4);
   const curM = D.today.slice(0, 7);
   const rows = ppl.filter(p => matches(p, q)).sort((a, b) => a.name.localeCompare(b.name, "bn"));
@@ -321,7 +326,7 @@ function gridHTML(list, ppl, q) {
     }).join("");
     return `<tr><td class="pin"><button class="link-btn" data-person="${p.id}" style="text-align:left;padding:0;color:inherit"><span class="t">${esc(p.name)}</span></button>
       <div class="s">${esc(p.address || "")}</div><div class="s">${esc(p.mobile || "")}</div>
-      <div class="s">${p.amount ? "মাসিক " + tk(p.amount) : ""}</div></td>${cells}</tr>`;
+      <div class="s">${p.amount ? "মাসিক " + tk(p.amount) : ""}${showArea && p.area ? ` · <b>${esc(p.area)}</b>` : ""}</div></td>${cells}</tr>`;
   }).join("");
   const sum = isAdmin() ? `<span class="muted">${bnd(y)}: ${bnd(paidCount)}টি মাস জমা (${tk(paidSum)}), ${bnd(dueCount)}টি বকেয়া</span>` : `<span class="muted">${bnd(rows.length)} জন</span>`;
   return `<div class="gridbar"><label style="display:flex;gap:6px;align-items:center">বছর <select data-year="${list}">${years.map(v => `<option value="${v}"${v === y ? " selected" : ""}>${bnd(v)}</option>`).join("")}</select></label>${sum}</div>
@@ -330,7 +335,7 @@ function gridHTML(list, ppl, q) {
       : `<div class="empty">${q ? "কিছু পাওয়া যায়নি।" : "এখনো কেউ যোগ হয়নি। নিচের + বাটন চেপে যোগ করুন।"}</div>`);
 }
 document.addEventListener("change", e => { const s = e.target.closest("[data-year]"); if (s) { gridYear[s.dataset.year] = +s.value; render(); } });
-["mList", "landList", "lifeList"].forEach(id => $(id).addEventListener("click", e => {
+["mList", "mAllList", "landList", "lifeList"].forEach(id => $(id).addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.pay) payMonth(b.dataset.pay, b.dataset.m);
   else if (b.dataset.paid) showPaid(b.dataset.paid, b.dataset.m);

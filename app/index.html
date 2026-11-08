@@ -98,7 +98,12 @@
 
     <!-- Tab 2: মাসিক প্রণামী -->
     <section class="view" id="v-monthly" hidden>
-      <div id="areaGrid"></div>
+      <div id="areaGrid" class="subview">
+        <div class="card-head"><h2>মাসিক প্রণামী</h2><span class="muted" id="areaHint">এলাকা বেছে নিন</span></div>
+        <input class="search" id="mAllSearch" type="search" placeholder="সব এলাকা থেকে খুঁজুন: নাম, ঠিকানা বা মোবাইল">
+        <div id="areaCards"></div>
+        <div id="mAllList"></div>
+      </div>
       <div id="areaDetail" hidden>
         <div class="card-head sticky-sub">
           <button class="link-btn" id="areaBack" type="button">← সব এলাকা</button>
@@ -301,6 +306,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
