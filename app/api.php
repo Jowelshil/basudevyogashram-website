@@ -220,9 +220,9 @@ function sms_flush(array $u, string $date, ?string $onlyId = null): array {
 }
 
 /* land donors carry a running S/N: 001, 002, ... */
-function land_next_sn(array $people): string {
+function land_next_sn(array $people, string $list = 'land'): string {
     $max = 0;
-    foreach ($people as $x) if ($x['list'] === 'land' && empty($x['deleted']) && preg_match('/^\d+$/', (string)($x['memberNo'] ?? ''))) $max = max($max, (int)$x['memberNo']);
+    foreach ($people as $x) if ($x['list'] === $list && empty($x['deleted']) && preg_match('/^\d+$/', (string)($x['memberNo'] ?? ''))) $max = max($max, (int)$x['memberNo']);
     return str_pad((string)($max + 1), 3, '0', STR_PAD_LEFT);
 }
 function old_ids(array $x): array { preg_match_all('/LD-\d+/', ($x['memberNo'] ?? '') . ' ' . ($x['note'] ?? ''), $m); return $m[0]; }
@@ -446,7 +446,7 @@ case 'people_update': {
             $rec['feePaid'] = ['entry' => $entry['id'], 'date' => $entry['date'], 'amount' => $entry['amount']];
         }
         $rec = hmutate('people', function (&$p) use ($rec) {
-            if ($rec['list'] === 'land' && $rec['memberNo'] === '') $rec['memberNo'] = land_next_sn($p);
+            if (in_array($rec['list'], ['land', 'monthly'], true) && $rec['memberNo'] === '') $rec['memberNo'] = land_next_sn($p, $rec['list']);
             $p[] = $rec; return $rec;
         });
         audit($u, LISTS[$list] . ' যোগ', ['id' => $rec['id'], 'name' => $name] + ($entry ? ['amount' => $entry['amount']] : []));
