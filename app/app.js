@@ -320,9 +320,8 @@ function gridHTML(list, ppl, q, showArea) {
       const m = `${y}-${String(i + 1).padStart(2, "0")}`;
       const pd = p.paid?.[m];
       if (pd) { paidCount++; paidSum += Number(pd.amount || 0); return `<td class="m"><button class="mc paid" data-paid="${p.id}" data-m="${m}" title="${fmtDate(pd.date)}">✓ জমা</button></td>`; }
-      if (start && m < start) return `<td class="m"><span class="mc na">·</span></td>`;
-      if (m <= curM) { dueCount++; return `<td class="m"><button class="mc due" data-pay="${p.id}" data-m="${m}">বকেয়া</button></td>`; }
-      return `<td class="m"><button class="mc future" data-pay="${p.id}" data-m="${m}">—</button></td>`;
+      if (m <= curM) { if (!start || m >= start) dueCount++; return `<td class="m"><button class="mc due" data-pay="${p.id}" data-m="${m}">বকেয়া</button></td>`; }
+      return `<td class="m"><button class="mc future" data-pay="${p.id}" data-m="${m}">অগ্রিম</button></td>`;
     }).join("");
     return `<tr><td class="pin"><button class="link-btn" data-person="${p.id}" style="text-align:left;padding:0;color:inherit"><span class="t">${p.memberNo ? `<span class="muted" style="font-weight:600">${esc(bnd(p.memberNo))}.</span> ` : ""}${esc(p.name)}</span></button>
       <div class="s">${esc(p.address || "")}</div><div class="s">${esc(p.mobile || "")}</div>
@@ -330,7 +329,7 @@ function gridHTML(list, ppl, q, showArea) {
   }).join("");
   const sum = isAdmin() ? `<span class="muted">${bnd(y)}: ${bnd(paidCount)}টি মাস জমা (${tk(paidSum)}), ${bnd(dueCount)}টি বকেয়া</span>` : `<span class="muted">${bnd(rows.length)} জন</span>`;
   return `<div class="gridbar"><label style="display:flex;gap:6px;align-items:center">বছর <select data-year="${list}">${years.map(v => `<option value="${v}"${v === y ? " selected" : ""}>${bnd(v)}</option>`).join("")}</select></label>${sum}</div>
-    <div class="legend" style="margin-bottom:8px"><span><i class="sw inc-bg"></i>জমা হয়েছে</span><span><i class="sw exp-bg"></i>বকেয়া (চাপ দিয়ে জমা নিন)</span><span>— সামনের মাস</span></div>` +
+    <div class="legend" style="margin-bottom:8px"><span><i class="sw inc-bg"></i>জমা হয়েছে</span><span><i class="sw exp-bg"></i>বকেয়া (চাপ দিয়ে জমা নিন)</span><span>অগ্রিম: সামনের মাস</span></div>` +
     (rows.length ? `<div class="mgrid-wrap"><table class="mgrid"><thead><tr><th class="pin">নাম / ঠিকানা</th>${BN_MS.map(m => `<th style="text-align:center">${m}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`
       : `<div class="empty">${q ? "কিছু পাওয়া যায়নি।" : "এখনো কেউ যোগ হয়নি। নিচের + বাটন চেপে যোগ করুন।"}</div>`);
 }
@@ -348,7 +347,7 @@ function payMonth(pid, m) {
     <p><b>${esc(p.name)}</b><br><span class="muted">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</span></p>
     <div class="row2"><label>টাকা<input id="pAmt" inputmode="decimal" value="${esc(p.amount || "")}" required></label><label>জমার তারিখ<input type="date" id="pDate" value="${D.today}" required></label></div>
     <div class="row2"><label>মাধ্যম<select id="pMode"><option>নগদ</option><option>বিকাশ</option><option>নগদ (মোবাইল)</option><option>রকেট</option><option>ব্যাংক</option></select></label><label>রসিদ নং<input id="pRef"></label></div>
-    ${m > D.today.slice(0, 7) ? `<p class="banner">এটা সামনের মাসের অগ্রিম জমা।</p>` : ""}
+    ${m > D.today.slice(0, 7) ? `<p class="banner">এটা সামনের মাসের অগ্রিম জমা।</p>` : m < D.today.slice(0, 7) ? `<p class="banner">${monthName(m)} মাসের বকেয়া প্রণামী। টাকাটা আজকের (জমার তারিখের) আয়ে যোগ হবে।</p>` : ""}
     <button class="btn wide">জমা নিন</button>
     <p class="note">${isAdmin() ? "" : "জমা নেওয়ার পর আর বদলানো যাবে না। "}${p.mobile && D.sms.enabled ? "দাতার মোবাইলে SMS যাবে।" : ""}</p></form>`, b => {
     b.querySelector("#pForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
