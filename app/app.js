@@ -200,6 +200,15 @@ function renderLedger() {
   const list = D.ledger.filter(r => r.date === d && !r.deleted).sort((a, b) => a.kind.localeCompare(b.kind) || a.serial - b.serial);
   $("projOptions").innerHTML = [...new Set(D.ledger.map(r => r.project).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join("");
   $("nameOptions").innerHTML = [...new Set([...D.people.map(p => p.name), ...D.ledger.filter(r => r.kind === "income").map(r => r.name)].filter(Boolean))].slice(0, 400).map(n => `<option value="${esc(n)}">`).join("");
+  {
+    /* top boxes: the day's income, cost and balance (users see only their own entries) */
+    const s = sums(list), isToday = d === D.today;
+    $("dayBox").innerHTML = `<div class="dh"><span>${isToday ? "আজকের" : fmtDate(d) + " তারিখের"} ${isAdmin() ? "মোট হিসাব" : "হিসাব (আপনার দেওয়া এন্ট্রি)"}</span><span>${bnd(list.length)}টি এন্ট্রি</span></div>
+      <div class="row3"><div class="bx inc"><span>মোট আয়</span><b class="inc">${tk(s.income)}</b></div>
+      <div class="bx exp"><span>মোট খরচ</span><b class="exp">${tk(s.cost)}</b></div>
+      <div class="bx"><span>ব্যালেন্স</span><b class="${s.net < 0 ? "exp" : ""}">${signed(s.net)}</b></div></div>
+      ${s.construction ? `<div class="dh"><span>খরচের মধ্যে দৈনিক ${tk(s.daily)} · নির্মাণ ${tk(s.construction)}</span></div>` : ""}`;
+  }
   if (isAdmin()) {
     const s = sums(list);
     $("daySum").innerHTML = `<span>জমা <b class="inc">${tk(s.income)}</b></span><span>দৈনিক খরচ <b class="exp">${tk(s.daily)}</b></span><span>নির্মাণ <b class="con">${tk(s.construction)}</b></span>`;
