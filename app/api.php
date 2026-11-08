@@ -12,7 +12,10 @@ header('X-Content-Type-Options: nosniff');
 const MAX_USERS = 10;
 const TOKEN_DAYS = 30;
 const IDLE_SECONDS = 300; // server-side idle limit; the app itself logs out after 3 minutes
-const AREAS_DEFAULT = ['চট্টগ্রাম শহর', 'রাঙ্গুনিয়া', 'রাউজান', 'ফটিকছড়ি', 'হাটহাজারী'];
+/* the 14 areas of the মাসিক প্রণামী register book, in its খাতা order */
+const AREAS_DEFAULT = ['১নং রাউজান এলাকা', '১নং রাংগুনিয়া এলাকা', '২নং রাংগুনিয়া এলাকা', '১নং চৌধুরীহাট এলাকা', '১নং হাটহাজারী এলাকা',
+    '১নং শহর এলাকা', '২নং শহর এলাকা', '৩নং শহর এলাকা', '৪নং শহর এলাকা', '২নং রাউজান এলাকা', '১নং ফটিকছড়ি এলাকা',
+    '১নং পটিয়া এলাকা', '১নং নন্দীরহাট/নেহালপুর এলাকা', '২নং চৌধুরীহাট এলাকা'];
 const CATS_DEFAULT = [
     'income' => ['এককালীন অনুদান', 'মাসিক প্রণামী', 'আজীবন সদস্য ফি', 'প্রণামী / দানবাক্স', 'পূজা-যজ্ঞ-উৎসব অনুদান', 'প্রসাদ সেবা', 'অনাথ আশ্রম অনুদান', 'বিদ্যালয় অনুদান', 'নির্মাণ অনুদান', 'অন্যান্য আয়'],
     'daily' => ['বাজার ও খাদ্য সামগ্রী', 'চাল-ডাল (মজুদ)', 'পূজা ও ভোগ সামগ্রী', 'বিদ্যুৎ বিল', 'গ্যাস / জ্বালানি', 'কর্মচারী বেতন', 'শিক্ষক বেতন', 'চিকিৎসা', 'শিক্ষা উপকরণ', 'যাতায়াত', 'মেরামত ও রক্ষণাবেক্ষণ', 'অন্যান্য খরচ'],
@@ -113,7 +116,23 @@ function cats_migrate(): void {
     }
     flock($lock, LOCK_UN); fclose($lock);
 }
+/* one-time switch from the first 5 areas to the register's 14; people move to the matching ১নং area */
+function areas_migrate(): void {
+    if (hread('migrations', [])['areas_2026_11_register'] ?? false) return;
+    $lock = fopen(hdir() . '/migrations.lock', 'c'); flock($lock, LOCK_EX);
+    if (!(hread('migrations', [])['areas_2026_11_register'] ?? false)) {
+        $map = ['রাউজান' => '১নং রাউজান এলাকা', 'রাঙ্গুনিয়া' => '১নং রাংগুনিয়া এলাকা', 'হাটহাজারী' => '১নং হাটহাজারী এলাকা',
+                'চট্টগ্রাম শহর' => '১নং শহর এলাকা', 'ফটিকছড়ি' => '১নং ফটিকছড়ি এলাকা'];
+        $old = hread('areas', null);
+        $extra = is_array($old) ? array_values(array_filter($old, fn($a) => !isset($map[$a]) && !in_array($a, AREAS_DEFAULT, true) && $a !== 'অন্যান্য')) : [];
+        hwrite('areas', array_merge(AREAS_DEFAULT, $extra)); // areas the admin added stay, after the 14
+        hmutate('people', function (&$p) use ($map) { foreach ($p as &$x) if (isset($map[$x['area'] ?? ''])) $x['area'] = $map[$x['area']]; });
+        hwrite('migrations', hread('migrations', []) + ['areas_2026_11_register' => date('Y-m-d H:i:s')]);
+    }
+    flock($lock, LOCK_UN); fclose($lock);
+}
 function areas_list(): array {
+    areas_migrate();
     $a = array_values(array_filter(hread('areas', AREAS_DEFAULT), fn($x) => $x !== 'অন্যান্য'));
     $a[] = 'অন্যান্য';
     return $a;
@@ -265,6 +284,7 @@ function ledger_insert(array $rec): array {
 /* ---------- request ---------- */
 $IN = json_decode((string)file_get_contents('php://input'), true) ?: $_POST;
 $act = (string)($_GET['a'] ?? $IN['a'] ?? '');
+areas_migrate(); cats_migrate(); // one-time data updates, before anything is read
 
 switch ($act) {
 
