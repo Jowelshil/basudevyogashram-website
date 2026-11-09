@@ -12,6 +12,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.URLUtil;
@@ -154,6 +156,17 @@ public class MainActivity extends Activity {
     }
 
     private class Shell {
+        /* the page's print view: Android print screen, where "Save as PDF" is one of the printers */
+        @JavascriptInterface
+        public void print(final String title) {
+            runOnUiThread(() -> {
+                String name = (title == null || title.trim().isEmpty()) ? "Basudev-Hisab" : title.trim();
+                PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                pm.print(name, web.createPrintDocumentAdapter(name),
+                        new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build());
+            });
+        }
+
         @JavascriptInterface
         public void retry() {
             runOnUiThread(() -> web.loadUrl(START_URL));
