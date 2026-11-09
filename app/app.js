@@ -670,7 +670,7 @@ $("repPrint").onclick = () => {
 function dayReportHTML(d) {
   const list = live().filter(r => r.date === d), s = sums(list);
   const opening = sums(live().filter(r => r.date < d)).net;
-  const LBL = {income: "জমা/আয়", daily: "খরচ", construction: "নির্মাণ খরচ"};
+  const LBL = {income: "আয়", daily: "খরচ", construction: "নির্মাণ খরচ"};
   const block = (k, cls) => {
     const l = list.filter(r => r.kind === k), m = new Map();
     l.forEach(r => { const key = r.category || "—"; const x = m.get(key) || {n: 0, v: 0}; x.n++; x.v += Number(r.amount) || 0; m.set(key, x); });
@@ -679,19 +679,16 @@ function dayReportHTML(d) {
       ${rows.map(([c, x]) => `<tr><td>${esc(c)}</td><td class="n">${bnd(x.n)}</td><td class="n ${cls}">${tk(x.v)}</td></tr>`).join("") || `<tr><td colspan="3">কোনো এন্ট্রি নেই</td></tr>`}
       <tr class="tot"><td>মোট ${LBL[k]}</td><td class="n">${bnd(l.length)}</td><td class="n ${cls}">${tk(s[k])}</td></tr></tbody></table>`;
   };
-  const modes = new Map();
-  list.forEach(r => { const key = r.mode || "উল্লেখ নেই"; const x = modes.get(key) || {i: 0, o: 0}; if (r.kind === "income") x.i += Number(r.amount) || 0; else x.o += Number(r.amount) || 0; modes.set(key, x); });
   return `<div class="psheet">
     <div class="ph"><b>শ্রীশ্রী বাসুদেব যোগাশ্রম</b><span>নেহালপুর, হাটহাজারী, চট্টগ্রাম</span></div>
     <h2>দৈনিক রিপোর্ট (খাত অনুযায়ী)</h2><p>তারিখ: ${fmtDate(d)} · মোট ${bnd(list.length)}টি হিসাব</p>
     ${block("income", "inc")}${block("daily", "exp")}${block("construction", "con")}
-    ${modes.size ? `<h3>মাধ্যম অনুযায়ী</h3><table><thead><tr><th>মাধ্যম</th><th class="n">জমা</th><th class="n">খরচ</th></tr></thead><tbody>${[...modes].map(([m, x]) => `<tr><td>${esc(m)}</td><td class="n inc">${tk(x.i)}</td><td class="n exp">${tk(x.o)}</td></tr>`).join("")}</tbody></table>` : ""}
     <h3>সারসংক্ষেপ</h3><table class="ptot"><tbody>
       <tr><td>মোট আয়</td><td class="n inc">${tk(s.income)}</td></tr>
       <tr><td>মোট খরচ (খরচ ${tk(s.daily)} + নির্মাণ ${tk(s.construction)})</td><td class="n exp">${tk(s.cost)}</td></tr>
       <tr class="tot"><td>আজকের উদ্বৃত্ত (আয় − খরচ)</td><td class="n">${signed(s.net)}</td></tr>
-      <tr><td>আগের জের</td><td class="n">${signed(opening)}</td></tr>
-      <tr class="tot"><td>দিন শেষের জের</td><td class="n">${signed(opening + s.net)}</td></tr></tbody></table>
+      <tr><td>আগের দিনের জমা</td><td class="n">${signed(opening)}</td></tr>
+      <tr class="tot"><td>দিন শেষের জমা</td><td class="n">${signed(opening + s.net)}</td></tr></tbody></table>
     <div class="psign"><span>হিসাবরক্ষকের স্বাক্ষর</span><span>অনুমোদনকারীর স্বাক্ষর</span></div>
     <p class="pfoot">প্রিন্টের সময়: ${fmtDate(D.today)} ${new Date().toTimeString().slice(0, 5)}</p></div>`;
 }
