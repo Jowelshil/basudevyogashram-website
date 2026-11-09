@@ -669,7 +669,6 @@ $("repPrint").onclick = () => {
 /* ================= দৈনিক রিপোর্ট: one day's income and costs by খাত ================= */
 function dayReportHTML(d) {
   const list = live().filter(r => r.date === d), s = sums(list);
-  const opening = sums(live().filter(r => r.date < d)).net;
   const LBL = {income: "আয়", daily: "খরচ", construction: "নির্মাণ খরচ"};
   const block = (k, cls) => {
     const l = list.filter(r => r.kind === k), m = new Map();
@@ -686,9 +685,7 @@ function dayReportHTML(d) {
     <h3>সারসংক্ষেপ</h3><table class="ptot"><tbody>
       <tr><td>মোট আয়</td><td class="n inc">${tk(s.income)}</td></tr>
       <tr><td>মোট খরচ (খরচ ${tk(s.daily)} + নির্মাণ ${tk(s.construction)})</td><td class="n exp">${tk(s.cost)}</td></tr>
-      <tr class="tot"><td>আজকের উদ্বৃত্ত (আয় − খরচ)</td><td class="n">${signed(s.net)}</td></tr>
-      <tr><td>আগের দিনের জমা</td><td class="n">${signed(opening)}</td></tr>
-      <tr class="tot"><td>দিন শেষের জমা</td><td class="n">${signed(opening + s.net)}</td></tr></tbody></table>
+      <tr class="tot"><td>দিনের উদ্বৃত্ত (আয় − খরচ)</td><td class="n">${signed(s.net)}</td></tr></tbody></table>
     <div class="psign"><span>হিসাবরক্ষকের স্বাক্ষর</span><span>অনুমোদনকারীর স্বাক্ষর</span></div>
     <p class="pfoot">প্রিন্টের সময়: ${fmtDate(D.today)} ${new Date().toTimeString().slice(0, 5)}</p></div>`;
 }
