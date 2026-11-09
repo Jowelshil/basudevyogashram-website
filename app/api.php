@@ -15,7 +15,7 @@ const IDLE_SECONDS = 300; // server-side idle limit; the app itself logs out aft
 /* the 14 areas of the মাসিক প্রণামী register book, in its খাতা order */
 const AREAS_DEFAULT = ['রাউজান-১', 'রাংগুনিয়া-১', 'রাংগুনিয়া-২', 'চৌধুরীহাট-১', 'হাটহাজারী-১',
     'শহর-১', 'শহর-২', 'শহর-৩', 'শহর-৪', 'রাউজান-২', 'ফটিকছড়ি-১',
-    'পটিয়া-১', 'নন্দীরহাট/নেহালপুর-১', 'চৌধুরীহাট-২'];
+    'পটিয়া-১', 'নন্দীরহাট/নেহালপুর-১', 'চৌধুরীহাট-২', 'শহর-৫'];
 /* "১নং রাংগুনিয়া এলাকা" (register style) → "রাংগুনিয়া-১" */
 function short_area(string $a): string {
     return preg_match('/^(\S+)নং\s+(.+?)\s+এলাকা$/u', trim($a), $m) ? $m[2] . '-' . $m[1] : $a;
@@ -123,7 +123,7 @@ function cats_migrate(): void {
 /* one-time switch from the first 5 areas to the register's 14; people move to the matching ১নং area */
 function areas_migrate(): void {
     $mg = hread('migrations', []);
-    if (($mg['areas_2026_11_register'] ?? false) && ($mg['areas_2026_11_short'] ?? false)) return;
+    if (($mg['areas_2026_11_register'] ?? false) && ($mg['areas_2026_11_short'] ?? false) && ($mg['areas_2026_11_shohor5'] ?? false)) return;
     $lock = fopen(hdir() . '/migrations.lock', 'c'); flock($lock, LOCK_EX);
     if (!(hread('migrations', [])['areas_2026_11_register'] ?? false)) {
         $map = ['রাউজান' => '১নং রাউজান এলাকা', 'রাঙ্গুনিয়া' => '১নং রাংগুনিয়া এলাকা', 'হাটহাজারী' => '১নং হাটহাজারী এলাকা',
@@ -140,12 +140,24 @@ function areas_migrate(): void {
         hmutate('people', function (&$p) { foreach ($p as &$x) if (isset($x['area'])) $x['area'] = short_area((string)$x['area']); });
         hwrite('migrations', hread('migrations', []) + ['areas_2026_11_short' => date('Y-m-d H:i:s')]);
     }
+    if (!(hread('migrations', [])['areas_2026_11_shohor5'] ?? false)) {
+        /* register serials above 3000 get their own area শহর-৫; members who were in অন্যান্য move there */
+        $a = hread('areas', AREAS_DEFAULT);
+        if (!in_array('শহর-৫', $a, true)) {
+            $i = array_search('চৌধুরীহাট-২', $a, true);
+            array_splice($a, $i === false ? count($a) : $i + 1, 0, ['শহর-৫']);
+            hwrite('areas', array_values($a));
+        }
+        hmutate('people', function (&$p) { foreach ($p as &$x) if ($x['list'] === 'monthly' && ($x['area'] ?? '') === 'অন্যান্য') $x['area'] = 'শহর-৫'; });
+        hwrite('migrations', hread('migrations', []) + ['areas_2026_11_shohor5' => date('Y-m-d H:i:s')]);
+    }
     flock($lock, LOCK_UN); fclose($lock);
 }
 function areas_list(): array {
     areas_migrate();
     $a = array_values(array_filter(hread('areas', AREAS_DEFAULT), fn($x) => $x !== 'অন্যান্য'));
-    $a[] = 'অন্যান্য';
+    /* অন্যান্য shows only while someone is in it (e.g. an import row with an unknown area) */
+    foreach (hread('people') as $x) if (empty($x['deleted']) && ($x['list'] ?? '') === 'monthly' && ($x['area'] ?? '') === 'অন্যান্য') { $a[] = 'অন্যান্য'; break; }
     return $a;
 }
 /* Banglish land words and digits to Bangla (same rules as the app) */
