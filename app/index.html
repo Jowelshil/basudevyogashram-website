@@ -14,7 +14,7 @@
 <title>বাসুদেব যোগাশ্রম হিসাব</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=8">
+<link rel="stylesheet" href="app.css?v=9">
 </head>
 <body>
 
@@ -141,6 +141,7 @@
         <button type="button" data-d="pranami" aria-pressed="false">মাসিক প্রণামী</button>
       </div>
       <div id="dashMoney" class="subview">
+      <div class="actions" style="margin:0"><button class="btn" id="dayRepBtn" type="button">দৈনিক রিপোর্ট (খাত অনুযায়ী)</button></div>
       <h3 id="todayTitle" class="sub"></h3><div class="kpis" id="todayKpis"></div>
       <h3 id="monthTitle" class="sub"></h3><div class="kpis" id="monthKpis"></div>
       <div class="card"><h3 class="sub">গত ১৪ দিনের আয়-ব্যয়</h3>
@@ -174,7 +175,8 @@
           <label id="rFromW" hidden>শুরু<input type="date" id="rFrom"></label>
           <label id="rToW" hidden>শেষ<input type="date" id="rTo"></label>
         </div>
-        <div class="actions"><button class="btn ghost" id="csvBtn" type="button">এই সময়ের হিসাব CSV (Excel)</button><button class="btn ghost" id="csvPeople" type="button">সব তালিকা CSV</button></div>
+        <label>খাত<select id="rCat"><option value="">সব খাত (সাধারণ রিপোর্ট)</option></select></label>
+        <div class="actions"><button class="btn ghost" id="csvBtn" type="button">এই সময়ের হিসাব CSV (Excel)</button><button class="btn ghost" id="csvPeople" type="button">সব তালিকা CSV</button><button class="btn" id="repPrint" type="button">প্রিন্ট / PDF</button></div>
       </div>
       <div class="card" id="reportBody"></div>
     </section>
@@ -306,6 +308,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>

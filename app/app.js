@@ -593,8 +593,8 @@ function showPrint(html, title) {
 let closePrint = null;
 
 /* ================= admin: reports ================= */
-function initReport() { const t = D.today; $("rMonth").value = t.slice(0, 7); $("rYear").value = t.slice(0, 4); $("rFrom").value = t.slice(0, 7) + "-01"; $("rTo").value = t; }
-["rType", "rMonth", "rYear", "rHalf", "rFrom", "rTo"].forEach(id => $(id).addEventListener("input", renderReport));
+function initReport() { fillCatSel(); const t = D.today; $("rMonth").value = t.slice(0, 7); $("rYear").value = t.slice(0, 4); $("rFrom").value = t.slice(0, 7) + "-01"; $("rTo").value = t; }
+["rType", "rMonth", "rYear", "rHalf", "rFrom", "rTo", "rCat"].forEach(id => $(id).addEventListener("input", renderReport));
 function period() {
   const t = $("rType").value; ["rMonthW", "rYearW", "rHalfW", "rFromW", "rToW"].forEach(id => $(id).hidden = true);
   if (t === "month") { $("rMonthW").hidden = false; const [y, m] = $("rMonth").value.split("-"); return {a: `${y}-${m}-01`, b: `${y}-${m}-31`, title: `মাসিক রিপোর্ট · ${BN_MONTHS[+m - 1]} ${bnd(y)}`, by: "day"}; }
@@ -611,6 +611,7 @@ function renderReport() {
   if (!isAdmin()) return;
   const p = period(); curPeriod = p;
   if (!p.a || !p.b || p.a.includes("undefined")) { $("reportBody").innerHTML = `<div class="empty">সময়সীমা বেছে নিন।</div>`; return; }
+  if ($("rCat").value) { fillCatSel(); $("reportBody").innerHTML = catStatement(p, $("rCat").value); return; }
   const list = inRange(p.a, p.b), s = sums(list);
   const opening = sums(live().filter(r => r.date < p.a)).net, closing = opening + s.net;
   const buckets = [];
@@ -632,6 +633,77 @@ function renderReport() {
     ${active.map(b => `<tr><td>${p.by === "day" ? fmtDate(b.key) : monthName(b.key)}</td><td class="n inc">${tk(b.income)}</td><td class="n exp">${tk(b.daily)}</td><td class="n con">${tk(b.construction)}</td><td class="n">${signed(b.net)}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">এই সময়ে কোনো এন্ট্রি নেই।</td></tr>`}
     <tr class="tot"><td>মোট</td><td class="n inc">${tk(s.income)}</td><td class="n exp">${tk(s.daily)}</td><td class="n con">${tk(s.construction)}</td><td class="n">${signed(s.net)}</td></tr></tbody></table></div>`;
 }
+/* খাত list for the report: whole kinds, then every category (also old ones still found in entries) */
+function fillCatSel() {
+  const sel = $("rCat"), cur = sel.value;
+  sel.innerHTML = `<option value="">সব খাত (সাধারণ রিপোর্ট)</option>` + ["income", "daily", "construction"].map(k => {
+    const names = [...new Set([...cats(k), ...live().filter(r => r.kind === k).map(r => r.category).filter(Boolean)])];
+    return `<optgroup label="${KLABEL[k]}"><option value="k:${k}">সব ${KLABEL[k]} খাত একসাথে</option>${names.map(c => `<option value="c:${k}|${esc(c)}">${esc(c)}</option>`).join("")}</optgroup>`;
+  }).join("");
+  sel.value = cur; if (sel.value !== cur) sel.value = "";
+}
+/* খাতভিত্তিক বিবরণী: every entry of one category (or one whole kind) in the period, with running total */
+function catStatement(p, v) {
+  const [k, c] = v.startsWith("k:") ? [v.slice(2), null] : v.slice(2).split(/\|(.*)/s);
+  const list = inRange(p.a, p.b).filter(r => r.kind === k && (c === null || r.category === c)).sort((a, b) => a.date.localeCompare(b.date) || (a.serial || 0) - (b.serial || 0));
+  const cls = k === "income" ? "inc" : k === "daily" ? "exp" : "con";
+  let run = 0;
+  const rows = list.map((r, i) => { run += Number(r.amount) || 0; return `<tr><td>${bnd(i + 1)}</td><td>${fmtDate(r.date)}</td>${c === null ? `<td>${esc(r.category)}</td>` : ""}
+    <td>${esc(r.name || r.note || r.category)}${r.project ? "<br><small>" + esc(r.project) + "</small>" : ""}${r.month ? "<br><small>" + monthName(r.month) + "</small>" : ""}${r.name && r.note ? "<br><small>" + esc(r.note) + "</small>" : ""}</td>
+    <td>${esc(r.mode || "")}${r.ref ? "<br><small>রসিদ " + esc(r.ref) + "</small>" : ""}</td><td class="n ${cls}">${tk(r.amount)}</td><td class="n">${tk(run)}</td></tr>`; }).join("");
+  const tot = run, cols = c === null ? 7 : 6;
+  return `<div class="rhead"><h2>খাতভিত্তিক বিবরণী: ${esc(c === null ? "সব " + KLABEL[k] + " খাত" : c)}</h2><span class="note">${p.title.replace(/রিপোর্ট ?·? ?/, "")} · শ্রীশ্রী বাসুদেব যোগাশ্রম, নেহালপুর · প্রস্তুত ${fmtDate(D.today)}</span></div>
+    <p class="bal">${KLABEL[k]} · মোট ${bnd(list.length)}টি এন্ট্রি · মোট <span class="${cls}">${tk(tot)}</span></p>
+    ${c === null && list.length ? `<h3 class="sub" style="margin-top:12px">খাত অনুযায়ী সারাংশ</h3>${catTable(list, cls)}` : ""}
+    <h3 class="sub" style="margin-top:12px">বিস্তারিত</h3>
+    <div class="tbl"><table><thead><tr><th>ক্রম</th><th>তারিখ</th>${c === null ? "<th>খাত</th>" : ""}<th>নাম / বিবরণ</th><th>মাধ্যম</th><th class="n">টাকা</th><th class="n">ক্রমযোজিত</th></tr></thead><tbody>
+    ${rows || `<tr><td colspan="${cols}" class="empty">এই সময়ে এই খাতে কোনো এন্ট্রি নেই।</td></tr>`}
+    <tr class="tot"><td colspan="${cols - 2}">মোট</td><td class="n ${cls}">${tk(tot)}</td><td></td></tr></tbody></table></div>`;
+}
+$("repPrint").onclick = () => {
+  if (!$("reportBody").innerHTML.trim()) renderReport();
+  const t = ($("reportBody").querySelector("h2")?.textContent || "রিপোর্ট").replace(/[\/:*?"<>|]/g, "-");
+  showPrint(`<div class="psheet preport">${$("reportBody").innerHTML.replace(/<div class="tbl">/g, "<div>")}</div>`, t);
+};
+
+/* ================= দৈনিক রিপোর্ট: one day's income and costs by খাত ================= */
+function dayReportHTML(d) {
+  const list = live().filter(r => r.date === d), s = sums(list);
+  const opening = sums(live().filter(r => r.date < d)).net;
+  const block = (k, cls) => {
+    const l = list.filter(r => r.kind === k), m = new Map();
+    l.forEach(r => { const key = r.category || "—"; const x = m.get(key) || {n: 0, v: 0}; x.n++; x.v += Number(r.amount) || 0; m.set(key, x); });
+    const rows = [...m].sort((a, b) => b[1].v - a[1].v);
+    return `<h3>${KLABEL[k]}</h3><table><thead><tr><th>খাত</th><th class="n">এন্ট্রি</th><th class="n">টাকা</th></tr></thead><tbody>
+      ${rows.map(([c, x]) => `<tr><td>${esc(c)}</td><td class="n">${bnd(x.n)}</td><td class="n ${cls}">${tk(x.v)}</td></tr>`).join("") || `<tr><td colspan="3">কোনো এন্ট্রি নেই</td></tr>`}
+      <tr class="tot"><td>মোট ${KLABEL[k]}</td><td class="n">${bnd(l.length)}</td><td class="n ${cls}">${tk(s[k])}</td></tr></tbody></table>`;
+  };
+  const modes = new Map();
+  list.forEach(r => { const key = r.mode || "উল্লেখ নেই"; const x = modes.get(key) || {i: 0, o: 0}; if (r.kind === "income") x.i += Number(r.amount) || 0; else x.o += Number(r.amount) || 0; modes.set(key, x); });
+  return `<div class="psheet">
+    <div class="ph"><b>শ্রীশ্রী বাসুদেব যোগাশ্রম</b><span>নেহালপুর, হাটহাজারী, চট্টগ্রাম</span></div>
+    <h2>দৈনিক রিপোর্ট (খাত অনুযায়ী)</h2><p>তারিখ: ${fmtDate(d)} · মোট ${bnd(list.length)}টি এন্ট্রি</p>
+    ${block("income", "inc")}${block("daily", "exp")}${block("construction", "con")}
+    ${modes.size ? `<h3>মাধ্যম অনুযায়ী</h3><table><thead><tr><th>মাধ্যম</th><th class="n">জমা</th><th class="n">খরচ</th></tr></thead><tbody>${[...modes].map(([m, x]) => `<tr><td>${esc(m)}</td><td class="n inc">${tk(x.i)}</td><td class="n exp">${tk(x.o)}</td></tr>`).join("")}</tbody></table>` : ""}
+    <h3>সারসংক্ষেপ</h3><table class="ptot"><tbody>
+      <tr><td>মোট আয়</td><td class="n inc">${tk(s.income)}</td></tr>
+      <tr><td>মোট খরচ (দৈনিক ${tk(s.daily)} + নির্মাণ ${tk(s.construction)})</td><td class="n exp">${tk(s.cost)}</td></tr>
+      <tr class="tot"><td>আজকের উদ্বৃত্ত (আয় − খরচ)</td><td class="n">${signed(s.net)}</td></tr>
+      <tr><td>আগের জের</td><td class="n">${signed(opening)}</td></tr>
+      <tr class="tot"><td>দিন শেষের জের</td><td class="n">${signed(opening + s.net)}</td></tr></tbody></table>
+    <div class="psign"><span>হিসাবরক্ষকের স্বাক্ষর</span><span>অনুমোদনকারীর স্বাক্ষর</span></div>
+    <p class="pfoot">প্রিন্টের সময়: ${fmtDate(D.today)} ${new Date().toTimeString().slice(0, 5)}</p></div>`;
+}
+function openDayReport(d = D.today) {
+  openSheet("দৈনিক রিপোর্ট", `<div class="form"><label>তারিখ<input type="date" id="drDate" value="${d}"></label><div id="drBody"></div>
+    <button class="btn wide" id="drPrint" type="button">প্রিন্ট / PDF</button></div>`, b => {
+    const upd = () => b.querySelector("#drBody").innerHTML = dayReportHTML(b.querySelector("#drDate").value || D.today);
+    b.querySelector("#drDate").addEventListener("input", upd); upd();
+    b.querySelector("#drPrint").onclick = () => { const dd = b.querySelector("#drDate").value || D.today; closeSheet(); showPrint(dayReportHTML(dd), `দৈনিক-রিপোর্ট_${dd}`); };
+  });
+}
+$("dayRepBtn").onclick = () => openDayReport();
+
 async function download(what, from, to) { const j = await api("export_link", {what, from, to}); window.location.href = j.url; }
 $("csvBtn").onclick = e => guard(e.target, () => download("ledger", curPeriod?.a, curPeriod?.b));
 $("csvPeople").onclick = e => guard(e.target, () => download("people"));
