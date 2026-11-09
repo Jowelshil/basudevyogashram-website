@@ -681,7 +681,7 @@ function dayReportHTML(d) {
   };
   return `<div class="psheet">
     <div class="ph"><b>শ্রীশ্রী বাসুদেব যোগাশ্রম</b><span>নেহালপুর, হাটহাজারী, চট্টগ্রাম</span></div>
-    <h2>দৈনিক রিপোর্ট (খাত অনুযায়ী)</h2><p>তারিখ: ${fmtDate(d)} · মোট ${bnd(list.length)}টি হিসাব</p>
+    <h2>দৈনিক রিপোর্ট</h2><p>তারিখ: ${fmtDate(d)} · মোট ${bnd(list.length)}টি হিসাব</p>
     ${block("income", "inc")}${block("daily", "exp")}${block("construction", "con")}
     <h3>সারসংক্ষেপ</h3><table class="ptot"><tbody>
       <tr><td>মোট আয়</td><td class="n inc">${tk(s.income)}</td></tr>
