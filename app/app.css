@@ -224,6 +224,7 @@ body.printing #printArea{display:block;background:#fff;color:#111;min-height:100
 .psheet .psign span{border-top:1px solid #333;padding-top:4px;min-width:38%;text-align:center}
 .psheet .pfoot{font-size:11px;color:#555;margin-top:14px}
 @media print{.pbar{display:none!important}body.printing #printArea{padding:0;min-height:0}.psheet tr{break-inside:avoid}@page{size:A4;margin:12mm}}
-#drBody .psheet{font-size:14px}#drBody .psheet .ph,#drBody .psheet .psign,#drBody .psheet .pfoot{display:none}
+#drBody .psheet{font-size:14px;background:#fff;color:#111;border:1px solid #ddd;border-radius:8px;padding:12px;margin-top:4px}
+#drBody .psheet .psign{margin-top:32px}
 .psheet .inc{color:#1d6b3a}.psheet .exp{color:#a02c2c}.psheet .con{color:#2d4a8a}
 .preport .kpis{grid-template-columns:repeat(4,1fr)}.preport .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
