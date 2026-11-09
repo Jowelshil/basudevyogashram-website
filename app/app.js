@@ -300,7 +300,7 @@ function renderLand() {
   $("landList").innerHTML = `<div class="card">` + (ppl.length ? ppl.map((p, i) => `<div class="item"><div class="sn" style="font-size:.8rem">${p.memberNo ? esc(p.memberNo) : bnd(i + 1)}</div>
     <div><button class="link-btn" data-person="${p.id}" style="padding:0;color:inherit;text-align:left"><span class="t">${esc(p.name)}</span></button>
     <div class="s">${esc([p.address, p.mobile].filter(Boolean).join(" · "))}</div>
-    <div class="s">${esc([p.land ? "জমি " + landBn(p.land) : "", landBn(p.details), p.area].filter(Boolean).join(" · "))}${p.date ? " · দান " + fmtDate(p.date) : ""}</div></div>
+    <div class="s">${esc([p.land ? "জমি " + landBn(p.land) : "", p.amount ? "টাকা " + tk(p.amount) : "", landBn(p.details), p.area].filter(Boolean).join(" · "))}${p.date ? " · দান " + fmtDate(p.date) : ""}</div></div>
     <div></div></div>`).join("") : `<div class="empty">${$("landSearch").value ? "কিছু পাওয়া যায়নি।" : "এখনো কেউ যোগ হয়নি। নিচের + বাটন চেপে যোগ করুন।"}</div>`) + `</div>`;
 }
 function scrollGrid(box, list) {
@@ -393,7 +393,7 @@ function personForm(list, p) {
       <label>এলাকা (থানা)<select id="peArea"${list === "monthly" ? " required" : ""}>${areaOpts(areaSel, list !== "monthly")}</select></label></div>
     <div class="row2">${list === "land" ? "" : `<label>${list === "life" ? "সদস্য ফি (টাকা)" : "মাসিক প্রণামী (টাকা)"}<input id="peAmt" inputmode="decimal" value="${v("amount")}" required></label>`}
       <label>${list === "life" ? "সদস্য হওয়ার তারিখ" : list === "land" ? "জমি দানের তারিখ" : "কোন মাস থেকে"}<input type="date" id="peDate" value="${v("date") || (list === "land" ? "" : D.today)}"></label></div>
-    ${list === "land" ? `<div class="row2"><label>জমির পরিমাণ<input id="peLand" value="${v("land")}" placeholder="যেমন: ১০ শতক"></label><label>মৌজা / দাগ নং<input id="peDet" value="${v("details")}"></label></div>` : ""}
+    ${list === "land" ? `<div class="row2"><label>জমির পরিমাণ<input id="peLand" value="${v("land")}" placeholder="যেমন: ১০ শতক"></label><label>টাকার পরিমাণ<input id="peAmt" inputmode="decimal" value="${p && p.amount ? esc(p.amount) : ""}" placeholder="যেমন: ৫০০০০"></label></div>` : ""}
     ${list === "life" || list === "land" || list === "monthly" ? `<label>সদস্য নং<input id="peNo" value="${p ? v("memberNo") : list !== "life" ? landNextSn(list, areaSel) : ""}"></label>` : ""}
     ${list === "life" && !p ? `<div class="banner" style="display:grid;gap:8px"><b>সদস্য ফি</b>
       <label class="chk"><input type="radio" name="peFee" value="now"> আজ জমা নিচ্ছি (আজকের আয়ে যোগ হবে)</label>
@@ -409,7 +409,7 @@ function personForm(list, p) {
     b.querySelector("#peForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
       const g = id => (b.querySelector("#" + id) || {}).value ?? "";
       const body = {list, name: g("peName"), address: g("peAddr"), mobile: g("peMob"), area: g("peArea"), amount: toEn(g("peAmt")), date: g("peDate"),
-        land: landBn(g("peLand")), details: landBn(g("peDet")), memberNo: toEn(g("peNo")), note: g("peNote"),
+        land: landBn(g("peLand")), details: b.querySelector("#peDet") ? landBn(g("peDet")) : (p ? p.details || "" : ""), memberNo: toEn(g("peNo")), note: g("peNote"),
         fee: (b.querySelector("[name=peFee]:checked") || {}).value || "", mode: g("peMode"), ref: g("peRef")};
       if (list === "life" && !p && !body.fee) throw new Error("সদস্য ফি আজ জমা নিচ্ছেন, নাকি আগেই পরিশোধিত, বেছে নিন।");
       let res = null;
@@ -420,7 +420,7 @@ function personForm(list, p) {
 function showPerson(id) {
   const p = D.people.find(x => x.id === id); if (!p) return;
   const paid = Object.keys(p.paid || {}).sort().reverse();
-  const rows = [["ঠিকানা", p.address], ["মোবাইল", p.mobile], ["এলাকা", p.area], [p.list === "life" ? "সদস্য ফি" : "মাসিক প্রণামী", p.amount && p.list !== "land" ? tk(p.amount) : ""],
+  const rows = [["ঠিকানা", p.address], ["মোবাইল", p.mobile], ["এলাকা", p.area], [p.list === "life" ? "সদস্য ফি" : p.list === "land" ? "টাকার পরিমাণ" : "মাসিক প্রণামী", p.amount ? tk(p.amount) : ""],
     ["জমির পরিমাণ", landBn(p.land)], ["মৌজা / দাগ", landBn(p.details)], ["সদস্য নং", p.memberNo], [p.list === "life" ? "সদস্য হয়েছেন" : p.list === "land" ? "জমি দানের তারিখ" : "শুরু", p.date ? fmtDate(p.date) : ""],
     ["মন্তব্য", p.note], ["যোগ করেছেন", (D.names[p.by] || "") + " · " + fmtDate((p.createdAt || "").slice(0, 10))]].filter(r => r[1]);
   openSheet(p.name, `<table><tbody>${rows.map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table>
