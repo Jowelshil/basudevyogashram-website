@@ -539,14 +539,58 @@ function renderDaily() {
   if (!uids.length) { $("dailyBody").innerHTML = `<div class="card"><div class="empty">${fmtDate(d)} তারিখে কেউ কোনো এন্ট্রি দেননি।</div></div>`; return; }
   $("dailyBody").innerHTML = uids.map(uid => {
     const l = led.filter(r => r.by === uid).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
-    const pp = ppl.filter(p => p.by === uid); const s = sums(l);
+    const all = ppl.filter(p => p.by === uid), pp = all.filter(p => !p.imported), imp = all.length - pp.length; const s = sums(l);
     return `<div class="card"><div class="card-head"><h2>${esc(D.names[uid] || "অজানা ইউজার")}</h2><span class="muted">${bnd(l.length)}টি হিসাব${pp.length ? ", " + bnd(pp.length) + " জন নতুন নাম" : ""}</span></div>
+      <div class="ops" style="margin:-4px 0 8px"><button class="btn ghost small" data-print="${esc(uid)}">প্রিন্ট / PDF</button></div>
       <div class="daysum"><span>জমা <b class="inc">${tk(s.income)}</b></span><span>দৈনিক খরচ <b class="exp">${tk(s.daily)}</b></span><span>নির্মাণ <b class="con">${tk(s.construction)}</b></span></div>
       ${l.map(r => entryRow(r, {ops: true}) .replace('<div class="s">', `<div class="s">${r.date !== d ? "হিসাবের তারিখ " + fmtDate(r.date) + " · " : ""}এন্ট্রির সময় ${esc((r.createdAt || "").slice(11, 16))} · `)).join("")}
+      ${imp ? `<p class="note">ফাইল থেকে ইমপোর্ট: ${bnd(imp)} জন</p>` : ""}
       ${pp.length ? `<h3 class="sub" style="margin-top:10px">তালিকায় নতুন যোগ</h3>` + pp.map(p => `<div class="item"><div class="sn"></div><div><div class="t">${esc(p.name)}</div><div class="s">${LIST_LABEL[p.list]} · ${esc([p.area, p.address, p.mobile].filter(Boolean).join(" · "))}</div></div><div class="amt">${p.amount ? tk(p.amount) : ""}</div></div>`).join("") : ""}</div>`;
   }).join("");
 }
-$("dailyBody").addEventListener("click", e => { const t = e.target.closest("button"); if (!t) return; if (t.dataset.edit) editEntry(t.dataset.edit); else if (t.dataset.del) deleteEntry(t.dataset.del); });
+$("dailyBody").addEventListener("click", e => { const t = e.target.closest("button"); if (!t) return; if (t.dataset.print) printDaily(t.dataset.print); else if (t.dataset.edit) editEntry(t.dataset.edit); else if (t.dataset.del) deleteEntry(t.dataset.del); });
+
+/* one user's entries for the day as a printable sheet (print, or save as PDF from the print screen) */
+function printDaily(uid) {
+  const d = $("dailyPick").value || D.today, who = D.names[uid] || "অজানা ইউজার";
+  const l = live().filter(r => r.by === uid && (r.date === d || (r.createdAt || "").slice(0, 10) === d)).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const all = D.people.filter(p => p.by === uid && (p.createdAt || "").slice(0, 10) === d), pp = all.filter(p => !p.imported), imp = all.length - pp.length;
+  const s = sums(l);
+  const rows = l.map((r, i) => `<tr><td>${bnd(i + 1)}</td><td>${esc((r.createdAt || "").slice(11, 16))}${r.date !== d ? "<br><small>হিসাব " + fmtDate(r.date) + "</small>" : ""}</td>
+    <td><b>${esc(r.name || r.category)}</b>${[r.mobile, r.address].filter(Boolean).length ? "<br><small>" + [r.mobile, r.address].filter(Boolean).map(esc).join(" · ") + "</small>" : ""}${r.note ? "<br><small>" + esc(r.note) + "</small>" : ""}</td>
+    <td>${KLABEL[r.kind]}<br><small>${esc(r.category)}${r.project ? " · " + esc(r.project) : ""}${r.month ? " · " + monthName(r.month) : ""}</small></td>
+    <td>${esc(r.mode || "")}${r.ref ? "<br><small>রসিদ " + esc(r.ref) + "</small>" : ""}</td>
+    <td class="n">${r.kind === "income" ? "" : "− "}${tk(r.amount)}</td></tr>`).join("");
+  const html = `<div class="psheet">
+    <div class="ph"><b>শ্রীশ্রী বাসুদেব যোগাশ্রম</b><span>নেহালপুর, হাটহাজারী, চট্টগ্রাম</span></div>
+    <h2>দৈনিক এন্ট্রি: ${esc(who)}</h2><p>তারিখ: ${fmtDate(d)} · মোট ${bnd(l.length)}টি হিসাব</p>
+    ${l.length ? `<table><thead><tr><th>ক্রম</th><th>সময়</th><th>নাম / বিবরণ</th><th>ধরন · খাত</th><th>মাধ্যম</th><th class="n">টাকা</th></tr></thead><tbody>${rows}</tbody></table>` : `<p>এই দিনে কোনো হিসাব নেই।</p>`}
+    <table class="ptot"><tbody>
+      <tr><td>মোট জমা / আয়</td><td class="n">${tk(s.income)}</td></tr>
+      <tr><td>মোট দৈনিক খরচ</td><td class="n">${tk(s.daily)}</td></tr>
+      <tr><td>মোট নির্মাণ খরচ</td><td class="n">${tk(s.construction)}</td></tr>
+      <tr class="tot"><td>নিট (জমা − খরচ)</td><td class="n">${signed(s.net)}</td></tr></tbody></table>
+    ${pp.length ? `<h3>তালিকায় নতুন যোগ (${bnd(pp.length)} জন)</h3><table><thead><tr><th>নাম</th><th>তালিকা</th><th>এলাকা / ঠিকানা</th><th>মোবাইল</th><th class="n">টাকা</th></tr></thead><tbody>${pp.map(p => `<tr><td>${esc(p.name)}</td><td>${LIST_LABEL[p.list]}</td><td>${esc([p.area, p.address].filter(Boolean).join(" · "))}</td><td>${esc(p.mobile || "")}</td><td class="n">${p.amount ? tk(p.amount) : ""}</td></tr>`).join("")}</tbody></table>` : ""}
+    ${imp ? `<p>ফাইল থেকে ইমপোর্ট: ${bnd(imp)} জন</p>` : ""}
+    <div class="psign"><span>এন্ট্রিদাতার স্বাক্ষর</span><span>যাচাইকারীর স্বাক্ষর</span></div>
+    <p class="pfoot">প্রিন্টের সময়: ${fmtDate(D.today)} ${new Date().toTimeString().slice(0, 5)}</p></div>`;
+  showPrint(html, `দৈনিক-এন্ট্রি_${who}_${d}`);
+}
+/* full-screen print view: the app hides behind it, the bar is not printed */
+function showPrint(html, title) {
+  let box = $("printArea");
+  if (!box) { box = document.createElement("div"); box.id = "printArea"; document.body.appendChild(box); }
+  box.innerHTML = `<div class="pbar"><button class="btn ghost" id="pClose">← ফিরে যান</button><button class="btn" id="pGo">প্রিন্ট / PDF সেভ</button></div>${html}`;
+  const t0 = document.title; document.title = title; document.body.classList.add("printing"); window.scrollTo(0, 0);
+  closePrint = () => { document.body.classList.remove("printing"); document.title = t0; box.innerHTML = ""; closePrint = null; };
+  $("pClose").onclick = () => closePrint();
+  $("pGo").onclick = () => {
+    if (window.Shell && typeof Shell.print === "function") Shell.print(title);
+    else if (/BasudevHisabApp/.test(navigator.userAgent)) toast("এই পুরনো অ্যাপে প্রিন্ট হয় না। নতুন অ্যাপ (APK) ইনস্টল করুন, অথবা ব্রাউজারে খুলে প্রিন্ট করুন।");
+    else window.print();
+  };
+}
+let closePrint = null;
 
 /* ================= admin: reports ================= */
 function initReport() { const t = D.today; $("rMonth").value = t.slice(0, 7); $("rYear").value = t.slice(0, 4); $("rFrom").value = t.slice(0, 7) + "-01"; $("rTo").value = t; }
@@ -842,6 +886,7 @@ $("pwForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submit
 
 /* Android back button support (called by the app shell) */
 window.byaBack = function () {
+  if (closePrint) { closePrint(); return true; }
   if (!$("sheet").hidden) { closeSheet(); return true; }
   if (!$("menu").hidden) { closeMenu(); return true; }
   if (view === "monthly" && curArea !== null) { curArea = null; renderMonthly(); return true; }
