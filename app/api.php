@@ -75,7 +75,18 @@ function audit(array $u, string $what, array $extra = []): void {
 }
 
 /* ---------- helpers ---------- */
-function out($data, int $code = 200): never { http_response_code($code); echo json_encode($data, JSON_UNESCAPED_UNICODE); exit; }
+function out($data, int $code = 200): never {
+    http_response_code($code);
+    $body = json_encode($data, JSON_UNESCAPED_UNICODE);
+    /* lists are large and compress about ten times; small answers go as they are */
+    if (strlen($body) > 2048 && function_exists('gzencode') && !headers_sent() && !ini_get('zlib.output_compression')
+        && str_contains((string)($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''), 'gzip')) {
+        $body = gzencode($body, 5);
+        header('Content-Encoding: gzip'); header('Vary: Accept-Encoding');
+    }
+    header('Content-Length: ' . strlen($body));
+    echo $body; exit;
+}
 function fail(string $msg, int $code = 400): never { out(['ok' => false, 'error' => $msg], $code); }
 function str_in(array $in, string $k, int $max = 200): string { return mb_substr(trim((string)($in[$k] ?? '')), 0, $max); }
 function norm_mobile(string $v): string {
@@ -172,6 +183,30 @@ function land_bn(string $t): string {
     return bn_digits($t);
 }
 function public_user(array $u): array { return ['id' => $u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'scope' => $u['role'] === 'admin' ? '' : ($u['scope'] ?? ''), 'active' => $u['active'] ?? true, 'created' => $u['created'] ?? '']; }
+
+/* totals of each year's ledger, kept in a small cache so that the app can load one year at a time
+   and still show correct opening balances and project totals */
+function year_sums(): array {
+    $cache = hread('yearsums', []); $res = []; $dirty = false;
+    clearstatcache();
+    foreach (glob(hdir() . '/ledger-*.json') ?: [] as $f) {
+        if (!preg_match('/ledger-(\d{4})\.json$/', $f, $m)) continue;
+        $y = $m[1]; $stamp = filemtime($f) . '-' . filesize($f);
+        if (($cache[$y]['stamp'] ?? '') !== $stamp) {
+            $t = ['stamp' => $stamp, 'n' => 0, 'income' => 0, 'daily' => 0, 'construction' => 0, 'proj' => []];
+            foreach (hread("ledger-$y") as $r) {
+                if (!empty($r['deleted']) || !isset($t[$r['kind']])) continue;
+                $t['n']++; $t[$r['kind']] += (float)$r['amount'];
+                if ($r['kind'] === 'construction') { $k = ($r['project'] ?? '') !== '' ? $r['project'] : '—'; $t['proj'][$k] = ($t['proj'][$k] ?? 0) + (float)$r['amount']; }
+            }
+            $cache[$y] = $t; $dirty = true;
+        }
+        $res[$y] = $cache[$y];
+    }
+    if ($dirty) hwrite('yearsums', $cache);
+    ksort($res);
+    return $res;
+}
 
 /* a user with scope "monthly" collects মাসিক প্রণামী only: sees that list and can do nothing else */
 function only_monthly(array $u): bool { return $u['role'] !== 'admin' && ($u['scope'] ?? '') === 'monthly'; }
@@ -359,8 +394,16 @@ case 'load': {
     $isAdmin = $u['role'] === 'admin';
     $y = (int)date('Y');
     $ledger = [];
+    /* the current year is always sent; older years only when the app asks for them (a report or an old date) */
+    $want = array_values(array_filter(explode(',', str_in($IN, 'years', 80)), fn($v) => preg_match('/^\d{4}$/', $v) && (int)$v < $y));
+    $full = array_values(array_unique(array_merge([(string)$y], $want)));
+    if (file_exists(hdir() . '/ledger-' . ($y + 1) . '.json')) $full[] = (string)($y + 1);
     if ($isAdmin) {
-        foreach (glob(hdir() . '/ledger-*.json') ?: [] as $f) $ledger = array_merge($ledger, hread(basename($f, '.json')));
+        foreach ($full as $yy) $ledger = array_merge($ledger, hread("ledger-$yy"));
+        if (!in_array((string)($y - 1), $full, true)) {
+            $from = date('Y-m-d', strtotime('-45 days'));
+            foreach (hread('ledger-' . ($y - 1)) as $r) if ($r['date'] >= $from) $ledger[] = $r;
+        }
     } else {
         $from = date('Y-m-d', strtotime('-45 days'));
         foreach (array_unique([$y - 1, $y]) as $yy) foreach (hread("ledger-$yy") as $r) if ($r['date'] >= $from && empty($r['deleted']) && $r['by'] === $u['id']) { unset($r['history']); $ledger[] = $r; }
@@ -368,11 +411,18 @@ case 'load': {
     $people = hread('people');
     if (!$isAdmin) $people = array_values(array_map(function ($p) { unset($p['history']); return $p; }, array_filter($people, fn($p) => empty($p['deleted']))));
     if (only_monthly($u)) $people = array_values(array_filter($people, fn($p) => $p['list'] === 'monthly'));
+    /* জমার ঘর: this year and last year always, older years only when asked for */
+    $keepFrom = (string)($y - 1);
+    foreach ($people as &$pp) {
+        if (empty($pp['paid'])) continue;
+        foreach ($pp['paid'] as $mm => $_) { $py = substr((string)$mm, 0, 4); if ($py < $keepFrom && !in_array($py, $full, true)) unset($pp['paid'][$mm]); }
+    }
+    unset($pp);
     $names = [];
     foreach (hread('users') as $x) $names[$x['id']] = $x['name'];
     $c = sms_cfg();
     out(['ok' => true, 'user' => public_user($u), 'today' => date('Y-m-d'), 'areas' => areas_list(), 'cats' => cats_list(),
-         'ledger' => $ledger, 'people' => $people, 'names' => $names,
+         'ledger' => $ledger, 'people' => $people, 'names' => $names, 'loaded' => $full, 'years' => $isAdmin ? year_sums() : new stdClass(),
          'sms' => ['enabled' => (bool)$c['enabled'], 'auto' => (bool)$c['auto'], 'template' => $c['template']]]);
 }
 

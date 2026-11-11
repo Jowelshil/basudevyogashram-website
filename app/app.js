@@ -101,11 +101,38 @@ $("setupForm").addEventListener("submit", e => { e.preventDefault(); guard(e.sub
     token = j.token; store.set("bya_token", token); await reload(); enterApp(); toast("অ্যাডমিন অ্যাকাউন্ট তৈরি হয়েছে। এখন ইউজার যোগ করুন।"); go("users"); }
   catch (err) { $("authMsg").textContent = err.message; }
 }); });
-function logoutLocal(msg) { token = null; me = null; enterApp.done = false; view = "ledger"; store.set("bya_token", null); showAuth(msg); }
+function logoutLocal(msg) { extraYears.clear(); needYears.failed.clear(); token = null; me = null; enterApp.done = false; view = "ledger"; store.set("bya_token", null); showAuth(msg); }
 $("logoutBtn").onclick = async () => { closeMenu(); try { await api("logout"); } catch (e) {} logoutLocal("লগআউট হয়েছে।"); };
 
+/* The server sends this year's accounts. An older year is fetched only when a screen needs it
+   (a report, an old date, an old year in the pranami grid) and then stays loaded until logout. */
+const extraYears = new Set();
+function needYears(ys, again) {
+  ys = ys.map(String).filter(y => !(D.loaded || []).includes(y) && !needYears.failed.has(y));
+  if (!ys.length) return true;
+  ys.forEach(y => extraYears.add(y));
+  toast("পুরনো বছরের হিসাব আনা হচ্ছে…");
+  reload().then(again).catch(e => { ys.forEach(y => { extraYears.delete(y); needYears.failed.add(y); }); toast(e.message); again(); });
+  return false;
+}
+needYears.failed = new Set();
+/* ledger of every year between two dates (admin screens) */
+function yearsReady(a, b, again) {
+  if (!isAdmin() || !a || !b) return true;
+  const ys = []; for (let y = +a.slice(0, 4); y <= +b.slice(0, 4); y++) if (D.years && D.years[y]) ys.push(y);
+  return needYears(ys, again);
+}
+/* জমার ঘর of an old year in the 12-month grid */
+function paidReady(y, again) { return y >= +D.today.slice(0, 4) - 1 ? true : needYears([y], again); }
+/* জের before a date: whole earlier years from the server's totals, the rest from the loaded year */
+function openingNet(a) {
+  const Y = a.slice(0, 4); let n = 0;
+  for (const y in (D.years || {})) if (y < Y) n += D.years[y].income - D.years[y].daily - D.years[y].construction;
+  return n + sums(live().filter(r => r.date.slice(0, 4) === Y && r.date < a)).net;
+}
+
 async function reload() {
-  const j = await api("load");
+  const j = await api("load", {years: [...extraYears].join(",")});
   me = j.user; D = j;
   if (typeof kind !== "undefined" && $("fCat")) { const cur = $("fCat").value; $("fCat").innerHTML = cats(kind).map(c => `<option>${esc(c)}</option>`).join(""); if (cats(kind).includes(cur)) $("fCat").value = cur; }
   D.ledger.sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -203,6 +230,7 @@ function entryRow(r, {who = false, ops = false} = {}) {
 }
 function renderLedger() {
   const d = $("dayPick").value || D.today;
+  if (!yearsReady(d, d, renderLedger)) return;
   const list = D.ledger.filter(r => r.date === d && !r.deleted).sort((a, b) => a.kind.localeCompare(b.kind) || a.serial - b.serial);
   $("projOptions").innerHTML = [...new Set(D.ledger.map(r => r.project).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join("");
   $("nameOptions").innerHTML = [...new Set([...D.people.map(p => p.name), ...D.ledger.filter(r => r.kind === "income").map(r => r.name)].filter(Boolean))].slice(0, 400).map(n => `<option value="${esc(n)}">`).join("");
@@ -318,6 +346,7 @@ function scrollGrid(box, list) {
 }
 function gridHTML(list, ppl, q, showArea) {
   const y = gridYear[list] || +D.today.slice(0, 4);
+  if (!paidReady(y, render)) return `<div class="empty">পুরনো বছরের হিসাব আনা হচ্ছে…</div>`;
   const curM = D.today.slice(0, 7);
   const rows = ppl.filter(p => matches(p, q)).sort((a, b) => (!a.memberNo - !b.memberNo) || (a.memberNo || "").localeCompare(b.memberNo || "", "en", {numeric: true}) || a.name.localeCompare(b.name, "bn"));
   const years = []; for (let i = +D.today.slice(0, 4) + 1; i >= 2024; i--) years.push(i);
@@ -472,7 +501,8 @@ function renderDash() {
   $("monthTitle").textContent = "এই মাস · " + BN_MONTHS[+M - 1] + " " + bnd(Y); $("monthKpis").innerHTML = kpiHTML(sums(inRange(`${Y}-${M}-01`, `${Y}-${M}-31`)));
   const b = []; for (let i = 13; i >= 0; i--) { const d = addDays(t, -i); b.push({label: bnd(+d.slice(8)), ...sums(inRange(d, d))}); }
   $("dashChart").innerHTML = barChart(b);
-  const proj = groupBy(live().filter(r => r.kind === "construction"), "project");
+  const pm = new Map(); for (const y in (D.years || {})) for (const [k, v] of Object.entries(D.years[y].proj || {})) pm.set(k, (pm.get(k) || 0) + v);
+  const proj = [...pm].sort((a, b) => b[1] - a[1]);
   $("projList").innerHTML = proj.length ? `<table><tbody>${proj.map(([p, v]) => `<tr><td>${esc(p)}</td><td class="n con">${tk(v)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">এখনো নির্মাণ খরচের এন্ট্রি নেই।</div>`;
   renderPranamiStatus();
 }
@@ -539,6 +569,7 @@ $("dashPranami").addEventListener("click", e => { const b = e.target.closest("[d
 $("dailyPick").addEventListener("input", renderDaily);
 function renderDaily() {
   const d = $("dailyPick").value || D.today;
+  if (!yearsReady(d, d, renderDaily)) return;
   const led = live().filter(r => r.date === d || (r.createdAt || "").slice(0, 10) === d);
   const ppl = D.people.filter(p => (p.createdAt || "").slice(0, 10) === d);
   const uids = [...new Set([...led.map(r => r.by), ...ppl.map(p => p.by)])];
@@ -617,9 +648,10 @@ function renderReport() {
   if (!isAdmin()) return;
   const p = period(); curPeriod = p;
   if (!p.a || !p.b || p.a.includes("undefined")) { $("reportBody").innerHTML = `<div class="empty">সময়সীমা বেছে নিন।</div>`; return; }
+  if (!yearsReady(p.a, p.b, renderReport)) return;
   if ($("rCat").value) { fillCatSel(); $("reportBody").innerHTML = catStatement(p, $("rCat").value); return; }
   const list = inRange(p.a, p.b), s = sums(list);
-  const opening = sums(live().filter(r => r.date < p.a)).net, closing = opening + s.net;
+  const opening = openingNet(p.a), closing = opening + s.net;
   const buckets = [];
   if (p.by === "day") { for (let d = p.a; d <= p.b && d.slice(0, 7) === p.a.slice(0, 7); d = addDays(d, 1)) buckets.push({key: d, label: bnd(+d.slice(8)), ...sums(list.filter(r => r.date === d))}); }
   else { let [y, m] = p.a.split("-").map(Number); const end = p.b.slice(0, 7); for (;;) { const k = `${y}-${String(m).padStart(2, "0")}`; if (k > end) break; buckets.push({key: k, label: BN_MS[m - 1], ...sums(list.filter(r => r.date.startsWith(k)))}); if (++m > 12) { m = 1; y++; } } }
@@ -698,7 +730,7 @@ function dayReportHTML(d) {
 function openDayReport(d = D.today) {
   openSheet("দৈনিক রিপোর্ট", `<div class="form"><label>তারিখ<input type="date" id="drDate" value="${d}"></label><div id="drBody"></div>
     <button class="btn wide" id="drPrint" type="button">প্রিন্ট / PDF</button></div>`, b => {
-    const upd = () => b.querySelector("#drBody").innerHTML = dayReportHTML(b.querySelector("#drDate").value || D.today);
+    const upd = () => { const dd = b.querySelector("#drDate").value || D.today; if (!b.isConnected || !yearsReady(dd, dd, upd)) return; b.querySelector("#drBody").innerHTML = dayReportHTML(dd); };
     b.querySelector("#drDate").addEventListener("input", upd); upd();
     b.querySelector("#drPrint").onclick = () => { const dd = b.querySelector("#drDate").value || D.today; closeSheet(); showPrint(dayReportHTML(dd), `দৈনিক-রিপোর্ট_${dd}`); };
   });
