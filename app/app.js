@@ -32,6 +32,9 @@ const toEn = s => String(s || "").replace(/[০-৯]/g, c => "০১২৩৪৫
 let token = null, me = null, D = {ledger: [], people: [], areas: [], names: {}, sms: {}, today: ""};
 let kind = "income", view = "ledger", curArea = null, prefill = null;
 const isAdmin = () => me && me.role === "admin";
+/* মাসিক প্রণামী সংগ্রহকারী: sees only the monthly pranami tab */
+const onlyMonthly = () => !!me && me.role !== "admin" && me.scope === "monthly";
+const homeView = () => isAdmin() ? "dash" : onlyMonthly() ? "monthly" : "ledger";
 const store = {get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
                set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }};
 
@@ -110,12 +113,14 @@ async function reload() {
 function enterApp() {
   lastAct = lastPing = Date.now(); store.set("bya_last", String(lastAct));
   $("authScreen").hidden = true; $("appScreen").hidden = false;
-  $("whoami").textContent = me.name + (isAdmin() ? " · অ্যাডমিন" : "");
+  $("whoami").textContent = me.name + (isAdmin() ? " · অ্যাডমিন" : onlyMonthly() ? " · প্রণামী সংগ্রহ" : "");
+  $("tabs").hidden = onlyMonthly(); document.body.classList.toggle("notabs", onlyMonthly());
   document.querySelectorAll(".admin-only").forEach(el => el.hidden = !isAdmin());
   $("lockNote").hidden = isAdmin();
   if (!$("fDate").value) { $("fDate").value = D.today; $("dayPick").value = D.today; $("dailyPick").value = D.today; initReport(); }
   setKind(kind);
   if (!enterApp.done) { enterApp.done = true; if (isAdmin()) view = "dash"; }
+  if (onlyMonthly()) view = "monthly";
   go(view);
 }
 
@@ -124,6 +129,7 @@ const TABS = ["ledger", "monthly", "land", "life", "other"];
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { if (b.dataset.tab === "monthly") curArea = null; go(b.dataset.tab); });
 function go(v) {
   if (!isAdmin() && !TABS.includes(v) && v !== "password") v = "ledger";
+  if (onlyMonthly() && v !== "password") v = "monthly";
   view = v;
   document.querySelectorAll(".view").forEach(s => s.hidden = s.id !== "v-" + v);
   document.querySelectorAll("#tabs button").forEach(b => b.toggleAttribute("aria-current", b.dataset.tab === v));
@@ -136,7 +142,7 @@ function render() {
   ({ledger: renderLedger, monthly: renderMonthly, land: renderLand, life: renderLife, dash: renderDash, daily: renderDaily,
     report: renderReport, invite: renderInvite, users: renderUsers, sms: loadSms, records: renderRecords}[view] || (() => {}))();
 }
-document.querySelector(".brand").onclick = () => go(isAdmin() ? "dash" : "ledger");
+document.querySelector(".brand").onclick = () => go(homeView());
 $("menuBtn").onclick = () => { $("menu").hidden = false; $("menuScrim").hidden = false; };
 function closeMenu() { $("menu").hidden = true; $("menuScrim").hidden = true; }
 $("menuScrim").onclick = closeMenu;
@@ -710,11 +716,12 @@ async function renderUsers() {
   let j; try { j = await api("users"); } catch (e) { $("userList").innerHTML = `<div class="msg">${esc(e.message)}</div>`; return; }
   const n = j.users.filter(u => u.role === "user" && u.active).length;
   $("userList").innerHTML = `<div class="card-head"><h3 class="sub">ইউজার (${bnd(n)} / ${bnd(j.max)}) ও অ্যাডমিন</h3></div>` + j.users.map(u => `<div class="item"><div class="sn">${u.role === "admin" ? "★" : ""}</div>
-    <div><div class="t">${esc(u.name)}${u.id === me.id ? " (আপনি)" : ""}</div><div class="s">আইডি: ${esc(u.username)} · ${u.role === "admin" ? "অ্যাডমিন" : "ইউজার"} ${u.active ? "" : '<span class="chip bad">বন্ধ</span>'}</div>
+    <div><div class="t">${esc(u.name)}${u.id === me.id ? " (আপনি)" : ""}</div><div class="s">আইডি: ${esc(u.username)} · ${u.role === "admin" ? "অ্যাডমিন" : u.scope === "monthly" ? "ইউজার · শুধু মাসিক প্রণামী" : "ইউজার"} ${u.active ? "" : '<span class="chip bad">বন্ধ</span>'}</div>
     <div class="ops" style="margin-top:6px">
       <button class="btn ghost small" data-rename="${u.id}" data-n="${esc(u.name)}" data-u="${esc(u.username)}">নাম / আইডি বদল</button>
       ${u.id !== me.id ? `<button class="btn ghost small" data-reset="${u.id}" data-n="${esc(u.name)}">পাসওয়ার্ড রিসেট</button>
       <button class="btn ghost small" data-role="${u.id}" data-to="${u.role === "admin" ? "user" : "admin"}" data-n="${esc(u.name)}">${u.role === "admin" ? "অ্যাডমিন থেকে সরান" : "অ্যাডমিন বানান"}</button>
+      ${u.role !== "admin" ? `<button class="btn ghost small" data-scope="${u.id}" data-to="${u.scope === "monthly" ? "" : "monthly"}">${u.scope === "monthly" ? "সব ট্যাব দিন" : "শুধু মাসিক প্রণামী করুন"}</button>` : ""}
       <button class="btn ghost small" data-toggle="${u.id}">${u.active ? "বন্ধ করুন" : "চালু করুন"}</button>` : ""}
     </div></div><div></div></div>`).join("") + (j.users.filter(u => u.role === "admin" && u.active).length < 2 ? `<p class="banner" style="margin-top:8px">এখন অ্যাডমিন মাত্র একজন। পাসওয়ার্ড ভুলে গেলে আর ঢোকার উপায় থাকবে না, তাই বিশ্বস্ত আরেকজনকে অ্যাডমিন বানিয়ে রাখুন।</p>` : "");
 }
@@ -731,6 +738,7 @@ $("userList").addEventListener("click", e => {
       await api("user_update", {id: b.dataset.rename, name: bb.querySelector("#rnN").value, username: bb.querySelector("#rnU").value});
       closeSheet(); toast("হালনাগাদ হয়েছে।"); await reload(); if (b.dataset.rename === me.id) $("whoami").textContent = me.name + " · অ্যাডমিন"; renderUsers(); }); };
   });
+  if (b.dataset.scope) { guard(b, async () => { await api("user_scope", {id: b.dataset.scope, scope: b.dataset.to}); toast("হালনাগাদ হয়েছে। তাঁকে আবার লগইন করতে হবে।"); renderUsers(); }); return; }
   if (b.dataset.role) {
     const toAdmin = b.dataset.to === "admin";
     openSheet(toAdmin ? "অ্যাডমিন বানাবেন?" : "অ্যাডমিন থেকে সরাবেন?", `<p><b>${esc(b.dataset.n)}</b> ${toAdmin ? "অ্যাডমিন হলে সব হিসাব, মোট টাকা, রিপোর্ট দেখতে পারবেন এবং যেকোনো এন্ট্রি সম্পাদনা ও মুছতে পারবেন। শুধু খুব বিশ্বস্ত কাউকে অ্যাডমিন বানান।" : "সাধারণ ইউজার হয়ে যাবেন। মোট হিসাব আর দেখতে পারবেন না।"}</p>
@@ -827,7 +835,7 @@ $("restoreFile").addEventListener("change", async e => {
 $("restoreBtn").onclick = () => { closeMenu(); go("users"); setTimeout(() => $("restoreCard").scrollIntoView({behavior: "smooth"}), 100); };
 
 $("userForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
-  await api("user_add", {name: $("uName").value, username: $("uUser").value, password: $("uPass").value});
+  await api("user_add", {name: $("uName").value, username: $("uUser").value, password: $("uPass").value, scope: $("uScope").value});
   toast(`ইউজার যোগ হয়েছে। আইডি: ${$("uUser").value.trim().toLowerCase()}`); $("userForm").reset(); await reload(); renderUsers(); }); });
 $("areaForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => { const j = await api("area_add", {name: $("areaName").value}); D.areas = j.areas; $("areaName").value = ""; renderAreasCats(); toast("এলাকা যোগ হয়েছে।"); }); });
 
@@ -957,7 +965,7 @@ window.byaBack = function () {
   if (!$("sheet").hidden) { closeSheet(); return true; }
   if (!$("menu").hidden) { closeMenu(); return true; }
   if (view === "monthly" && curArea !== null) { curArea = null; renderMonthly(); return true; }
-  const home = isAdmin() ? "dash" : "ledger";
+  const home = homeView();
   if (view !== home && !$("appScreen").hidden) { go(home); return true; }
   return false;
 };
@@ -967,7 +975,7 @@ window.byaBack = function () {
   const main = $("main");
   main.addEventListener("touchstart", e => {
     x0 = null;
-    if (e.touches.length !== 1 || !TABS.includes(view) || !$("sheet").hidden || !$("menu").hidden) return;
+    if (e.touches.length !== 1 || onlyMonthly() || !TABS.includes(view) || !$("sheet").hidden || !$("menu").hidden) return;
     const t = e.touches[0];
     if (t.clientX < 24 || t.clientX > window.innerWidth - 24) return; // leave the phone's own edge-swipe alone
     if (e.target.closest("input,select,textarea,.mgrid-wrap,.chart,.tbl")) return; // these scroll sideways themselves

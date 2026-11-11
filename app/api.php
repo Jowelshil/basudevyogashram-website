@@ -171,7 +171,10 @@ function land_bn(string $t): string {
     foreach ($rules as $re => $bn) $t = preg_replace($re, $bn, $t);
     return bn_digits($t);
 }
-function public_user(array $u): array { return ['id' => $u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'active' => $u['active'] ?? true, 'created' => $u['created'] ?? '']; }
+function public_user(array $u): array { return ['id' => $u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role'], 'scope' => $u['role'] === 'admin' ? '' : ($u['scope'] ?? ''), 'active' => $u['active'] ?? true, 'created' => $u['created'] ?? '']; }
+
+/* a user with scope "monthly" collects মাসিক প্রণামী only: sees that list and can do nothing else */
+function only_monthly(array $u): bool { return $u['role'] !== 'admin' && ($u['scope'] ?? '') === 'monthly'; }
 
 /* ---------- auth ---------- */
 function auth(bool $adminOnly = false): array {
@@ -364,6 +367,7 @@ case 'load': {
     }
     $people = hread('people');
     if (!$isAdmin) $people = array_values(array_map(function ($p) { unset($p['history']); return $p; }, array_filter($people, fn($p) => empty($p['deleted']))));
+    if (only_monthly($u)) $people = array_values(array_filter($people, fn($p) => $p['list'] === 'monthly'));
     $names = [];
     foreach (hread('users') as $x) $names[$x['id']] = $x['name'];
     $c = sms_cfg();
@@ -377,6 +381,8 @@ case 'ledger_add': {
     $u = auth();
     $kind = str_in($IN, 'kind');
     if (!isset(KINDS[$kind])) fail('এন্ট্রির ধরন ঠিক নেই।');
+    if (only_monthly($u) && ($kind !== 'income' || str_in($IN, 'category', 80) !== CAT_FIXED || str_in($IN, 'personId', 20) === '' || str_in($IN, 'month', 7) === ''))
+        fail('আপনার অ্যাকাউন্ট থেকে শুধু মাসিক প্রণামী জমা নেওয়া যায়।', 403);
     $date = str_in($IN, 'date', 10);
     if (!valid_date($date)) fail('তারিখ ঠিক নেই।');
     if ($u['role'] !== 'admin' && ($date > date('Y-m-d') || $date < date('Y-m-d', strtotime('-7 days')))) fail('আজ থেকে ৭ দিনের পুরনো বা ভবিষ্যতের তারিখে এন্ট্রি দিতে অ্যাডমিন লাগবে।');
@@ -491,6 +497,7 @@ case 'people_update': {
     $u = auth($act === 'people_update');
     $list = str_in($IN, 'list');
     if (!isset(LISTS[$list])) fail('তালিকা ঠিক নেই।');
+    if (only_monthly($u) && $list !== 'monthly') fail('আপনার অ্যাকাউন্ট থেকে শুধু মাসিক প্রণামীর তালিকায় কাজ করা যায়।', 403);
     $name = str_in($IN, 'name', 100);
     if ($name === '') fail('নাম লিখুন।');
     $mobRaw = str_in($IN, 'mobile', 20); $mobile = norm_mobile($mobRaw);
@@ -715,13 +722,25 @@ case 'user_add': {
     if (!preg_match('/^[a-z0-9_.]{3,40}$/', $un)) fail('ইউজার আইডি ইংরেজি ছোট হাতের অক্ষর বা সংখ্যায় দিন (৩ অক্ষরের বেশি)।');
     if ($nm === '') fail('নাম লিখুন।');
     if (mb_strlen($pw) < 6) fail('পাসওয়ার্ড অন্তত ৬ অক্ষর হতে হবে।');
-    hmutate('users', function (&$us) use ($un, $nm, $pw) {
+    $scope = str_in($IN, 'scope', 10) === 'monthly' ? 'monthly' : '';
+    hmutate('users', function (&$us) use ($un, $nm, $pw, $scope) {
         $n = 0;
         foreach ($us as $x) { if ($x['username'] === $un) fail('এই ইউজার আইডি আগেই আছে।'); if ($x['role'] === 'user' && ($x['active'] ?? true)) $n++; }
         if ($n >= MAX_USERS) fail('সর্বোচ্চ ' . bn_digits((string)MAX_USERS) . ' জন ইউজার রাখা যায়। কাউকে বন্ধ করে তারপর নতুন যোগ করুন।');
-        $us[] = ['id' => new_id(), 'username' => $un, 'name' => $nm, 'role' => 'user', 'hash' => password_hash($pw, PASSWORD_DEFAULT), 'active' => true, 'created' => date('Y-m-d')];
+        $us[] = ['id' => new_id(), 'username' => $un, 'name' => $nm, 'role' => 'user', 'scope' => $scope, 'hash' => password_hash($pw, PASSWORD_DEFAULT), 'active' => true, 'created' => date('Y-m-d')];
     });
-    audit($u, 'ইউজার যোগ', ['username' => $un]);
+    audit($u, 'ইউজার যোগ', ['username' => $un] + ($scope ? ['scope' => 'শুধু মাসিক প্রণামী'] : []));
+    out(['ok' => true]);
+}
+case 'user_scope': {
+    $u = auth(true);
+    $id = str_in($IN, 'id', 20); $scope = str_in($IN, 'scope', 10) === 'monthly' ? 'monthly' : '';
+    hmutate('users', function (&$us) use ($id, $scope) {
+        foreach ($us as &$x) if ($x['id'] === $id) { if ($x['role'] === 'admin') fail('অ্যাডমিনের জন্য এটা প্রযোজ্য নয়।'); $x['scope'] = $scope; return; }
+        fail('ইউজার পাওয়া যায়নি।', 404);
+    });
+    drop_tokens_of($id);
+    audit($u, $scope ? 'ইউজারকে শুধু মাসিক প্রণামীতে সীমিত করা' : 'ইউজারকে সব ট্যাব দেওয়া', ['id' => $id]);
     out(['ok' => true]);
 }
 case 'user_update':

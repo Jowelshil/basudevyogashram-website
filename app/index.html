@@ -14,7 +14,7 @@
 <title>বাসুদেব যোগাশ্রম হিসাব</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=10">
+<link rel="stylesheet" href="app.css?v=11">
 </head>
 <body>
 
@@ -189,6 +189,7 @@
         <form id="userForm" class="form">
           <div class="row2"><label>নাম<input id="uName" required></label><label>ইউজার আইডি (ইংরেজিতে)<input id="uUser" autocapitalize="none" spellcheck="false" required placeholder="যেমন: ratan"></label></div>
           <label>পাসওয়ার্ড (অন্তত ৬ অক্ষর)<input id="uPass" required minlength="6" autocomplete="new-password"></label>
+          <label>অ্যাপে কী কী পাবেন<select id="uScope"><option value="">সব ট্যাব (সাধারণ ইউজার)</option><option value="monthly">শুধু মাসিক প্রণামী (সংগ্রহকারী)</option></select></label>
           <button class="btn" type="submit">ইউজার যোগ করুন</button>
         </form>
       </div>
@@ -308,6 +309,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
