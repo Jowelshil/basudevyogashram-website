@@ -425,3 +425,11 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
 .big,.guru-phone{font-family:"Hind Siliguri",system-ui,sans-serif;letter-spacing:.02em}
 .guru-phone{font-weight:600}
 .office b{font-weight:600}
+
+.donor-list{list-style:none;counter-reset:dl;padding:0;margin:0 auto;max-width:1000px;columns:2 340px;column-gap:40px}
+.donor-list li{counter-increment:dl;break-inside:avoid;position:relative;padding:9px 0 9px 40px;border-bottom:1px dashed var(--line);line-height:1.5}
+.donor-list li::before{content:counter(dl);position:absolute;left:0;top:9px;width:28px;text-align:right;color:var(--gold);font-weight:600;font-variant-numeric:tabular-nums}
+.donor-list b{font-weight:600}
+.dl-addr{color:var(--muted)}
+.dl-paksha{display:block;font-size:14px;color:var(--saffron)}
+.donor-list .dl-guru b{color:var(--saffron)}

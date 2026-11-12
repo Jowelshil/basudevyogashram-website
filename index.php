@@ -422,21 +422,23 @@ $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গ
       <div><strong>বিশাল আশ্রম প্রাঙ্গণ</strong><span>মন্দির, পুকুরঘাট, অনাথ আশ্রম ও বিদ্যালয়, সবই ভক্তদের দানে</span></div>
     </div>
     <h3 class="sub-h">শ্রীশ্রী বাসুদেব যোগাশ্রম ও বাসুদেব অনাথ আশ্রমের ভূমিদাতা সদস্যবৃন্দ</h3>
-    <div class="donors donors-top">
-<?php foreach ($donors as $d): if (($d['group'] ?? 'main') !== 'guru') continue; ?>
-      <article class="donor guru-donor"><div class="d-photo"><?php if (!empty($d['photo'])): ?><img src="<?= e(img_url($d['photo'])) ?>" alt="<?= e($d['name']) ?>" loading="lazy"><?php else: ?><span>ॐ</span><?php endif; ?></div><h3><?= e($d['name']) ?></h3><?php if ($d['address']): ?><p><?= e($d['address']) ?></p><?php endif; ?><?php if ($d['paksha']): ?><p class="paksha">পক্ষে: <?= e($d['paksha']) ?></p><?php endif; ?></article>
+<?php
+$short_addr = function (string $a): string {
+    $p = array_values(array_filter(array_map('trim', explode(',', $a)), 'strlen'));
+    return implode(', ', array_slice($p, -2));
+};
+$dl = array_merge(
+    array_filter($donors, fn($d) => ($d['group'] ?? 'main') === 'guru'),
+    array_filter($donors, fn($d) => ($d['group'] ?? 'main') !== 'guru')
+);
+?>
+    <ol class="donor-list">
+<?php foreach ($dl as $d): $ad = $short_addr((string)($d['address'] ?? '')); ?>
+      <li<?= ($d['group'] ?? 'main') === 'guru' ? ' class="dl-guru"' : '' ?>><b><?= e($d['name']) ?></b><?php if ($ad !== ''): ?><span class="dl-addr">, <?= e($ad) ?></span><?php endif; ?><?php if (!empty($d['paksha'])): ?><span class="dl-paksha">পক্ষে: <?= e($d['paksha']) ?></span><?php endif; ?></li>
 <?php endforeach; ?>
-    </div>
-    <div class="donors">
-<?php foreach ($donors as $d): if (($d['group'] ?? 'main') !== 'main') continue; ?>
-      <article class="donor"><div class="d-photo"><?php if (!empty($d['photo'])): ?><img src="<?= e(img_url($d['photo'])) ?>" alt="<?= e($d['name']) ?>" loading="lazy"><?php else: ?><span>ॐ</span><?php endif; ?></div><h3><?= e($d['name']) ?></h3><?php if ($d['address']): ?><p><?= e($d['address']) ?></p><?php endif; ?><?php if ($d['paksha']): ?><p class="paksha">পক্ষে: <?= e($d['paksha']) ?></p><?php endif; ?></article>
-<?php endforeach; ?>
-    </div>
+    </ol>
     <h3 class="sub-h" style="margin-top:40px">বাসুদেব স্কুল এন্ড কলেজের ভূমিদাতাগণ</h3>
-    <div class="banner-scroll"><img src="images/bhumidata/school-bhumidata-banner-2.jpg" alt="বাসুদেব স্কুল এন্ড কলেজের ভূমিদাতা সদস্যবৃন্দের তালিকা (অংশ)" loading="lazy"></div>
-    <details class="fullboard"><summary>সকল ভূমিদাতা দেখুন</summary>
-    <div class="banner-scroll"><img src="images/bhumidata/school-bhumidata-banner.jpg" alt="বাসুদেব স্কুল এন্ড কলেজের ভূমিদাতা সদস্যবৃন্দের সম্পূর্ণ তালিকা" loading="lazy"></div>
-    </details>
+    <p class="muted">স্কুল এন্ড কলেজের ভূমিদাতা সদস্যবৃন্দের সম্পূর্ণ নামের তালিকা শীঘ্রই এখানে যোগ করা হবে। আশ্রমে ঝোলানো তালিকা বোর্ডে সবার নাম দেখতে পাবেন।</p>
       <div class="invite" style="margin-top:24px">
       <p><b>ভূমিদান কার্যক্রম চলমান রয়েছে।</b> আশ্রম, অনাথ আশ্রম বা স্কুল এন্ড কলেজের জন্য কেউ এই মহৎ ভূমিদানে অংশ নিতে চাইলে সরাসরি আশ্রমের সাথে যোগাযোগ করুন: <b><?= e(phone_txt($S['phone1'])) ?></b></p>
     </div>
