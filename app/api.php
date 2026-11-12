@@ -211,6 +211,40 @@ function year_sums(): array {
 /* a user with scope "monthly" collects মাসিক প্রণামী only: sees that list and can do nothing else */
 function only_monthly(array $u): bool { return $u['role'] !== 'admin' && ($u['scope'] ?? '') === 'monthly'; }
 
+/* ---------- স্কুল ও কলেজ ----------
+   The ashram runs the school, so its costs and salaries are ordinary দৈনিক খরচ entries of the ashram ledger,
+   marked with school = cost | salary. Only the staff list (with salaries) is stored separately. */
+const SCHOOL_PREFIX = 'স্কুল: ';
+const SCHOOL_SALARY_CAT = 'স্কুল: শিক্ষক ও স্টাফের বেতন';
+const SCHOOL_CATS = ['শিক্ষা উপকরণ', 'বই, খাতা ও স্টেশনারি', 'বিদ্যুৎ, পানি ও গ্যাস', 'মেরামত ও রক্ষণাবেক্ষণ', 'আসবাবপত্র', 'পরীক্ষা খরচ',
+    'অনুষ্ঠান ও খেলাধুলা', 'যাতায়াত', 'আপ্যায়ন', 'অফিস খরচ', 'অন্যান্য'];
+const STAFF_TYPES = ['teacher' => 'শিক্ষক', 'staff' => 'স্টাফ'];
+function school_guard(array $u): void { if (only_monthly($u)) fail('আপনার অ্যাকাউন্ট থেকে শুধু মাসিক প্রণামীর কাজ করা যায়।', 403); }
+/* the staff list with salaries goes to the admin only */
+function school_data(array $u): array {
+    return ['ok' => true, 'cats' => SCHOOL_CATS, 'prefix' => SCHOOL_PREFIX, 'staff' => $u['role'] === 'admin' ? hread('school-staff') : []];
+}
+function school_ledger_add(array $rec): array {
+    return hmutate('ledger-' . substr($rec['date'], 0, 4), function (&$l) use ($rec) {
+        $max = 0;
+        foreach ($l as $r) if ($r['date'] === $rec['date'] && $r['kind'] === $rec['kind']) $max = max($max, (int)$r['serial']);
+        $rec['serial'] = $max + 1; $l[] = $rec;
+        return $rec;
+    });
+}
+/* keep a staff member's বেতন record in step when the admin edits, deletes or restores the ledger entry */
+function school_salary_sync(array $done, string $how): void {
+    if (($done['school'] ?? '') !== 'salary' || empty($done['staffId']) || empty($done['month'])) return;
+    hmutate('school-staff', function (&$st) use ($done, $how) {
+        foreach ($st as &$x) if ($x['id'] === $done['staffId']) {
+            $mine = ($x['paid'][$done['month']]['entry'] ?? '') === $done['id'];
+            if ($how === 'delete') { if ($mine) unset($x['paid'][$done['month']]); }
+            elseif ($how === 'update') { if ($mine) $x['paid'][$done['month']]['amount'] = $done['amount']; }
+            elseif (empty($x['paid'][$done['month']])) $x['paid'][$done['month']] = ['amount' => $done['amount'], 'date' => $done['date'], 'entry' => $done['id'], 'by' => $done['by']];
+        }
+    });
+}
+
 /* ---------- auth ---------- */
 function auth(bool $adminOnly = false): array {
     $h = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
@@ -502,6 +536,7 @@ case 'ledger_update': {
         hmutate('people', function (&$p) use ($done) { foreach ($p as &$x) if ($x['id'] === $done['lifeOf'] && ($x['feePaid']['entry'] ?? '') === $done['id']) $x['feePaid']['amount'] = $done['amount']; });
     if (is_array($done) && $done['personId'] !== '' && $done['month'] !== '')
         hmutate('people', function (&$p) use ($done) { foreach ($p as &$x) if ($x['id'] === $done['personId'] && ($x['paid'][$done['month']]['entry'] ?? '') === $done['id']) $x['paid'][$done['month']]['amount'] = $done['amount']; });
+    if (is_array($done)) school_salary_sync($done, 'update');
     audit($u, 'এন্ট্রি সম্পাদনা', ['id' => $id]);
     out(['ok' => true]);
 }
@@ -537,6 +572,7 @@ case 'ledger_restore': {
             }
         });
     }
+    if (is_array($done)) school_salary_sync($done, $act === 'ledger_delete' ? 'delete' : 'restore');
     audit($u, $act === 'ledger_delete' ? 'এন্ট্রি মুছে ফেলা' : 'এন্ট্রি ফিরিয়ে আনা', ['id' => $id, 'reason' => $reason]);
     out(['ok' => true]);
 }
@@ -851,6 +887,78 @@ case 'password': {
     out(['ok' => true]);
 }
 
+/* ----- স্কুল ও কলেজ ----- */
+case 'school_load': {
+    $u = auth(); school_guard($u);
+    out(school_data($u));
+}
+case 'school_cost_add': {
+    $u = auth(); school_guard($u);
+    $date = str_in($IN, 'date', 10);
+    if (!valid_date($date)) fail('তারিখ ঠিক নেই।');
+    if ($u['role'] !== 'admin' && ($date > date('Y-m-d') || $date < date('Y-m-d', strtotime('-7 days')))) fail('আজ থেকে ৭ দিনের পুরনো বা ভবিষ্যতের তারিখে এন্ট্রি দিতে অ্যাডমিন লাগবে।');
+    $cat = str_in($IN, 'category', 80);
+    if (!in_array($cat, SCHOOL_CATS, true)) fail('খাত বেছে নিন।');
+    $rec = school_ledger_add(['id' => new_id(), 'date' => $date, 'kind' => 'daily', 'category' => SCHOOL_PREFIX . $cat, 'amount' => amount_in($IN),
+        'name' => str_in($IN, 'name', 100), 'mobile' => '', 'address' => '', 'project' => '', 'ref' => str_in($IN, 'ref', 40), 'mode' => str_in($IN, 'mode', 30),
+        'note' => str_in($IN, 'note', 300), 'personId' => '', 'month' => '', 'school' => 'cost',
+        'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s'), 'sms' => ['status' => 'pending']]);
+    audit($u, 'এন্ট্রি যোগ', ['id' => $rec['id'], 'amount' => $rec['amount'], 'kind' => 'daily', 'school' => 'cost']);
+    out(['ok' => true, 'entry' => $rec]);
+}
+case 'school_salary_pay': {
+    $u = auth(true);
+    $sid = str_in($IN, 'staffId', 20); $month = str_in($IN, 'month', 7); $date = str_in($IN, 'date', 10);
+    if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) fail('মাস ঠিক নেই।');
+    if (!valid_date($date)) fail('তারিখ ঠিক নেই।');
+    $amount = amount_in($IN);
+    $rec = hmutate('school-staff', function (&$st) use ($sid, $month, $date, $amount, $u, $IN) {
+        foreach ($st as &$x) if ($x['id'] === $sid && empty($x['deleted'])) {
+            if (!empty($x['paid'][$month])) fail('এই মাসের বেতন আগেই দেওয়া হয়েছে।');
+            $saved = school_ledger_add(['id' => new_id(), 'date' => $date, 'kind' => 'daily', 'category' => SCHOOL_SALARY_CAT, 'amount' => $amount,
+                'name' => $x['name'] . ($x['post'] !== '' ? ' (' . $x['post'] . ')' : ''), 'mobile' => '', 'address' => '', 'project' => '',
+                'ref' => str_in($IN, 'ref', 40), 'mode' => str_in($IN, 'mode', 30), 'note' => str_in($IN, 'note', 300),
+                'personId' => '', 'month' => $month, 'school' => 'salary', 'staffId' => $sid,
+                'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s'), 'sms' => ['status' => 'pending']]);
+            $x['paid'][$month] = ['amount' => $saved['amount'], 'date' => $saved['date'], 'entry' => $saved['id'], 'by' => $u['id']];
+            return $saved;
+        }
+        fail('তালিকায় এই নাম পাওয়া যায়নি।', 404);
+    });
+    audit($u, 'স্কুল: বেতন পরিশোধ', ['id' => $rec['id'], 'name' => $rec['name'], 'month' => $month, 'amount' => $amount]);
+    out(['ok' => true, 'entry' => $rec] + school_data($u));
+}
+case 'school_staff_save': {
+    $u = auth(true);
+    $id = str_in($IN, 'id', 20); $name = str_in($IN, 'name', 100); $type = str_in($IN, 'type', 10);
+    if ($name === '') fail('নাম লিখুন।');
+    if (!isset(STAFF_TYPES[$type])) fail('শিক্ষক না স্টাফ, বেছে নিন।');
+    $mobRaw = str_in($IN, 'mobile', 20); $mobile = norm_mobile($mobRaw);
+    if ($mobRaw !== '' && $mobile === '') fail('মোবাইল নম্বর ঠিক নেই। ১১ অঙ্কের নম্বর দিন (01XXXXXXXXX)।');
+    $join = str_in($IN, 'joinDate', 10);
+    if ($join !== '' && !valid_date($join)) fail('যোগদানের তারিখ ঠিক নেই।');
+    $f = ['name' => $name, 'post' => str_in($IN, 'post', 80), 'type' => $type, 'subject' => str_in($IN, 'subject', 80), 'mobile' => $mobile,
+        'address' => str_in($IN, 'address', 200), 'joinDate' => $join, 'salary' => amount_in($IN, 'salary', false), 'note' => str_in($IN, 'note', 300),
+        'active' => !isset($IN['active']) || !empty($IN['active'])];
+    hmutate('school-staff', function (&$st) use ($id, $f, $u) {
+        if ($id === '') { $st[] = ['id' => new_id()] + $f + ['paid' => [], 'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s')]; return; }
+        foreach ($st as &$x) if ($x['id'] === $id && empty($x['deleted'])) { $x = array_merge($x, $f); return; }
+        fail('তালিকায় এই নাম পাওয়া যায়নি।', 404);
+    });
+    audit($u, $id === '' ? 'স্কুল: শিক্ষক/স্টাফ যোগ' : 'স্কুল: শিক্ষক/স্টাফের তথ্য বদল', ['name' => $name, 'post' => $f['post'], 'salary' => $f['salary']]);
+    out(school_data($u));
+}
+case 'school_staff_delete': {
+    $u = auth(true);
+    $id = str_in($IN, 'id', 20);
+    $name = hmutate('school-staff', function (&$st) use ($id, $u) {
+        foreach ($st as &$x) if ($x['id'] === $id && empty($x['deleted'])) { $x['deleted'] = true; $x['deletedAt'] = date('Y-m-d H:i:s'); $x['deletedBy'] = $u['id']; return $x['name']; }
+        fail('তালিকায় এই নাম পাওয়া যায়নি।', 404);
+    });
+    audit($u, 'স্কুল: শিক্ষক/স্টাফ তালিকা থেকে বাদ', ['name' => $name]);
+    out(school_data($u));
+}
+
 case 'restore': {
     $u = auth(true);
     $b = $IN['backup'] ?? null;
@@ -869,6 +977,7 @@ case 'restore': {
     if (!empty($b['cats']) && is_array($b['cats'])) hwrite('categories', $b['cats']);
     if (!empty($b['sms']) && is_array($b['sms'])) hwrite('sms', $b['sms']);
     if (!empty($b['events']) && is_array($b['events'])) hwrite('events', $b['events']);
+    if (isset($b['schoolStaff']) && is_array($b['schoolStaff'])) hwrite('school-staff', array_values($b['schoolStaff']));
     $n = array_sum(array_map(fn($r) => is_array($r) ? count($r) : 0, $b['ledger']));
     audit($u, 'ব্যাকআপ থেকে পুনরুদ্ধার', ['name' => ($b['created'] ?? '') . ' এর ব্যাকআপ, ' . $n . 'টি এন্ট্রি', 'saved' => basename($snap)]);
     out(['ok' => true, 'entries' => $n, 'people' => count($b['people'])]);
@@ -982,7 +1091,7 @@ case 'export': {
     if ($job['what'] === 'backup') {
         /* everything needed to rebuild the ledger; password hashes and login sessions are left out */
         $b = ['app' => 'basudev-hisab', 'version' => 1, 'created' => date('Y-m-d H:i:s'),
-              'users' => array_map('public_user', hread('users')), 'areas' => areas_list(), 'cats' => cats_list(), 'events' => hread('events'), 'people' => hread('people'), 'sms' => sms_cfg(), 'ledger' => []];
+              'users' => array_map('public_user', hread('users')), 'areas' => areas_list(), 'cats' => cats_list(), 'events' => hread('events'), 'people' => hread('people'), 'schoolStaff' => hread('school-staff'), 'sms' => sms_cfg(), 'ledger' => []];
         foreach (glob(hdir() . '/ledger-*.json') ?: [] as $f) $b['ledger'][basename($f, '.json')] = hread(basename($f, '.json'));
         $f = hdir() . '/audit.log';
         $b['audit'] = file_exists($f) ? array_map(fn($l) => json_decode($l, true), file($f, FILE_IGNORE_NEW_LINES) ?: []) : [];

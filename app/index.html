@@ -14,7 +14,7 @@
 <title>বাসুদেব যোগাশ্রম হিসাব</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=11">
+<link rel="stylesheet" href="app.css?v=12">
 </head>
 <body>
 
@@ -128,9 +128,15 @@
       <div id="lifeList"></div>
     </section>
 
-    <!-- Tab 5: অন্যান্য -->
+    <!-- Tab 5: স্কুল ও কলেজ -->
     <section class="view" id="v-other" hidden>
-      <div class="empty big">এই অংশটি পরে যোগ হবে।</div>
+      <h2 class="vh">স্কুল ও কলেজ</h2>
+      <div class="seg dashseg" id="scSeg" style="margin:0" hidden>
+        <button type="button" data-s="cost" aria-pressed="true">দৈনিক খরচ</button>
+        <button type="button" data-s="salary" aria-pressed="false">বেতন</button>
+        <button type="button" data-s="staff" aria-pressed="false">শিক্ষক ও স্টাফ</button>
+      </div>
+      <div id="scBody" class="subview"></div>
     </section>
 
     <!-- ===== admin views ===== -->
@@ -276,7 +282,7 @@
     <button data-tab="monthly"><span class="ti">◷</span>মাসিক প্রণামী</button>
     <button data-tab="land"><span class="ti">▦</span>ভূমিদাতা</button>
     <button data-tab="life"><span class="ti">✦</span>আজীবন সদস্য</button>
-    <button data-tab="other"><span class="ti">⋯</span>অন্যান্য</button>
+    <button data-tab="other"><span class="ti">✎</span>স্কুল ও কলেজ</button>
   </nav>
 </div>
 
@@ -309,6 +315,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=30"></script>
+<script src="app.js?v=31"></script>
 </body>
 </html>

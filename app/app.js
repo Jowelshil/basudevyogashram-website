@@ -101,7 +101,7 @@ $("setupForm").addEventListener("submit", e => { e.preventDefault(); guard(e.sub
     token = j.token; store.set("bya_token", token); await reload(); enterApp(); toast("অ্যাডমিন অ্যাকাউন্ট তৈরি হয়েছে। এখন ইউজার যোগ করুন।"); go("users"); }
   catch (err) { $("authMsg").textContent = err.message; }
 }); });
-function logoutLocal(msg) { extraYears.clear(); needYears.failed.clear(); token = null; me = null; enterApp.done = false; view = "ledger"; store.set("bya_token", null); showAuth(msg); }
+function logoutLocal(msg) { SC = null; scTab = "cost"; extraYears.clear(); needYears.failed.clear(); token = null; me = null; enterApp.done = false; view = "ledger"; store.set("bya_token", null); showAuth(msg); }
 $("logoutBtn").onclick = async () => { closeMenu(); try { await api("logout"); } catch (e) {} logoutLocal("লগআউট হয়েছে।"); };
 
 /* The server sends this year's accounts. An older year is fetched only when a screen needs it
@@ -133,6 +133,7 @@ function openingNet(a) {
 
 async function reload() {
   const j = await api("load", {years: [...extraYears].join(",")});
+  if (SC && j.user && j.user.role === "admin") SC.stale = true;
   me = j.user; D = j;
   if (typeof kind !== "undefined" && $("fCat")) { const cur = $("fCat").value; $("fCat").innerHTML = cats(kind).map(c => `<option>${esc(c)}</option>`).join(""); if (cats(kind).includes(cur)) $("fCat").value = cur; }
   D.ledger.sort((a, b) => b.date.localeCompare(a.date) || String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -166,7 +167,7 @@ function go(v) {
   render();
 }
 function render() {
-  ({ledger: renderLedger, monthly: renderMonthly, land: renderLand, life: renderLife, dash: renderDash, daily: renderDaily,
+  ({ledger: renderLedger, monthly: renderMonthly, land: renderLand, life: renderLife, other: renderSchool, dash: renderDash, daily: renderDaily,
     report: renderReport, invite: renderInvite, users: renderUsers, sms: loadSms, records: renderRecords}[view] || (() => {}))();
 }
 document.querySelector(".brand").onclick = () => go(homeView());
@@ -282,11 +283,178 @@ function editEntry(id) {
 function deleteEntry(id) {
   const r = D.ledger.find(x => x.id === id); if (!r) return;
   openSheet("এন্ট্রি মুছবেন?", `<form class="form" id="dForm"><p>${fmtDate(r.date)} · ক্রমিক ${bnd(r.serial)} · ${esc(r.name || r.category)} · <b>${tk(r.amount)}</b></p>
-    ${r.month ? `<p class="note">এটা ${monthName(r.month)} মাসের প্রণামী। মুছলে ওই মাস আবার বকেয়া দেখাবে।</p>` : ""}
+    ${r.month ? `<p class="note">এটা ${monthName(r.month)} মাসের ${r.school === "salary" ? "বেতন" : "প্রণামী"}। মুছলে ওই মাস আবার বকেয়া দেখাবে।</p>` : ""}
     <label>মুছে ফেলার কারণ<input id="dReason" required></label><button class="btn danger wide">মুছে ফেলুন</button>
     <p class="note">মুছে ফেলা এন্ট্রি রেকর্ডে থেকে যায়, দরকার হলে ফিরিয়ে আনা যাবে।</p></form>`, b => {
     b.querySelector("#dForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
       await api("ledger_delete", {id, year: r.date.slice(0, 4), reason: b.querySelector("#dReason").value}); closeSheet(); toast("মুছে ফেলা হয়েছে।"); await reload(); render(); }); };
+  });
+}
+
+/* ================= Tab 5: স্কুল ও কলেজ =================
+   School costs and salaries are ordinary দৈনিক খরচ entries of the ashram ledger (r.school = cost | salary),
+   so they are in every ashram total and report. The staff list with salaries is admin only. */
+let SC = null, scTab = "cost", scDay = null, scMonth = null;
+const STAFF_TYPE = {teacher: "শিক্ষক", staff: "স্টাফ"};
+const scStaff = () => (SC?.staff || []).filter(x => !x.deleted);
+const modeOptions = sel => [...$("fMode").options].map(o => `<option${o.value === sel ? " selected" : ""}>${esc(o.value)}</option>`).join("");
+async function loadSchool() { SC = await api("school_load"); SC.stale = false; }
+document.querySelectorAll("#scSeg button").forEach(b => b.onclick = () => { scTab = b.dataset.s; renderSchool(); });
+function renderSchool() {
+  if (!SC || SC.stale) {
+    if (!SC) $("scBody").innerHTML = `<div class="empty">আনা হচ্ছে…</div>`;
+    if (!renderSchool.busy) { renderSchool.busy = true; loadSchool().catch(e => { toast(e.message); SC = SC || {cats: [], staff: [], prefix: "স্কুল: "}; SC.stale = false; }).finally(() => { renderSchool.busy = false; if (view === "other") renderSchool(); }); }
+    if (!SC) return;
+  }
+  if (!isAdmin()) scTab = "cost";
+  $("scSeg").hidden = !isAdmin();
+  document.querySelectorAll("#scSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.s === scTab));
+  ({cost: scCost, salary: scSalary, staff: scStaffList})[scTab]();
+}
+/* --- দৈনিক খরচ --- */
+function scCost() {
+  const d = scDay || D.today;
+  if (!yearsReady(d, d, renderSchool)) return;
+  const list = live().filter(r => r.school && r.date === d).sort((a, b) => a.serial - b.serial);
+  const tot = list.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const keep = $("scForm") ? {a: $("scAmt").value, c: $("scCat").value, n: $("scName").value, r: $("scRef").value, m: $("scMode").value, t: $("scNote").value, d: $("scDate").value} : null;
+  let month = "";
+  if (isAdmin()) {
+    const ym = d.slice(0, 7), ml = live().filter(r => r.school && r.date.slice(0, 7) === ym);
+    const g = groupBy(ml, "category"), mt = ml.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    month = `<div class="card"><div class="card-head"><h2>${monthName(ym)}: স্কুলের মোট খরচ</h2><button class="btn ghost small" data-scprint="month" type="button">প্রিন্ট / PDF</button></div>
+      ${g.length ? `<div class="tbl" id="scMonthTbl"><table><tbody>${g.map(([c, v]) => `<tr><td>${esc(c.replace(SC.prefix, ""))}</td><td class="n exp">${tk(v)}</td></tr>`).join("")}<tr class="tot"><td>মোট</td><td class="n exp">${tk(mt)}</td></tr></tbody></table></div>` : `<div class="empty">এই মাসে এখনো কোনো খরচ নেই।</div>`}</div>`;
+  }
+  $("scBody").innerHTML = `<div class="card"><h3 class="sub">স্কুলের দৈনিক খরচ লিখুন</h3>
+    <form id="scForm" class="form" autocomplete="off">
+      <div class="row2"><label>তারিখ<input type="date" id="scDate" value="${D.today}" required></label><label>টাকা (৳)<input id="scAmt" inputmode="decimal" required placeholder="যেমন ৫০০"></label></div>
+      <label>খাত<select id="scCat">${SC.cats.map(c => `<option>${esc(c)}</option>`).join("")}</select></label>
+      <label>বিবরণ<input id="scName" placeholder="কী কেনা হলো বা কাকে দেওয়া হলো"></label>
+      <div class="row2"><label>ভাউচার নং<input id="scRef"></label><label>মাধ্যম<select id="scMode">${modeOptions("নগদ")}</select></label></div>
+      <label>মন্তব্য<input id="scNote"></label>
+      <button class="btn wide" id="scSave">খরচ সংরক্ষণ করুন</button>
+      <p class="note">এই খরচ আশ্রমের দৈনিক খরচের হিসাবেও যোগ হয়।</p>
+    </form></div>
+    <div class="card"><div class="card-head"><h2>${d === D.today ? "আজ" : fmtDate(d)}</h2><input type="date" id="scDayPick" value="${d}"></div>
+      <div class="daybox" style="margin-bottom:8px"><div class="bx exp"><span>এই দিনের স্কুল খরচ${isAdmin() ? "" : " (আপনার এন্ট্রি)"}</span><b>${tk(tot)}</b></div></div>
+      <div id="scList">${list.length ? list.map(r => entryRow(r, {who: isAdmin(), ops: isAdmin()})).join("") : `<div class="empty">এই তারিখে স্কুলের কোনো খরচ নেই।</div>`}</div></div>${month}`;
+  if (keep) { $("scAmt").value = keep.a; $("scCat").value = keep.c; $("scName").value = keep.n; $("scRef").value = keep.r; $("scMode").value = keep.m; $("scNote").value = keep.t; $("scDate").value = keep.d; }
+}
+$("scBody").addEventListener("submit", e => {
+  if (e.target.id !== "scForm") return;
+  e.preventDefault();
+  guard($("scSave"), async () => {
+    const date = $("scDate").value;
+    await api("school_cost_add", {date, amount: toEn($("scAmt").value), category: $("scCat").value, name: $("scName").value, ref: $("scRef").value, mode: $("scMode").value, note: $("scNote").value});
+    $("scForm").remove(); scDay = date; toast("খরচ সংরক্ষণ হয়েছে।"); await reload(); renderSchool();
+  });
+});
+$("scBody").addEventListener("input", e => {
+  if (e.target.id === "scDayPick") { scDay = e.target.value || D.today; renderSchool(); }
+  if (e.target.id === "scMonthPick") { scMonth = e.target.value || D.today.slice(0, 7); renderSchool(); }
+});
+$("scBody").addEventListener("click", e => {
+  const t = e.target.closest("button, [data-staff]"); if (!t) return;
+  if (t.dataset.edit) editEntry(t.dataset.edit);
+  else if (t.dataset.del) deleteEntry(t.dataset.del);
+  else if (t.dataset.pay) payForm(t.dataset.pay);
+  else if (t.dataset.scprint === "salary") printSalary();
+  else if (t.dataset.scprint === "month") printSchoolMonth();
+  else if (t.id === "scAddStaff") staffForm(null);
+  else if (t.dataset.staff) staffForm(t.dataset.staff);
+});
+/* --- বেতন (admin) --- */
+function salaryRows(m) {
+  return scStaff().filter(x => x.active !== false || x.paid?.[m]).sort((a, b) => a.type.localeCompare(b.type) * -1 || a.name.localeCompare(b.name, "bn"));
+}
+function scSalary() {
+  const m = scMonth || D.today.slice(0, 7), rows = salaryRows(m);
+  const due = rows.reduce((s, x) => s + (Number(x.salary) || 0), 0), paid = rows.reduce((s, x) => s + (Number(x.paid?.[m]?.amount) || 0), 0);
+  const left = rows.filter(x => !x.paid?.[m]).reduce((s, x) => s + (Number(x.salary) || 0), 0);
+  $("scBody").innerHTML = `<div class="card"><div class="card-head"><h2>বেতন: ${monthName(m)}</h2><input type="month" id="scMonthPick" value="${m}"></div>
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr)"><div class="kpi"><div class="lbl">মাসিক মোট বেতন</div><div class="val">${tk(due)}</div></div>
+      <div class="kpi"><div class="lbl">দেওয়া হয়েছে</div><div class="val inc">${tk(paid)}</div></div><div class="kpi"><div class="lbl">বাকি</div><div class="val exp">${tk(left)}</div></div></div>
+    ${rows.length ? rows.map((x, i) => { const pd = x.paid?.[m]; return `<div class="item"><div class="sn">${bnd(i + 1)}</div>
+      <div><div class="t">${esc(x.name)}</div><div class="s">${esc([x.post || STAFF_TYPE[x.type], x.subject].filter(Boolean).join(" · "))}</div>
+        <div class="s">নির্ধারিত বেতন ${tk(x.salary || 0)}${pd ? " · দেওয়া হয়েছে " + fmtDate(pd.date) : ""}</div></div>
+      <div class="amt">${pd ? `<span class="inc">${tk(pd.amount)}</span><br><span class="chip ok">পরিশোধিত</span>` : `<button class="btn small" data-pay="${x.id}" type="button">বেতন দিন</button>`}</div></div>`; }).join("")
+      : `<div class="empty">এখনো কোনো শিক্ষক বা স্টাফের নাম নেই। "শিক্ষক ও স্টাফ" থেকে যোগ করুন।</div>`}
+    ${rows.length ? `<div class="actions"><button class="btn ghost" data-scprint="salary" type="button">বেতন শিট প্রিন্ট / PDF</button></div>` : ""}
+    <p class="note">বেতন দিলে সেটা ওই তারিখে আশ্রমের দৈনিক খরচে "স্কুল: শিক্ষক ও স্টাফের বেতন" খাতে যোগ হয়। ভুল হলে দৈনিক খরচের তালিকা থেকে এন্ট্রিটা মুছলে মাসটা আবার বাকি দেখাবে।</p></div>`;
+}
+function payForm(id) {
+  const x = scStaff().find(s => s.id === id); if (!x) return;
+  const m = scMonth || D.today.slice(0, 7);
+  openSheet("বেতন পরিশোধ", `<form class="form" id="payForm"><p><b>${esc(x.name)}</b>${x.post ? " · " + esc(x.post) : ""}<br>${monthName(m)} মাসের বেতন</p>
+    <div class="row2"><label>টাকা (৳)<input id="pyAmt" inputmode="decimal" value="${esc(x.salary || "")}" required></label><label>দেওয়ার তারিখ<input type="date" id="pyDate" value="${D.today}" required></label></div>
+    <div class="row2"><label>মাধ্যম<select id="pyMode">${modeOptions("নগদ")}</select></label><label>ভাউচার নং<input id="pyRef"></label></div>
+    <label>মন্তব্য<input id="pyNote" placeholder="যেমন: অগ্রিম কেটে রাখা হলো"></label>
+    <button class="btn wide">বেতন দেওয়া হয়েছে, সংরক্ষণ করুন</button></form>`, b => {
+    b.querySelector("#payForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      const j = await api("school_salary_pay", {staffId: id, month: m, amount: toEn(b.querySelector("#pyAmt").value), date: b.querySelector("#pyDate").value,
+        mode: b.querySelector("#pyMode").value, ref: b.querySelector("#pyRef").value, note: b.querySelector("#pyNote").value});
+      closeSheet(); toast("বেতন সংরক্ষণ হয়েছে।"); await reload(); SC = j; SC.stale = false; renderSchool(); }); };
+  });
+}
+function printSalary() {
+  const m = scMonth || D.today.slice(0, 7), rows = salaryRows(m);
+  const due = rows.reduce((s, x) => s + (Number(x.salary) || 0), 0), paid = rows.reduce((s, x) => s + (Number(x.paid?.[m]?.amount) || 0), 0);
+  showPrint(`<div class="psheet"><div class="ph"><b>বাসুদেব স্কুল এন্ড কলেজ</b><span>শ্রীশ্রী বাসুদেব যোগাশ্রম, নেহালপুর, হাটহাজারী, চট্টগ্রাম</span></div>
+    <h2>বেতন শিট: ${monthName(m)}</h2><p>মোট ${bnd(rows.length)} জন</p>
+    <table><thead><tr><th>ক্রম</th><th>নাম</th><th>পদবি</th><th class="n">নির্ধারিত বেতন</th><th class="n">পরিশোধ</th><th>তারিখ</th><th>স্বাক্ষর</th></tr></thead><tbody>
+    ${rows.map((x, i) => { const pd = x.paid?.[m]; return `<tr><td>${bnd(i + 1)}</td><td>${esc(x.name)}</td><td>${esc(x.post || STAFF_TYPE[x.type])}</td><td class="n">${tk(x.salary || 0)}</td><td class="n">${pd ? tk(pd.amount) : "বাকি"}</td><td>${pd ? fmtDate(pd.date) : ""}</td><td style="min-width:90px">&nbsp;</td></tr>`; }).join("")}
+    <tr class="tot"><td colspan="3"><b>মোট</b></td><td class="n"><b>${tk(due)}</b></td><td class="n"><b>${tk(paid)}</b></td><td colspan="2">বাকি ${tk(rows.filter(x => !x.paid?.[m]).reduce((s, x) => s + (Number(x.salary) || 0), 0))}</td></tr></tbody></table>
+    <div class="psign"><span>হিসাবরক্ষকের স্বাক্ষর</span><span>অধ্যক্ষের স্বাক্ষর</span></div>
+    <p class="pfoot">প্রিন্টের সময়: ${fmtDate(D.today)} ${new Date().toTimeString().slice(0, 5)}</p></div>`, `বেতন-শিট_${m}`);
+}
+function printSchoolMonth() {
+  const ym = (scDay || D.today).slice(0, 7), ml = live().filter(r => r.school && r.date.slice(0, 7) === ym).sort((a, b) => a.date.localeCompare(b.date) || a.serial - b.serial);
+  const g = groupBy(ml, "category"), mt = ml.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  showPrint(`<div class="psheet"><div class="ph"><b>বাসুদেব স্কুল এন্ড কলেজ</b><span>শ্রীশ্রী বাসুদেব যোগাশ্রম, নেহালপুর, হাটহাজারী, চট্টগ্রাম</span></div>
+    <h2>স্কুলের খরচ: ${monthName(ym)}</h2><p>মোট ${bnd(ml.length)}টি হিসাব</p>
+    <h3>খাত অনুযায়ী</h3><table><thead><tr><th>খাত</th><th class="n">টাকা</th></tr></thead><tbody>${g.map(([c, v]) => `<tr><td>${esc(c.replace(SC.prefix, ""))}</td><td class="n">${tk(v)}</td></tr>`).join("")}<tr class="tot"><td><b>মোট</b></td><td class="n"><b>${tk(mt)}</b></td></tr></tbody></table>
+    <h3>বিস্তারিত</h3><table><thead><tr><th>তারিখ</th><th>খাত</th><th>বিবরণ</th><th>মাধ্যম</th><th class="n">টাকা</th></tr></thead><tbody>
+    ${ml.map(r => `<tr><td>${fmtDate(r.date)}</td><td>${esc(r.category.replace(SC.prefix, ""))}</td><td>${esc(r.name || "")}${r.month ? " · " + monthName(r.month) : ""}${r.note ? "<br><small>" + esc(r.note) + "</small>" : ""}</td><td>${esc(r.mode || "")}</td><td class="n">${tk(r.amount)}</td></tr>`).join("")}</tbody></table>
+    <div class="psign"><span>হিসাবরক্ষকের স্বাক্ষর</span><span>অনুমোদনকারীর স্বাক্ষর</span></div>
+    <p class="pfoot">প্রিন্টের সময়: ${fmtDate(D.today)} ${new Date().toTimeString().slice(0, 5)}</p></div>`, `স্কুলের-খরচ_${ym}`);
+}
+/* --- শিক্ষক ও স্টাফ (admin) --- */
+function scStaffList() {
+  const all = scStaff().sort((a, b) => a.name.localeCompare(b.name, "bn"));
+  const grp = (title, l) => l.length ? `<h3 class="sub" style="margin-top:14px">${title} · ${bnd(l.length)} জন</h3>${l.map((x, i) => `<div class="item" data-staff="${x.id}" style="cursor:pointer"><div class="sn">${bnd(i + 1)}</div>
+    <div><div class="t">${esc(x.name)}</div><div class="s">${esc([x.post, x.subject].filter(Boolean).join(" · ") || STAFF_TYPE[x.type])}</div>
+      <div class="s">${esc([x.mobile, x.address, x.joinDate ? "যোগদান " + fmtDate(x.joinDate) : ""].filter(Boolean).join(" · "))}</div></div>
+    <div class="amt">${tk(x.salary || 0)}<br><span class="s">মাসিক</span></div></div>`).join("")}` : "";
+  const act = all.filter(x => x.active !== false);
+  $("scBody").innerHTML = `<div class="card"><div class="card-head"><h2>শিক্ষক ও স্টাফ</h2><span class="muted">${bnd(act.length)} জন · মাসিক বেতন ${tk(act.reduce((s, x) => s + (Number(x.salary) || 0), 0))}</span></div>
+    <button class="btn wide" id="scAddStaff" type="button">নতুন শিক্ষক / স্টাফ যোগ করুন</button>
+    ${all.length ? "" : `<div class="empty">এখনো কারও নাম যোগ হয়নি।</div>`}
+    ${grp("শিক্ষক", act.filter(x => x.type === "teacher"))}${grp("স্টাফ", act.filter(x => x.type !== "teacher"))}${grp("বর্তমানে নেই", all.filter(x => x.active === false))}
+    <p class="note">নামে চাপ দিলে তথ্য বদলানো যায়। এই তালিকা ও বেতনের অঙ্ক শুধু অ্যাডমিন দেখতে পান।</p></div>`;
+}
+function staffForm(id) {
+  const x = id ? scStaff().find(s => s.id === id) : null; if (id && !x) return;
+  const v = k => esc(x ? x[k] ?? "" : "");
+  openSheet(x ? "তথ্য সম্পাদনা" : "নতুন শিক্ষক / স্টাফ", `<form class="form" id="stForm" autocomplete="off">
+    <label>নাম<input id="stName" value="${v("name")}" required></label>
+    <div class="row2"><label>ধরন<select id="stType"><option value="teacher"${x?.type !== "staff" ? " selected" : ""}>শিক্ষক</option><option value="staff"${x?.type === "staff" ? " selected" : ""}>স্টাফ</option></select></label>
+      <label>পদবি<input id="stPost" value="${v("post")}" placeholder="যেমন: সহকারী শিক্ষক"></label></div>
+    <div class="row2"><label>বিষয় / দায়িত্ব<input id="stSub" value="${v("subject")}" placeholder="যেমন: গণিত"></label><label>মাসিক বেতন (৳)<input id="stSal" inputmode="decimal" value="${x && x.salary ? esc(x.salary) : ""}"></label></div>
+    <div class="row2"><label>মোবাইল নম্বর<input id="stMob" type="tel" inputmode="numeric" value="${v("mobile")}" placeholder="01XXXXXXXXX" maxlength="14"></label><label>যোগদানের তারিখ<input type="date" id="stJoin" value="${v("joinDate")}"></label></div>
+    <label>ঠিকানা<input id="stAddr" value="${v("address")}"></label>
+    <label>মন্তব্য<input id="stNote" value="${v("note")}"></label>
+    ${x ? `<label class="chk"><input type="checkbox" id="stActive"${x.active !== false ? " checked" : ""}> বর্তমানে কর্মরত আছেন</label>` : ""}
+    <button class="btn wide">${x ? "হালনাগাদ করুন" : "যোগ করুন"}</button>
+    ${x ? `<button class="btn ghost wide" type="button" id="stDel">তালিকা থেকে বাদ দিন</button>` : ""}</form>`, b => {
+    const g = i => b.querySelector("#" + i).value;
+    b.querySelector("#stForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      SC = await api("school_staff_save", {id: id || "", name: g("stName"), type: g("stType"), post: g("stPost"), subject: g("stSub"), salary: toEn(g("stSal")), mobile: toEn(g("stMob")),
+        joinDate: g("stJoin"), address: g("stAddr"), note: g("stNote"), active: x ? b.querySelector("#stActive").checked : true});
+      closeSheet(); toast(x ? "হালনাগাদ হয়েছে।" : "যোগ হয়েছে।"); renderSchool(); }); };
+    if (x) b.querySelector("#stDel").onclick = ev => {
+      if (ev.target.dataset.sure) guard(ev.target, async () => { SC = await api("school_staff_delete", {id}); closeSheet(); toast("তালিকা থেকে বাদ দেওয়া হয়েছে।"); renderSchool(); });
+      else { ev.target.dataset.sure = "1"; ev.target.textContent = "নিশ্চিত? আবার চাপুন"; ev.target.classList.add("danger"); }
+    };
   });
 }
 

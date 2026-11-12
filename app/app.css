@@ -228,3 +228,4 @@ body.printing #printArea{display:block;background:#fff;color:#111;min-height:100
 #drBody .psheet .psign{margin-top:32px}
 .psheet .inc{color:#1d6b3a}.psheet .exp{color:#a02c2c}.psheet .con{color:#2d4a8a}
 .preport .kpis{grid-template-columns:repeat(4,1fr)}.preport .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#v-other .item .amt .chip{margin-top:4px;display:inline-block}
