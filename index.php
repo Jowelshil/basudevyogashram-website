@@ -13,8 +13,16 @@ $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গ
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>শ্রীশ্রী বাসুদেব যোগাশ্রম</title>
-<meta name="description" content="শ্রীশ্রী বাসুদেব যোগাশ্রম ও বাসুদেব অনাথ আশ্রম, নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম। স্থাপিত ১৯৬৫।">
+<title>শ্রীশ্রী বাসুদেব যোগাশ্রম ও অনাথ আশ্রম, নেহালপুর, হাটহাজারী | Sri Sri Basudev Yogashram</title>
+<meta name="description" content="শ্রীশ্রী বাসুদেব যোগাশ্রম ও বাসুদেব অনাথ আশ্রম, নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম। স্থাপিত ১৯৬৫। Sri Sri Basudev Yogashram and Basudev Anath Ashram (orphanage), Nehalpur, Nandirhat, Hathazari, Chattogram, Bangladesh.">
+<link rel="canonical" href="https://basudevyogashram.org/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://basudevyogashram.org/">
+<meta property="og:title" content="শ্রীশ্রী বাসুদেব যোগাশ্রম ও অনাথ আশ্রম, নেহালপুর">
+<meta property="og:description" content="নেহালপুর, নন্দীরহাট, হাটহাজারী, চট্টগ্রাম। স্থাপিত ১৯৬৫।">
+<meta property="og:image" content="https://basudevyogashram.org/images/guru-parampara.jpg">
+<meta property="og:locale" content="bn_BD">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"PlaceOfWorship","name":"শ্রীশ্রী বাসুদেব যোগাশ্রম","alternateName":["Sri Sri Basudev Yogashram","Basudev Yogashram","Basudev Anath Ashram","বাসুদেব অনাথ আশ্রম"],"url":"https://basudevyogashram.org/","image":"https://basudevyogashram.org/images/guru-parampara.jpg","foundingDate":"1965","address":{"@type":"PostalAddress","streetAddress":"Nehalpur, Nandirhat","addressLocality":"Hathazari","addressRegion":"Chattogram","addressCountry":"BD"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600&display=swap">
