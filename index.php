@@ -7,6 +7,10 @@ $gallery = load('gallery');
 $donors = load('donors');
 $posts = array_values(array_filter(load('posts'), fn($p) => !empty($p['published'])));
 usort($posts, fn($a, $b) => strcmp($b['date'], $a['date']));
+$PU = load('popup');
+$today = date('Y-m-d');
+$showPopup = !empty($PU['on']) && (!empty($PU['image']) || !empty($PU['title']) || !empty($PU['text']))
+    && (empty($PU['start']) || $PU['start'] <= $today) && (empty($PU['end']) || $PU['end'] >= $today);
 $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গুরু তিথি'], 'special' => ['s', 'বিশেষ তিথি'], 'utsav' => ['g', 'উৎসব']];
 ?><!doctype html>
 <html lang="bn">
@@ -31,6 +35,37 @@ $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গ
 <style>body{margin:0}</style>
 </head>
 <body>
+<?php if ($showPopup): ?>
+<div class="invite-pop" id="invitePop" role="dialog" aria-modal="true" aria-label="<?= e($PU['title'] ?: 'আশ্রমের অনুষ্ঠানের আমন্ত্রণ') ?>" data-v="<?= e($PU['v'] ?? '') ?>" hidden>
+  <div class="ip-box">
+    <button type="button" class="ip-x" aria-label="বন্ধ করুন">✕</button>
+    <div class="ip-body">
+      <?php if (!empty($PU['image'])): ?><a class="ip-img" href="<?= e(img_url($PU['image'])) ?>" target="_blank" rel="noopener"><img src="<?= e(img_url($PU['image'])) ?>" alt="<?= e($PU['title'] ?: 'অনুষ্ঠানের আমন্ত্রণপত্র') ?>"></a><small class="ip-hint">বড় করে দেখতে ছবিতে চাপুন</small><?php endif; ?>
+      <?php if (!empty($PU['title']) || !empty($PU['text'])): ?><div class="ip-text">
+        <?php if (!empty($PU['title'])): ?><h2><?= e($PU['title']) ?></h2><?php endif; ?>
+        <?php if (!empty($PU['text'])): ?><?= paragraphs($PU['text']) ?><?php endif; ?>
+      </div><?php endif; ?>
+    </div>
+    <button type="button" class="ip-go">ওয়েবসাইটে প্রবেশ করুন</button>
+  </div>
+</div>
+<script>
+(function(){
+  var p=document.getElementById('invitePop'); if(!p) return;
+  var key='bya_pop_'+p.dataset.v, force=/[?&]preview_popup=1/.test(location.search), seen=false;
+  try{seen=sessionStorage.getItem(key)==='1';}catch(e){}
+  if(seen&&!force) return;
+  var last=document.activeElement;
+  p.hidden=false; document.documentElement.classList.add('ip-open');
+  var x=p.querySelector('.ip-x'); x.focus();
+  function close(){p.hidden=true;document.documentElement.classList.remove('ip-open');try{sessionStorage.setItem(key,'1');}catch(e){} if(last&&last.focus) last.focus(); document.removeEventListener('keydown',onKey);}
+  function onKey(e){ if(e.key==='Escape') close(); }
+  x.addEventListener('click',close); p.querySelector('.ip-go').addEventListener('click',close);
+  p.addEventListener('click',function(e){ if(e.target===p) close(); });
+  document.addEventListener('keydown',onKey);
+})();
+</script>
+<?php endif; ?>
 <div class="chant">॥ হরি ওঁ ॥ জয় গুরু ॥ জয় সনাতন ধর্ম ॥</div>
 
 <header>

@@ -433,3 +433,22 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
 .dl-addr{color:var(--muted)}
 .dl-paksha{display:block;font-size:14px;color:var(--saffron)}
 .donor-list .dl-guru b{color:var(--saffron)}
+
+/* invitation popup */
+.ip-open,.ip-open body{overflow:hidden}
+.invite-pop{position:fixed;inset:0;z-index:1000;background:rgba(15,12,30,.72);display:flex;align-items:center;justify-content:center;padding:16px;animation:ipfade .25s ease}
+.invite-pop[hidden]{display:none}
+.ip-box{position:relative;background:var(--surface);color:var(--ink);border-radius:14px;border:2px solid var(--gold);box-shadow:0 20px 60px rgba(0,0,0,.45);width:min(560px,100%);max-height:calc(100dvh - 32px);display:flex;flex-direction:column;overflow:hidden}
+.ip-body{overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ip-img{display:block;background:var(--saffron-soft)}
+.ip-body img{display:block;max-width:100%;max-height:calc(100dvh - 150px);width:auto;height:auto;margin:0 auto}
+.ip-hint{display:block;text-align:center;font-size:13px;color:var(--muted);padding:6px 0 0}
+.ip-text{padding:18px 20px 6px}
+.ip-text h2{font-family:var(--display);color:var(--saffron);font-size:22px;margin:0 0 8px;line-height:1.4}
+.ip-text p{margin:0 0 10px;line-height:1.7}
+.ip-x{position:absolute;top:8px;right:8px;z-index:2;width:42px;height:42px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.6);color:#fff;font-size:20px;line-height:1;cursor:pointer;display:grid;place-items:center}
+.ip-x:hover{background:var(--saffron)}
+.ip-x:focus-visible,.ip-go:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.ip-go{flex:none;margin:12px 16px 16px;padding:12px;border:0;border-radius:10px;background:var(--saffron);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+@keyframes ipfade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.invite-pop{animation:none}}

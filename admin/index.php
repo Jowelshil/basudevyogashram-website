@@ -81,6 +81,7 @@ function layout(string $title, callable $body, ?array $user): void {
 </div>
 <nav class="tabs"><a class="<?= $p === 'home' ? 'on' : '' ?>" href="<?= url() ?>">ড্যাশবোর্ড</a>
 <?php foreach ($TYPES as $k => $t): ?><a class="<?= ($_GET['t'] ?? '') === $k ? 'on' : '' ?>" href="<?= url(['p' => 'list', 't' => $k]) ?>"><?= $t['icon'] ?> <?= e($t['label']) ?></a><?php endforeach; ?>
+<a class="<?= $p === 'popup' ? 'on' : '' ?>" href="<?= url(['p' => 'popup']) ?>">💌 আমন্ত্রণ পপ-আপ</a>
 <a class="<?= $p === 'settings' ? 'on' : '' ?>" href="<?= url(['p' => 'settings']) ?>">☎️ যোগাযোগ ও দান</a>
 <?php if (is_super($user)): ?><a class="<?= $p === 'users' ? 'on' : '' ?>" href="<?= url(['p' => 'users']) ?>">👤 ব্যবহারকারী</a><?php endif; ?>
 </nav></header>
@@ -248,6 +249,8 @@ if ($p === 'home') {
         <?php foreach ($TYPES as $k => $t): ?>
           <a class="tile" href="<?= url(['p' => 'list', 't' => $k]) ?>"><span class="ti"><?= $t['icon'] ?></span><b><?= e($t['label']) ?></b><span><?= bn_digits((string)count(load($k))) ?>টি</span></a>
         <?php endforeach; ?>
+        <?php $PU = load('popup'); $puOn = !empty($PU['on']) && (empty($PU['end']) || $PU['end'] >= date('Y-m-d')); ?>
+        <a class="tile" href="<?= url(['p' => 'popup']) ?>"><span class="ti">💌</span><b>আমন্ত্রণ পপ-আপ</b><span><?= $puOn ? 'চালু আছে' : 'বন্ধ' ?></span></a>
         <a class="tile" href="<?= url(['p' => 'settings']) ?>"><span class="ti">☎️</span><b>যোগাযোগ ও দান</b><span>ফোন, ব্যাংক হিসাব</span></a>
       </div>
       <div class="quick">
@@ -446,6 +449,57 @@ if ($p === 'settings') {
           </fieldset>
         <?php endforeach; ?>
         <div class="form-actions"><button class="btn">সংরক্ষণ করুন</button></div>
+      </form>
+    <?php }, $user);
+    exit;
+}
+
+/* ===== invitation popup ===== */
+if ($p === 'popup') {
+    $P = load('popup');
+    $P += ['on' => false, 'image' => '', 'title' => '', 'text' => '', 'start' => '', 'end' => '', 'v' => ''];
+    $err = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $P['on'] = !empty($_POST['on']);
+        $P['title'] = trim((string)($_POST['title'] ?? ''));
+        $P['text'] = trim((string)($_POST['text'] ?? ''));
+        $P['start'] = trim((string)($_POST['start'] ?? ''));
+        $P['end'] = trim((string)($_POST['end'] ?? ''));
+        foreach (['start', 'end'] as $k) if ($P[$k] !== '' && !valid_date($P[$k])) $err = 'তারিখ সঠিক নয়।';
+        if (!$err && $P['start'] !== '' && $P['end'] !== '' && $P['end'] < $P['start']) $err = 'শেষ তারিখ শুরুর তারিখের আগে হতে পারে না।';
+        try {
+            $up = handle_upload('image', 1400);
+            if ($up) { delete_upload($P['image']); $P['image'] = $up; }
+            elseif (!empty($_POST['remove_image'])) { delete_upload($P['image']); $P['image'] = ''; }
+        } catch (RuntimeException $ex) { $err = $ex->getMessage(); }
+        if (!$err && $P['on'] && $P['image'] === '' && $P['title'] === '') $err = 'পপ-আপ চালু করতে অন্তত একটি আমন্ত্রণপত্রের ছবি বা শিরোনাম দিন।';
+        if (!$err) {
+            $P['v'] = date('YmdHis');
+            save('popup', $P);
+            log_action($P['on'] ? 'আমন্ত্রণ পপ-আপ চালু/হালনাগাদ করেছেন' : 'আমন্ত্রণ পপ-আপ বন্ধ করেছেন');
+            redirect(['p' => 'popup'], $P['on'] ? 'সংরক্ষিত হয়েছে। পপ-আপ এখন ওয়েবসাইটে দেখাবে।' : 'সংরক্ষিত হয়েছে। পপ-আপ বন্ধ আছে।');
+        }
+    }
+    layout('আমন্ত্রণ পপ-আপ', function () use ($P, $err) { ?>
+      <h1>💌 আমন্ত্রণ পপ-আপ</h1>
+      <p class="muted">চালু থাকলে কেউ ওয়েবসাইট খুললেই প্রথমে এই আমন্ত্রণটি পপ-আপ আকারে দেখবে। ওপরের ✕ চেপে বন্ধ করে মূল সাইটে যাবে। একবার বন্ধ করলে ওই ভিজিটরকে সেবার আর বিরক্ত করবে না, পরে আবার সাইটে এলে আবার দেখাবে। আমন্ত্রণপত্রের ছবি, লেখা, অথবা দুটোই একসাথে দিতে পারেন।</p>
+      <?php if ($err): ?><div class="flash err"><?= e($err) ?></div><?php endif; ?>
+      <form method="post" enctype="multipart/form-data" class="card form">
+        <?= csrf_field() ?>
+        <label class="check"><input type="checkbox" name="on" value="1" <?= $P['on'] ? 'checked' : '' ?>> পপ-আপ চালু (ওয়েবসাইটে দেখাবে)</label>
+        <div class="field"><span class="lbl">আমন্ত্রণপত্রের ছবি</span>
+          <img id="pv-popup" class="pv" src="<?= $P['image'] ? e(admin_img($P['image'])) : '' ?>" alt="" <?= $P['image'] ? '' : 'hidden' ?>>
+          <input type="file" name="image" accept="image/*" data-preview="pv-popup">
+          <small>আমন্ত্রণপত্র বা অনুষ্ঠানের পোস্টারের ছবি দিন। লম্বা (পোর্ট্রেট) ছবিও চলবে।</small>
+          <?php if ($P['image']): ?><label class="check"><input type="checkbox" name="remove_image" value="1"> ছবিটি সরিয়ে দিন</label><?php endif; ?>
+        </div>
+        <label>শিরোনাম (ঐচ্ছিক)<input name="title" value="<?= e($P['title']) ?>" placeholder="যেমন: শ্রীশ্রী চণ্ডীযজ্ঞ ও মহোৎসবে আমন্ত্রণ"></label>
+        <label>সংক্ষিপ্ত লেখা (ঐচ্ছিক)<textarea name="text" rows="4" placeholder="তারিখ, সময়, অনুষ্ঠানসূচি ইত্যাদি"><?= e($P['text']) ?></textarea><small>ছবিতে সব লেখা থাকলে এটা খালি রাখতে পারেন।</small></label>
+        <div class="bank">
+          <label>কবে থেকে দেখাবে (ঐচ্ছিক)<input type="date" name="start" value="<?= e($P['start']) ?>"><small>খালি রাখলে এখনই থেকে।</small></label>
+          <label>কবে পর্যন্ত দেখাবে (ঐচ্ছিক)<input type="date" name="end" value="<?= e($P['end']) ?>"><small>অনুষ্ঠানের শেষ দিন দিন। এর পরে নিজে থেকেই বন্ধ হয়ে যাবে।</small></label>
+        </div>
+        <div class="form-actions"><button class="btn">সংরক্ষণ করুন</button><a class="btn ghost" href="../?preview_popup=1" target="_blank" rel="noopener">সাইটে দেখুন ↗</a></div>
       </form>
     <?php }, $user);
     exit;
