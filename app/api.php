@@ -245,6 +245,29 @@ function school_salary_sync(array $done, string $how): void {
     });
 }
 
+/* one time: the school's teacher and staff list as given on 14 Nov 2026 (name and post only; salaries are entered by the admin) */
+function school_staff_seed(): void {
+    if (hread('migrations', [])['school_staff_2026_11'] ?? false) return;
+    $lock = fopen(hdir() . '/migrations.lock', 'c'); flock($lock, LOCK_EX);
+    if (!(hread('migrations', [])['school_staff_2026_11'] ?? false)) {
+        $T = 'সহকারী শিক্ষক';
+        $list = [['মি. সুদর্শন চক্রবর্ত্তী', 'ভারপ্রাপ্ত প্রধান শিক্ষক'], ['মি. সৌরভ দে', $T], ['মিসেস. লাবণী দে', $T], ['মিসেস. টিকলি মল্লিক', $T],
+            ['মিসেস. কাঞ্চি চৌধুরী', $T], ['মি. কনক বৈষ্ণব', $T], ['মি. সাত্বিক দাশ', $T], ['মি. জয়দেব দত্ত', $T], ['মি. অমিতাভ ঘোষ', $T],
+            ['মি. মলয় কৃষ্ণ রায়', $T], ['মি. রনি চৌধুরী', $T], ['মি. সজীব পাল', $T], ['মি. সৈকত বৈদ্য', 'সহকারী প্রধান শিক্ষক'],
+            ['মি. বিশ্বপতি ত্রিপুরা', $T], ['মি. জুয়েল মজুমদার', $T], ['মি. অন্তর দাশ', '', 'staff']];
+        hmutate('school-staff', function (&$st) use ($list) {
+            $have = []; foreach ($st as $x) if (empty($x['deleted'])) $have[$x['name']] = 1;
+            foreach ($list as $r) {
+                if (isset($have[$r[0]])) continue;
+                $st[] = ['id' => new_id(), 'name' => $r[0], 'post' => $r[1], 'type' => $r[2] ?? 'teacher', 'subject' => '', 'mobile' => '', 'address' => '',
+                    'joinDate' => '', 'salary' => 0, 'note' => '', 'active' => true, 'paid' => [], 'by' => '', 'createdAt' => date('Y-m-d H:i:s')];
+            }
+        });
+        hwrite('migrations', hread('migrations', []) + ['school_staff_2026_11' => date('Y-m-d H:i:s')]);
+    }
+    flock($lock, LOCK_UN); fclose($lock);
+}
+
 /* ---------- auth ---------- */
 function auth(bool $adminOnly = false): array {
     $h = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
@@ -380,7 +403,7 @@ function ledger_insert(array $rec): array {
 /* ---------- request ---------- */
 $IN = json_decode((string)file_get_contents('php://input'), true) ?: $_POST;
 $act = (string)($_GET['a'] ?? $IN['a'] ?? '');
-areas_migrate(); cats_migrate(); // one-time data updates, before anything is read
+areas_migrate(); cats_migrate(); school_staff_seed(); // one-time data updates, before anything is read
 
 switch ($act) {
 
