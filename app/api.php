@@ -971,30 +971,6 @@ case 'school_staff_save': {
     audit($u, $id === '' ? 'স্কুল: শিক্ষক/স্টাফ যোগ' : 'স্কুল: শিক্ষক/স্টাফের তথ্য বদল', ['name' => $name, 'post' => $f['post'], 'salary' => $f['salary']]);
     out(school_data($u));
 }
-case 'school_staff_bulk': {
-    /* many names at once (pasted list): name, post, type. A name already in the list is left alone. */
-    $u = auth(true);
-    $rows = $IN['rows'] ?? null;
-    if (!is_array($rows) || !$rows) fail('তালিকা খালি।');
-    if (count($rows) > 200) fail('একবারে সর্বোচ্চ ২০০টি নাম দেওয়া যায়।');
-    $res = hmutate('school-staff', function (&$st) use ($rows, $u) {
-        $have = []; foreach ($st as $x) if (empty($x['deleted'])) $have[$x['name']] = 1;
-        $added = 0; $skipped = 0;
-        foreach ($rows as $r) {
-            if (!is_array($r)) continue;
-            $name = str_in($r, 'name', 100); if ($name === '') continue;
-            if (isset($have[$name])) { $skipped++; continue; }
-            $type = str_in($r, 'type', 10);
-            $st[] = ['id' => new_id(), 'name' => $name, 'post' => str_in($r, 'post', 80), 'type' => isset(STAFF_TYPES[$type]) ? $type : 'teacher', 'subject' => '',
-                'mobile' => '', 'address' => '', 'joinDate' => '', 'salary' => amount_in($r, 'salary', false), 'note' => '', 'active' => true,
-                'paid' => [], 'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s')];
-            $have[$name] = 1; $added++;
-        }
-        return ['added' => $added, 'skipped' => $skipped];
-    });
-    audit($u, 'স্কুল: তালিকা থেকে শিক্ষক/স্টাফ যোগ', ['name' => $res['added'] . ' জন যোগ, ' . $res['skipped'] . ' জন আগে থেকেই ছিল']);
-    out($res + school_data($u));
-}
 case 'school_staff_delete': {
     $u = auth(true);
     $id = str_in($IN, 'id', 20);

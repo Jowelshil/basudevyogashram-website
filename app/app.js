@@ -361,7 +361,6 @@ $("scBody").addEventListener("click", e => {
   else if (t.dataset.scprint === "salary") printSalary();
   else if (t.dataset.scprint === "month") printSchoolMonth();
   else if (t.id === "scAddStaff") staffForm(null);
-  else if (t.id === "scBulkStaff") staffBulkForm();
   else if (t.dataset.staff) staffForm(t.dataset.staff);
 });
 /* --- বেতন (admin) --- */
@@ -429,24 +428,9 @@ function scStaffList() {
   const act = all.filter(x => x.active !== false);
   $("scBody").innerHTML = `<div class="card"><div class="card-head"><h2>শিক্ষক ও স্টাফ</h2><span class="muted">${bnd(act.length)} জন · মাসিক বেতন ${tk(act.reduce((s, x) => s + (Number(x.salary) || 0), 0))}</span></div>
     <button class="btn wide" id="scAddStaff" type="button">নতুন শিক্ষক / স্টাফ যোগ করুন</button>
-    <button class="btn ghost wide" id="scBulkStaff" type="button" style="margin-top:8px">একসাথে অনেক নাম যোগ করুন</button>
     ${all.length ? "" : `<div class="empty">এখনো কারও নাম যোগ হয়নি।</div>`}
     ${grp("শিক্ষক", act.filter(x => x.type === "teacher"))}${grp("স্টাফ", act.filter(x => x.type !== "teacher"))}${grp("বর্তমানে নেই", all.filter(x => x.active === false))}
     <p class="note">নামে চাপ দিলে তথ্য বদলানো যায়। এই তালিকা ও বেতনের অঙ্ক শুধু অ্যাডমিন দেখতে পান।</p></div>`;
-}
-/* paste a list: one person per line as "নাম, পদবি, শিক্ষক|স্টাফ, বেতন" (only the name is required) */
-function staffBulkForm() {
-  openSheet("একসাথে অনেক নাম যোগ", `<form class="form" id="sbForm">
-    <p class="note">প্রতি লাইনে একজন। কমা দিয়ে লিখুন: <b>নাম, পদবি, শিক্ষক বা স্টাফ, বেতন</b>। শুধু নাম দিলেও চলবে; বেতন ও বাকি তথ্য পরে নামে চাপ দিয়ে বসানো যাবে। যে নাম আগে থেকে আছে সেটা আবার যোগ হবে না।</p>
-    <label>তালিকা<textarea id="sbText" rows="12" placeholder="মি. অমুক দাশ, সহকারী শিক্ষক, শিক্ষক&#10;মি. তমুক শীল, অফিস সহকারী, স্টাফ"></textarea></label>
-    <button class="btn wide">যোগ করুন</button></form>`, b => {
-    b.querySelector("#sbForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
-      const rows = b.querySelector("#sbText").value.split(/\n/).map(l => l.split(/[,،\t]/).map(x => x.trim())).filter(c => c[0]).map(c => ({
-        name: c[0], post: c[1] || "", type: /স্টাফ|staff|কর্মচারী/i.test(c[2] || "") ? "staff" : "teacher", salary: toEn(c[3] || "")}));
-      if (!rows.length) throw new Error("তালিকায় কোনো নাম নেই।");
-      const j = await api("school_staff_bulk", {rows}); SC = j; SC.stale = false;
-      closeSheet(); toast(`${bnd(j.added)} জন যোগ হয়েছে${j.skipped ? ", " + bnd(j.skipped) + " জন আগে থেকেই ছিলেন" : ""}।`); renderSchool(); }); };
-  });
 }
 function staffForm(id) {
   const x = id ? scStaff().find(s => s.id === id) : null; if (id && !x) return;
