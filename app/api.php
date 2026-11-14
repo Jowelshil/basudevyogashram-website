@@ -375,19 +375,19 @@ function land_addr_fill(): void {
     flock($lock, LOCK_UN); fclose($lock);
 }
 
-/* one time: the old life-member list (LM-00001 …) was first given with 20,000 each; the right amount is 10,000.
-   Only touches imported old members that still show exactly 20,000. */
+/* one time: the old life-member list (LM-00001 …) was first given with 20,000, then 10,000 each; the right amount is 10,001.
+   Only touches imported old members that still show exactly one of those two amounts. */
 function life_fee_fix(): void {
-    if (hread('migrations', [])['life_fee_2026_11'] ?? false) return;
+    if (hread('migrations', [])['life_fee_2026_11b'] ?? false) return;
     $lock = fopen(hdir() . '/migrations.lock', 'c'); flock($lock, LOCK_EX);
-    if (!(hread('migrations', [])['life_fee_2026_11'] ?? false)) {
+    if (!(hread('migrations', [])['life_fee_2026_11b'] ?? false)) {
         $n = hmutate('people', function (&$p) {
             $n = 0;
-            foreach ($p as &$x) if ($x['list'] === 'life' && !empty($x['imported']) && empty($x['feePaid']) && (float)($x['amount'] ?? 0) == 20000.0
-                && str_contains((string)($x['note'] ?? ''), 'LM-')) { $x['amount'] = 10000; $n++; }
+            foreach ($p as &$x) if ($x['list'] === 'life' && !empty($x['imported']) && empty($x['feePaid']) && in_array((float)($x['amount'] ?? 0), [20000.0, 10000.0], true)
+                && str_contains((string)($x['note'] ?? ''), 'LM-')) { $x['amount'] = 10001; $n++; }
             return $n;
         });
-        hwrite('migrations', hread('migrations', []) + ['life_fee_2026_11' => date('Y-m-d H:i:s') . " ($n)"]);
+        hwrite('migrations', hread('migrations', []) + ['life_fee_2026_11b' => date('Y-m-d H:i:s') . " ($n)"]);
     }
     flock($lock, LOCK_UN); fclose($lock);
 }
