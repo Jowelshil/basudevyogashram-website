@@ -375,6 +375,23 @@ function land_addr_fill(): void {
     flock($lock, LOCK_UN); fclose($lock);
 }
 
+/* one time: the old life-member list (LM-00001 …) was first given with 20,000 each; the right amount is 10,000.
+   Only touches imported old members that still show exactly 20,000. */
+function life_fee_fix(): void {
+    if (hread('migrations', [])['life_fee_2026_11'] ?? false) return;
+    $lock = fopen(hdir() . '/migrations.lock', 'c'); flock($lock, LOCK_EX);
+    if (!(hread('migrations', [])['life_fee_2026_11'] ?? false)) {
+        $n = hmutate('people', function (&$p) {
+            $n = 0;
+            foreach ($p as &$x) if ($x['list'] === 'life' && !empty($x['imported']) && empty($x['feePaid']) && (float)($x['amount'] ?? 0) == 20000.0
+                && str_contains((string)($x['note'] ?? ''), 'LM-')) { $x['amount'] = 10000; $n++; }
+            return $n;
+        });
+        hwrite('migrations', hread('migrations', []) + ['life_fee_2026_11' => date('Y-m-d H:i:s') . " ($n)"]);
+    }
+    flock($lock, LOCK_UN); fclose($lock);
+}
+
 /* ---------- auth ---------- */
 function auth(bool $adminOnly = false): array {
     $h = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
@@ -510,7 +527,7 @@ function ledger_insert(array $rec): array {
 /* ---------- request ---------- */
 $IN = json_decode((string)file_get_contents('php://input'), true) ?: $_POST;
 $act = (string)($_GET['a'] ?? $IN['a'] ?? '');
-areas_migrate(); cats_migrate(); school_staff_seed(); land_addr_fill(); // one-time data updates, before anything is read
+areas_migrate(); cats_migrate(); school_staff_seed(); land_addr_fill(); life_fee_fix(); // one-time data updates, before anything is read
 
 switch ($act) {
 
