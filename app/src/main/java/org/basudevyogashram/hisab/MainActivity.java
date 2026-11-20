@@ -1,6 +1,23 @@
 package org.basudevyogashram.hisab;
 
 import android.Manifest;
+import android.app.KeyguardManager;
+import android.content.SharedPreferences;
+import android.hardware.biometrics.BiometricManager;
+import android.hardware.biometrics.BiometricPrompt;
+import android.hardware.fingerprint.FingerprintManager;
+import android.os.CancellationSignal;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyPermanentlyInvalidatedException;
+import android.security.keystore.KeyProperties;
+import android.util.Base64;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import org.json.JSONObject;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
@@ -155,7 +172,140 @@ public class MainActivity extends Activity {
         web.saveState(out);
     }
 
+    /* ---------- login with fingerprint ----------
+       The server gives this phone a long random device key (never the password). It is encrypted with an
+       Android Keystore key that can only be used after a fingerprint check, so the phone alone cannot read it. */
+    private static final String KEY_ALIAS = "bya_login";
+    private static final String PREFS = "bya_bio";
+
+    private SharedPreferences prefs() { return getSharedPreferences(PREFS, MODE_PRIVATE); }
+
+    @SuppressWarnings("deprecation")
+    private boolean bioAvailable() {
+        if (Build.VERSION.SDK_INT < 28) return false;
+        KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+        if (km == null || !km.isDeviceSecure()) return false;
+        if (Build.VERSION.SDK_INT >= 30) {
+            BiometricManager bm = getSystemService(BiometricManager.class);
+            return bm != null && bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS;
+        }
+        if (Build.VERSION.SDK_INT == 29) {
+            BiometricManager bm = getSystemService(BiometricManager.class);
+            return bm != null && bm.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS;
+        }
+        FingerprintManager fm = (FingerprintManager) getSystemService(Context.FINGERPRINT_SERVICE);
+        return fm != null && fm.isHardwareDetected() && fm.hasEnrolledFingerprints();
+    }
+
+    private void bioClearAll() {
+        prefs().edit().clear().apply();
+        try { KeyStore ks = KeyStore.getInstance("AndroidKeyStore"); ks.load(null); ks.deleteEntry(KEY_ALIAS); } catch (Exception ignored) { }
+    }
+
+    private SecretKey newKey() throws Exception {
+        KeyStore ks = KeyStore.getInstance("AndroidKeyStore"); ks.load(null); ks.deleteEntry(KEY_ALIAS);
+        KeyGenerator kg = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        KeyGenParameterSpec.Builder b = new KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setUserAuthenticationRequired(true)
+                .setInvalidatedByBiometricEnrollment(true);
+        kg.init(b.build());
+        return kg.generateKey();
+    }
+
+    private SecretKey oldKey() throws Exception {
+        KeyStore ks = KeyStore.getInstance("AndroidKeyStore"); ks.load(null);
+        return (SecretKey) ks.getKey(KEY_ALIAS, null);
+    }
+
+    /* tell the page what happened: window.byaBio(event, data) */
+    private void toPage(String ev, String data) {
+        runOnUiThread(() -> web.evaluateJavascript("window.byaBio && window.byaBio(" + JSONObject.quote(ev) + "," + JSONObject.quote(data == null ? "" : data) + ")", null));
+    }
+
+    private interface Done { void accept(Cipher c) throws Exception; }
+
+    private void prompt(String title, Cipher cipher, Done ok) {
+        if (Build.VERSION.SDK_INT < 28) { toPage("error", "এই ফোনে চলবে না।"); return; }
+        BiometricPrompt.Builder pb = new BiometricPrompt.Builder(this)
+                .setTitle(title)
+                .setSubtitle("ফোনে সেভ করা আঙুলের ছাপ দিন")
+                .setNegativeButton("বাতিল", getMainExecutor(), (d, w) -> toPage("cancel", ""));
+        if (Build.VERSION.SDK_INT >= 30) pb.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG);
+        pb.build().authenticate(new BiometricPrompt.CryptoObject(cipher), new CancellationSignal(), getMainExecutor(),
+                new BiometricPrompt.AuthenticationCallback() {
+                    @Override
+                    public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) {
+                        try { ok.accept(r.getCryptoObject().getCipher()); } catch (Exception e) { toPage("error", "সমস্যা হয়েছে: " + e.getMessage()); }
+                    }
+
+                    @Override
+                    public void onAuthenticationError(int code, CharSequence msg) {
+                        if (code == BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED || code == BiometricPrompt.BIOMETRIC_ERROR_CANCELED
+                                || code == BiometricPrompt.BIOMETRIC_ERROR_NEGATIVE_BUTTON) toPage("cancel", "");
+                        else toPage("error", String.valueOf(msg));
+                    }
+                });
+    }
+
     private class Shell {
+        @JavascriptInterface
+        public String bioState() {
+            try {
+                JSONObject o = new JSONObject();
+                o.put("avail", bioAvailable());
+                o.put("user", prefs().getString("user", ""));
+                return o.toString();
+            } catch (Exception e) { return "{\"avail\":false,\"user\":\"\"}"; }
+        }
+
+        @JavascriptInterface
+        public void bioSave(final String user, final String secret) {
+            runOnUiThread(() -> {
+                try {
+                    Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+                    c.init(Cipher.ENCRYPT_MODE, newKey());
+                    prompt("আঙুলের ছাপে লগইন চালু", c, done -> {
+                        try {
+                            byte[] ct = done.doFinal(secret.getBytes(StandardCharsets.UTF_8));
+                            prefs().edit().putString("user", user)
+                                    .putString("iv", Base64.encodeToString(done.getIV(), Base64.NO_WRAP))
+                                    .putString("ct", Base64.encodeToString(ct, Base64.NO_WRAP)).apply();
+                            toPage("saved", user);
+                        } catch (Exception e) { toPage("error", "সেভ করা যায়নি: " + e.getMessage()); }
+                    });
+                } catch (Exception e) { toPage("error", "এই ফোনে চালু করা গেল না: " + e.getMessage()); }
+            });
+        }
+
+        @JavascriptInterface
+        public void bioLogin() {
+            runOnUiThread(() -> {
+                final SharedPreferences p = prefs();
+                final String user = p.getString("user", ""), iv = p.getString("iv", ""), ct = p.getString("ct", "");
+                if (user.isEmpty() || ct.isEmpty()) { toPage("invalid", ""); return; }
+                try {
+                    Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+                    SecretKey k = oldKey();
+                    if (k == null) { bioClearAll(); toPage("invalid", ""); return; }
+                    c.init(Cipher.DECRYPT_MODE, k, new GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)));
+                    prompt("আঙুলের ছাপ দিয়ে লগইন", c, done -> {
+                        try {
+                            String secret = new String(done.doFinal(Base64.decode(ct, Base64.NO_WRAP)), StandardCharsets.UTF_8);
+                            JSONObject o = new JSONObject(); o.put("user", user); o.put("secret", secret);
+                            toPage("login", o.toString());
+                        } catch (Exception e) { toPage("error", "পড়া যায়নি: " + e.getMessage()); }
+                    });
+                } catch (KeyPermanentlyInvalidatedException e) {
+                    bioClearAll(); toPage("invalid", "");
+                } catch (Exception e) { toPage("error", "সমস্যা হয়েছে: " + e.getMessage()); }
+            });
+        }
+
+        @JavascriptInterface
+        public void bioClear() { bioClearAll(); }
+
         /* the page's print view: Android print screen, where "Save as PDF" is one of the printers */
         @JavascriptInterface
         public void print(final String title) {
