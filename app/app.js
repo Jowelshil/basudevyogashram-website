@@ -90,12 +90,91 @@ async function showAuth(msg) {
   let st = {needsSetup: false};
   try { st = await api("status"); } catch (e) { $("authMsg").textContent = e.message; }
   $("setupForm").hidden = !st.needsSetup; $("loginForm").hidden = st.needsSetup;
+  if (!$("lUser").value) $("lUser").value = store.get("bya_last_user") || "";
+  bioRenderLogin(st.needsSetup);
 }
 $("loginForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
   $("authMsg").textContent = "";
-  try { const j = await api("login", {username: $("lUser").value.trim(), password: $("lPass").value}); token = j.token; store.set("bya_token", token); $("lPass").value = ""; await reload(); enterApp(); }
+  const un = $("lUser").value.trim().toLowerCase(), pw = $("lPass").value;
+  try {
+    const j = await api("login", {username: un, password: pw}); token = j.token; store.set("bya_token", token); store.set("bya_last_user", un);
+    savePassword(un, pw, j.user.name); $("lPass").value = ""; await reload(); enterApp(); bioOffer(un);
+  }
   catch (err) { $("authMsg").textContent = err.message; }
 }); });
+/* Browsers (Chrome, Safari/iCloud Keychain) offer to save the ID and password from the login form, and then fill it
+   with fingerprint or Face ID next time. Chrome also takes the explicit call below. */
+function savePassword(id, password, name) {
+  try { if (window.PasswordCredential && navigator.credentials && !inShell()) navigator.credentials.store(new PasswordCredential({id, password, name})).catch(() => {}); } catch (e) {}
+}
+
+/* ---- আঙুলের ছাপ দিয়ে লগইন (Android app) ----
+   The app shell keeps a device key from the server, locked by the phone's fingerprint (Android Keystore).
+   The password is never stored on the phone. */
+const inShell = () => /BasudevHisabApp/.test(navigator.userAgent);
+const bioOK = () => !!(window.Shell && typeof Shell.bioState === "function");
+function bioState() { try { return JSON.parse(Shell.bioState()); } catch (e) { return {avail: false, user: ""}; } }
+let bioPending = null;
+window.byaBio = (ev, data) => { const f = bioPending; bioPending = null; if (f) f(ev, data); };
+function bioRun(fn) { return new Promise(res => { bioPending = (ev, data) => res({ev, data}); fn(); }); }
+function bioRenderLogin(needsSetup) {
+  const box = $("bioBox"), st = bioOK() ? bioState() : null, first = !bioRenderLogin.tried;
+  bioRenderLogin.tried = true; // the prompt opens by itself only when the app is first opened, not after a logout
+  box.hidden = needsSetup || !st || !st.avail || !st.user;
+  if (box.hidden) { box.innerHTML = ""; return; }
+  box.innerHTML = `<button class="btn wide" id="bioLoginBtn" type="button">আঙুলের ছাপ দিয়ে লগইন</button>
+    <p class="note" style="text-align:center;margin:6px 0 14px">${esc(st.user)} · অথবা নিচে পাসওয়ার্ড দিয়ে</p>`;
+  $("bioLoginBtn").onclick = () => bioLogin();
+  if (first) setTimeout(bioLogin, 300);
+}
+async function bioLogin() {
+  const btn = $("bioLoginBtn"); if (!btn || btn.disabled) return;
+  btn.disabled = true; $("authMsg").textContent = "";
+  try {
+    const {ev, data} = await bioRun(() => Shell.bioLogin());
+    if (ev === "cancel") return;
+    if (ev === "invalid") { $("authMsg").textContent = "ফোনে নতুন আঙুলের ছাপ যোগ হওয়ায় নিরাপত্তার জন্য এটা বন্ধ হয়েছে। পাসওয়ার্ড দিয়ে লগইন করে আবার চালু করুন।"; bioRenderLogin(false); return; }
+    if (ev !== "login") { $("authMsg").textContent = data || "আঙুলের ছাপ মেলেনি।"; return; }
+    const {user, secret} = JSON.parse(data);
+    try {
+      const j = await api("device_login", {secret}); token = j.token; store.set("bya_token", token); store.set("bya_last_user", user);
+      await reload(); enterApp();
+    } catch (e) {
+      if (/চালু নেই|বন্ধ করা/.test(e.message)) { Shell.bioClear(); bioRenderLogin(false); }
+      $("authMsg").textContent = e.message;
+    }
+  } finally { if ($("bioLoginBtn")) $("bioLoginBtn").disabled = false; }
+}
+async function bioEnable(un) {
+  const j = await api("device_enroll");
+  const {ev, data} = await bioRun(() => Shell.bioSave(un, j.secret));
+  if (ev === "saved") toast("চালু হয়েছে। পরের বার আঙুলের ছাপ দিয়েই লগইন করতে পারবেন।");
+  else if (ev !== "cancel") toast(data || "চালু করা যায়নি।");
+  bioMenu();
+}
+function bioOffer(un) {
+  if (!bioOK()) return;
+  const st = bioState();
+  if (!st.avail || st.user === un || store.get("bya_bio_no_" + un)) return;
+  openSheet("আঙুলের ছাপ দিয়ে লগইন", `<p>এই ফোনে পরের বার থেকে ইউজার আইডি আর পাসওয়ার্ড না লিখে শুধু আঙুলের ছাপ দিয়ে লগইন করবেন?</p>
+    <p class="note">পাসওয়ার্ড ফোনে রাখা হয় না। ফোনে যাঁদের আঙুলের ছাপ সেভ করা আছে, তাঁরাই এভাবে ঢুকতে পারবেন।${st.user ? ` এখন এই ফোনে ${esc(st.user)}-এর জন্য চালু আছে, সেটা বদলে আপনার জন্য হবে।` : ""}</p>
+    <button class="btn wide" id="bioYes" type="button">হ্যাঁ, চালু করুন</button>
+    <button class="btn ghost wide" id="bioNo" type="button" style="margin-top:8px">না, দরকার নেই</button>`, b => {
+    b.querySelector("#bioYes").onclick = ev => guard(ev.target, async () => { closeSheet(); await bioEnable(un); });
+    b.querySelector("#bioNo").onclick = () => { store.set("bya_bio_no_" + un, "1"); closeSheet(); };
+  });
+}
+function bioMenu() {
+  const btn = $("bioMenuBtn"), st = bioOK() ? bioState() : null;
+  btn.hidden = !st || !st.avail || !me;
+  if (btn.hidden) return;
+  const on = st.user === me.username;
+  btn.textContent = on ? "আঙুলের ছাপে লগইন বন্ধ করুন" : "আঙুলের ছাপে লগইন চালু করুন";
+  btn.onclick = () => { closeMenu();
+    if (on) { Shell.bioClear(); toast("এই ফোনে আঙুলের ছাপে লগইন বন্ধ হয়েছে।"); bioMenu(); }
+    else { store.set("bya_bio_no_" + me.username, null); guard(btn, () => bioEnable(me.username)); }
+  };
+}
 $("setupForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
   try { const j = await api("setup", {key: $("sKey").value.trim(), name: $("sName").value.trim(), username: $("sUser").value.trim(), password: $("sPass").value});
     token = j.token; store.set("bya_token", token); await reload(); enterApp(); toast("অ্যাডমিন অ্যাকাউন্ট তৈরি হয়েছে। এখন ইউজার যোগ করুন।"); go("users"); }
@@ -143,6 +222,7 @@ function enterApp() {
   $("authScreen").hidden = true; $("appScreen").hidden = false;
   $("whoami").textContent = me.name + (isAdmin() ? " · অ্যাডমিন" : onlyMonthly() ? " · প্রণামী সংগ্রহ" : "");
   $("tabs").hidden = onlyMonthly(); document.body.classList.toggle("notabs", onlyMonthly());
+  bioMenu();
   document.querySelectorAll(".admin-only").forEach(el => el.hidden = !isAdmin());
   $("lockNote").hidden = isAdmin();
   if (!$("fDate").value) { $("fDate").value = D.today; $("dayPick").value = D.today; $("dailyPick").value = D.today; initReport(); }
@@ -1157,7 +1237,8 @@ $("v-records").addEventListener("click", e => { const b = e.target.closest("butt
   if (b.dataset.unp) guard(b, async () => { await api("people_restore", {id: b.dataset.unp}); await reload(); renderRecords(); toast("ফিরিয়ে আনা হয়েছে।"); }); });
 
 /* ================= password ================= */
-$("pwForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => { await api("password", {old: $("pwOld").value, new: $("pwNew").value}); $("pwForm").reset(); toast("পাসওয়ার্ড বদলানো হয়েছে।"); go("ledger"); }); });
+$("pwForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => { await api("password", {old: $("pwOld").value, new: $("pwNew").value}); $("pwForm").reset();
+  if (bioOK() && bioState().user === me.username) { Shell.bioClear(); bioMenu(); setTimeout(() => toast("পাসওয়ার্ড বদলানোয় আঙুলের ছাপের লগইন বন্ধ হয়েছে। মেনু থেকে আবার চালু করুন।"), 2500); } toast("পাসওয়ার্ড বদলানো হয়েছে।"); go("ledger"); }); });
 
 /* Android back button support (called by the app shell) */
 window.byaBack = function () {

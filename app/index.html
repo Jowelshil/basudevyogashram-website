@@ -14,7 +14,7 @@
 <title>বাসুদেব যোগাশ্রম হিসাব</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=12">
+<link rel="stylesheet" href="app.css?v=13">
 </head>
 <body>
 
@@ -24,9 +24,10 @@
     <div class="om" aria-hidden="true">ॐ</div>
     <h1>বাসুদেব যোগাশ্রম</h1>
     <p class="muted">হিসাব খাতা · নেহালপুর, হাটহাজারী</p>
-    <form id="loginForm" hidden>
-      <label>ইউজার আইডি<input id="lUser" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
-      <label>পাসওয়ার্ড<input id="lPass" type="password" autocomplete="current-password" required></label>
+    <div id="bioBox" hidden></div>
+    <form id="loginForm" method="post" action="#" hidden>
+      <label>ইউজার আইডি<input id="lUser" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
+      <label>পাসওয়ার্ড<input id="lPass" name="password" type="password" autocomplete="current-password" required></label>
       <button class="btn wide" type="submit">লগইন</button>
     </form>
     <form id="setupForm" hidden>
@@ -302,6 +303,7 @@
     <hr>
   </div>
   <button data-go="password">পাসওয়ার্ড বদলান</button>
+  <button id="bioMenuBtn" hidden></button>
   <button id="refreshBtn">তথ্য রিফ্রেশ করুন</button>
   <button id="logoutBtn" class="danger">লগআউট</button>
 </div>
@@ -315,6 +317,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=33"></script>
+<script src="app.js?v=34"></script>
 </body>
 </html>

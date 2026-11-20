@@ -425,6 +425,13 @@ function issue_token(array $u): string {
 function drop_tokens_of(string $uid): void {
     hmutate('tokens', function (&$t) use ($uid) { foreach ($t as $k => $v) if ($v['uid'] === $uid) unset($t[$k]); });
 }
+/* "login with fingerprint" in the Android app: the phone keeps a long random device key, locked by the phone's
+   fingerprint, and trades it here for a normal session. The password itself is never stored on the phone.
+   A key dies after 180 days unused, and with any password change, reset or deactivation of the account. */
+const DEVICE_DAYS = 180;
+function drop_devices_of(string $uid): void {
+    hmutate('devices', function (&$d) use ($uid) { foreach ($d as $k => $v) if ($v['uid'] === $uid) unset($d[$k]); });
+}
 
 /* ---------- SMS (Robi A2P or any HTTP gateway, configured by admin) ---------- */
 function sms_cfg(): array {
@@ -561,6 +568,33 @@ case 'login': {
     }
     login_failed("hisab:$un");
     fail('ইউজার আইডি বা পাসওয়ার্ড সঠিক নয়।', 401);
+}
+
+case 'device_enroll': {
+    $u = auth();
+    $secret = bin2hex(random_bytes(32));
+    hmutate('devices', function (&$d) use ($u, $secret) {
+        foreach ($d as $k => $v) if (($v['seen'] ?? 0) < time() - DEVICE_DAYS * 86400) unset($d[$k]);
+        $mine = array_filter($d, fn($v) => $v['uid'] === $u['id']);
+        uasort($mine, fn($a, $b) => $a['seen'] <=> $b['seen']);
+        while (count($mine) >= 3) { unset($d[array_key_first($mine)]); array_shift($mine); }  // at most 3 phones per user
+        $d[hash('sha256', $secret)] = ['uid' => $u['id'], 'created' => time(), 'seen' => time()];
+    });
+    audit($u, 'আঙুলের ছাপে লগইন চালু (এই ফোন)');
+    out(['ok' => true, 'secret' => $secret]);
+}
+case 'device_login': {
+    $secret = str_in($IN, 'secret', 100); $key = hash('sha256', $secret);
+    if ($s = login_blocked('hisab-device')) fail('অনেকবার চেষ্টা হয়েছে। ' . bn_digits((string)ceil($s / 60)) . ' মিনিট পর আবার চেষ্টা করুন।', 429);
+    $d = hread('devices')[$key] ?? null;
+    if (!$d || ($d['seen'] ?? 0) < time() - DEVICE_DAYS * 86400) { login_failed('hisab-device'); fail('এই ফোনের আঙুলের ছাপের লগইন আর চালু নেই। পাসওয়ার্ড দিয়ে লগইন করুন।', 401); }
+    foreach (hread('users') as $u) if ($u['id'] === $d['uid']) {
+        if (!($u['active'] ?? true)) fail('এই অ্যাকাউন্ট বন্ধ করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।', 403);
+        hmutate('devices', function (&$all) use ($key) { if (isset($all[$key])) $all[$key]['seen'] = time(); });
+        audit($u, 'লগইন (আঙুলের ছাপ)');
+        out(['ok' => true, 'token' => issue_token($u), 'user' => public_user($u)]);
+    }
+    fail('এই ফোনের আঙুলের ছাপের লগইন আর চালু নেই। পাসওয়ার্ড দিয়ে লগইন করুন।', 401);
 }
 
 case 'logout': {
@@ -1020,7 +1054,7 @@ case 'user_toggle': {
         }
         fail('ইউজার পাওয়া যায়নি।', 404);
     });
-    drop_tokens_of($id);
+    drop_tokens_of($id); drop_devices_of($id);
     audit($u, $act === 'user_reset' ? 'পাসওয়ার্ড রিসেট' : 'ইউজার চালু/বন্ধ', ['id' => $id]);
     out(['ok' => true]);
 }
@@ -1030,6 +1064,7 @@ case 'password': {
     $new = (string)($IN['new'] ?? '');
     if (mb_strlen($new) < ($u['role'] === 'admin' ? 8 : 6)) fail('নতুন পাসওয়ার্ড আরও লম্বা দিন।');
     hmutate('users', function (&$us) use ($u, $new) { foreach ($us as &$x) if ($x['id'] === $u['id']) $x['hash'] = password_hash($new, PASSWORD_DEFAULT); });
+    drop_devices_of($u['id']);
     audit($u, 'নিজের পাসওয়ার্ড বদল');
     out(['ok' => true]);
 }
