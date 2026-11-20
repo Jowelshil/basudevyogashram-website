@@ -534,6 +534,9 @@ function ledger_insert(array $rec): array {
 /* ---------- request ---------- */
 $IN = json_decode((string)file_get_contents('php://input'), true) ?: $_POST;
 $act = (string)($_GET['a'] ?? $IN['a'] ?? '');
+/* After a successful login the page posts the login form here once and is sent straight back. iPhone Safari only offers
+   "Save Password" (and later fills it with Face ID) when a form really leaves the page; the fields are not read or kept. */
+if ($act === 'login_done') { header('Content-Type: text/plain; charset=utf-8'); header('Cache-Control: no-store'); header('Location: ./', true, 303); exit; }
 areas_migrate(); cats_migrate(); school_staff_seed(); land_addr_fill(); life_fee_fix(); // one-time data updates, before anything is read
 
 switch ($act) {

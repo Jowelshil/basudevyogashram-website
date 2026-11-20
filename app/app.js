@@ -93,19 +93,30 @@ async function showAuth(msg) {
   if (!$("lUser").value) $("lUser").value = store.get("bya_last_user") || "";
   bioRenderLogin(st.needsSetup);
 }
-$("loginForm").addEventListener("submit", e => { e.preventDefault(); guard(e.submitter, async () => {
+$("loginForm").addEventListener("submit", e => {
+  if ($("loginForm").dataset.done) return; // the real post after a successful login (see savePassword)
+  e.preventDefault(); guard(e.submitter, async () => {
   $("authMsg").textContent = "";
   const un = $("lUser").value.trim().toLowerCase(), pw = $("lPass").value;
   try {
     const j = await api("login", {username: un, password: pw}); token = j.token; store.set("bya_token", token); store.set("bya_last_user", un);
-    savePassword(un, pw, j.user.name); $("lPass").value = ""; await reload(); enterApp(); bioOffer(un);
+    if (savePassword(un, pw, j.user.name)) return;
+    $("lPass").value = ""; await reload(); enterApp(); bioOffer(un);
   }
   catch (err) { $("authMsg").textContent = err.message; }
 }); });
 /* Browsers (Chrome, Safari/iCloud Keychain) offer to save the ID and password from the login form, and then fill it
    with fingerprint or Face ID next time. Chrome also takes the explicit call below. */
 function savePassword(id, password, name) {
-  try { if (window.PasswordCredential && navigator.credentials && !inShell()) navigator.credentials.store(new PasswordCredential({id, password, name})).catch(() => {}); } catch (e) {}
+  if (inShell()) return false;
+  try { if (window.PasswordCredential && navigator.credentials) { navigator.credentials.store(new PasswordCredential({id, password, name})).catch(() => {}); return false; } } catch (e) {}
+  /* Safari (iPhone) has no such call: it asks to save only when the form is really sent, so send it once to a
+     do-nothing address that returns straight to the app; the new session token is already stored. */
+  const f = $("loginForm");
+  store.set("bya_last", String(Date.now()));
+  f.action = "api.php?a=login_done"; f.dataset.done = "1";
+  try { f.requestSubmit ? f.requestSubmit() : f.submit(); } catch (e) { f.submit(); }
+  return true;
 }
 
 /* ---- আঙুলের ছাপ দিয়ে লগইন (Android app) ----
