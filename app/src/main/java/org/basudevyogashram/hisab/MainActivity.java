@@ -242,8 +242,7 @@ public class MainActivity extends Activity {
 
                     @Override
                     public void onAuthenticationError(int code, CharSequence msg) {
-                        if (code == BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED || code == BiometricPrompt.BIOMETRIC_ERROR_CANCELED
-                                || code == BiometricPrompt.BIOMETRIC_ERROR_NEGATIVE_BUTTON) toPage("cancel", "");
+                        if (code == BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED || code == BiometricPrompt.BIOMETRIC_ERROR_CANCELED) toPage("cancel", "");
                         else toPage("error", String.valueOf(msg));
                     }
                 });
