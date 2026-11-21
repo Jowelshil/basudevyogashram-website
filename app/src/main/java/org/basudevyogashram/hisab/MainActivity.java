@@ -305,6 +305,33 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void bioClear() { bioClearAll(); }
 
+        /* the page's "PDF শেয়ার": save the PDF it made and open Android's share list */
+        @JavascriptInterface
+        public void sharePdf(final String base64, final String name, final String title) {
+            try {
+                java.io.File d = PdfProvider.dir(MainActivity.this);
+                java.io.File[] old = d.listFiles();
+                if (old != null) for (java.io.File f : old) f.delete();
+                String safe = (name == null || name.trim().isEmpty() ? "hisab.pdf" : name).replaceAll("[\\\\/:*?\"<>|]+", "-");
+                if (!safe.toLowerCase().endsWith(".pdf")) safe += ".pdf";
+                java.io.File f = new java.io.File(d, safe);
+                try (java.io.FileOutputStream o = new java.io.FileOutputStream(f)) { o.write(Base64.decode(base64, Base64.DEFAULT)); }
+                final Uri uri = new Uri.Builder().scheme("content").authority(PdfProvider.AUTHORITY).appendPath(safe).build();
+                runOnUiThread(() -> {
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType("application/pdf");
+                    send.putExtra(Intent.EXTRA_STREAM, uri);
+                    if (title != null && !title.isEmpty()) send.putExtra(Intent.EXTRA_SUBJECT, title);
+                    send.setClipData(android.content.ClipData.newRawUri("", uri));
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try { startActivity(Intent.createChooser(send, "PDF পাঠান")); }
+                    catch (ActivityNotFoundException e) { Toast.makeText(MainActivity.this, "শেয়ার করার মতো অ্যাপ নেই।", Toast.LENGTH_SHORT).show(); }
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "PDF শেয়ার করা যায়নি: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }
+
         /* the page's print view: Android print screen, where "Save as PDF" is one of the printers */
         @JavascriptInterface
         public void print(final String title) {
