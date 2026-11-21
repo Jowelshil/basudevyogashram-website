@@ -235,3 +235,9 @@ body.printing #printArea{display:block;position:fixed;inset:0;z-index:500;overfl
 @keyframes sharepulse{50%{opacity:.25}}
 .psheet.pwide{max-width:1120px;font-size:12px}.psheet.pwide th,.psheet.pwide td{padding:3px 5px}
 #v-booking .item.past{opacity:.6}
+/* booking payment state */
+.bkc{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.8rem;font-weight:600}
+.bkc.ok{background:#e3f4e6;color:#1d6b3a}.bkc.part{background:#fff1d6;color:#8a5a00}.bkc.due{background:#fde4e1;color:#a02c2c}.bkc.none{background:#eee;color:#666}
+#v-booking .item{border-left:5px solid transparent;padding-left:8px}
+#v-booking .item.bk-ok{border-left-color:#2e9d52}#v-booking .item.bk-part{border-left-color:#e0a000}#v-booking .item.bk-due{border-left-color:#c8423a}#v-booking .item.bk-none{border-left-color:#bbb}
+.bkrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}

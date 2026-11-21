@@ -392,6 +392,49 @@ function life_fee_fix(): void {
     flock($lock, LOCK_UN); fclose($lock);
 }
 
+/* ---------- অনুষ্ঠান বহি: payments ----------
+   A booking has the agreed প্রণামী (amount) and the payments made so far (advance, later instalments).
+   Every payment is also an income entry of the ashram ledger (খাত: পূজা-যজ্ঞ-উৎসব অনুদান), so it is in the day's
+   accounts and gets the SMS receipt; the entry and the payment stay in step when the admin edits or deletes it.
+   'settled' marks a booking as fully paid even if less than the agreed amount came in. */
+function booking_cat(): string {
+    $c = cats_list()['income'];
+    foreach (['পূজা-যজ্ঞ-উৎসব অনুদান', 'এককালীন অনুদান'] as $x) if (in_array($x, $c, true)) return $x;
+    return $c[0];
+}
+function booking_payment(array &$b, float $amount, string $date, string $mode, array $u): array {
+    $rec = school_ledger_add(['id' => new_id(), 'date' => $date, 'kind' => 'income', 'category' => booking_cat(), 'amount' => $amount,
+        'name' => $b['name'], 'mobile' => $b['mobile'], 'address' => $b['address'], 'project' => '', 'ref' => '', 'mode' => $mode,
+        'note' => 'অনুষ্ঠান বুকিং ক্রমিক ' . bn_digits((string)$b['serial']) . ' (' . bn_digits(substr($b['eventDate'], 0, 4)) . '), ' . ($b['occasion'] ?: 'অনুষ্ঠান') . ', ' . bn_date($b['eventDate']),
+        'personId' => '', 'month' => '', 'booking' => $b['id'], 'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s'), 'sms' => ['status' => 'pending']]);
+    $b['payments'][] = ['entry' => $rec['id'], 'amount' => $rec['amount'], 'date' => $date, 'mode' => $mode, 'by' => $u['id'], 'at' => date('Y-m-d H:i:s')];
+    return $rec;
+}
+function booking_pay_input(array $IN, array $u): array {
+    $amt = amount_in($IN, 'pay', false);
+    $date = str_in($IN, 'payDate', 10); if ($date === '') $date = date('Y-m-d');
+    if ($amt > 0) {
+        if (!valid_date($date)) fail('জমার তারিখ ঠিক নেই।');
+        if ($u['role'] !== 'admin' && ($date > date('Y-m-d') || $date < date('Y-m-d', strtotime('-7 days')))) fail('আজ থেকে ৭ দিনের পুরনো বা ভবিষ্যতের তারিখে জমা লিখতে অ্যাডমিন লাগবে।');
+    }
+    return [$amt, $date, str_in($IN, 'mode', 30) ?: 'নগদ'];
+}
+function booking_after_pay(array $u, ?array $rec): void {
+    if ($rec && $rec['mobile'] && sms_cfg()['auto'] && sms_cfg()['enabled']) sms_flush($u, $rec['date'], $rec['id']);
+}
+function booking_pay_sync(array $done, string $how): void {
+    if (empty($done['booking'])) return;
+    hmutate('bookings', function (&$all) use ($done, $how) {
+        foreach ($all as &$b) if ($b['id'] === $done['booking']) {
+            $p = array_values(array_filter($b['payments'] ?? [], fn($x) => $x['entry'] !== $done['id']));
+            if ($how === 'update' || $how === 'restore') $p[] = ['entry' => $done['id'], 'amount' => $done['amount'], 'date' => $done['date'], 'mode' => $done['mode'] ?? '', 'by' => $done['by'], 'at' => date('Y-m-d H:i:s')];
+            usort($p, fn($a, $c) => strcmp($a['date'], $c['date']));
+            $b['payments'] = $p;
+        }
+    });
+}
+function bookings_live(): array { return array_values(array_filter(hread('bookings'), fn($b) => empty($b['deleted']))); }
+
 /* ---------- auth ---------- */
 function auth(bool $adminOnly = false): array {
     $h = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
@@ -720,7 +763,7 @@ case 'ledger_update': {
         hmutate('people', function (&$p) use ($done) { foreach ($p as &$x) if ($x['id'] === $done['lifeOf'] && ($x['feePaid']['entry'] ?? '') === $done['id']) $x['feePaid']['amount'] = $done['amount']; });
     if (is_array($done) && $done['personId'] !== '' && $done['month'] !== '')
         hmutate('people', function (&$p) use ($done) { foreach ($p as &$x) if ($x['id'] === $done['personId'] && ($x['paid'][$done['month']]['entry'] ?? '') === $done['id']) $x['paid'][$done['month']]['amount'] = $done['amount']; });
-    if (is_array($done)) school_salary_sync($done, 'update');
+    if (is_array($done)) { school_salary_sync($done, 'update'); booking_pay_sync($done, 'update'); }
     audit($u, 'এন্ট্রি সম্পাদনা', ['id' => $id]);
     out(['ok' => true]);
 }
@@ -756,7 +799,7 @@ case 'ledger_restore': {
             }
         });
     }
-    if (is_array($done)) school_salary_sync($done, $act === 'ledger_delete' ? 'delete' : 'restore');
+    if (is_array($done)) { school_salary_sync($done, $act === 'ledger_delete' ? 'delete' : 'restore'); booking_pay_sync($done, $act === 'ledger_delete' ? 'delete' : 'restore'); }
     audit($u, $act === 'ledger_delete' ? 'এন্ট্রি মুছে ফেলা' : 'এন্ট্রি ফিরিয়ে আনা', ['id' => $id, 'reason' => $reason]);
     out(['ok' => true]);
 }
@@ -1118,7 +1161,7 @@ case 'school_salary_pay': {
    changing or removing one is for the admin, and every change is in the audit log. */
 case 'booking_list': {
     $u = auth(); school_guard($u);
-    out(['ok' => true, 'bookings' => array_values(array_filter(hread('bookings'), fn($b) => empty($b['deleted'])))]);
+    out(['ok' => true, 'bookings' => bookings_live()]);
 }
 case 'booking_save': {
     $u = auth(); school_guard($u);
@@ -1133,23 +1176,47 @@ case 'booking_save': {
     $people = (int)strtr(str_in($IN, 'people', 8), ['০'=>'0','১'=>'1','২'=>'2','৩'=>'3','৪'=>'4','৫'=>'5','৬'=>'6','৭'=>'7','৮'=>'8','৯'=>'9']);
     $f = ['bookingDate' => $bk, 'eventDate' => $ev, 'name' => $name, 'address' => str_in($IN, 'address', 200), 'mobile' => $mobile,
         'kusti' => str_in($IN, 'kusti', 100), 'gotra' => str_in($IN, 'gotra', 60), 'occasion' => str_in($IN, 'occasion', 120),
-        'amount' => amount_in($IN, 'amount', false), 'people' => max(0, $people), 'items' => str_in($IN, 'items', 600)];
-    $rec = hmutate('bookings', function (&$all) use ($id, $f, $u) {
+        'amount' => amount_in($IN, 'amount', false), 'people' => max(0, $people), 'items' => str_in($IN, 'items', 600), 'settled' => !empty($IN['settled'])];
+    [$pay, $payDate, $mode] = booking_pay_input($IN, $u);
+    $entry = null;
+    $rec = hmutate('bookings', function (&$all) use ($id, $f, $u, $pay, $payDate, $mode, &$entry) {
         if ($id === '') {
             $y = substr($f['eventDate'], 0, 4); $max = 0;
             foreach ($all as $b) if (substr($b['eventDate'], 0, 4) === $y) $max = max($max, (int)($b['serial'] ?? 0));
-            $r = ['id' => new_id(), 'serial' => $max + 1] + $f + ['by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s')];
-            $all[] = $r; return $r;
+            $all[] = ['id' => new_id(), 'serial' => $max + 1] + $f + ['payments' => [], 'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s')];
+            $k = array_key_last($all);
+        } else {
+            $k = null;
+            foreach ($all as $i => $b) if ($b['id'] === $id && empty($b['deleted'])) $k = $i;
+            if ($k === null) fail('বুকিং পাওয়া যায়নি।', 404);
+            $old = array_intersect_key($all[$k], $f);
+            $all[$k] = array_merge($all[$k], $f); $all[$k]['history'][] = ['at' => date('Y-m-d H:i:s'), 'by' => $u['id'], 'old' => $old];
         }
+        if ($pay > 0) $entry = booking_payment($all[$k], $pay, $payDate, $mode, $u);
+        return $all[$k];
+    });
+    audit($u, $id === '' ? 'অনুষ্ঠান বুকিং' : 'অনুষ্ঠান বুকিং সম্পাদনা', ['name' => $rec['name'] . ', ' . $rec['eventDate'], 'amount' => $rec['amount']] + ($pay > 0 ? ['paid' => $pay] : []));
+    booking_after_pay($u, $entry);
+    out(['ok' => true, 'booking' => $rec, 'bookings' => bookings_live()]);
+}
+case 'booking_pay': {
+    $u = auth(); school_guard($u);
+    $id = str_in($IN, 'id', 20);
+    [$pay, $payDate, $mode] = booking_pay_input($IN, $u);
+    $settle = !empty($IN['settled']);
+    if ($pay <= 0 && !$settle) fail('জমার টাকার পরিমাণ লিখুন।');
+    $entry = null;
+    $rec = hmutate('bookings', function (&$all) use ($id, $u, $pay, $payDate, $mode, $settle, &$entry) {
         foreach ($all as &$b) if ($b['id'] === $id && empty($b['deleted'])) {
-            $old = array_intersect_key($b, $f);
-            $b = array_merge($b, $f); $b['history'][] = ['at' => date('Y-m-d H:i:s'), 'by' => $u['id'], 'old' => $old];
+            if ($pay > 0) $entry = booking_payment($b, $pay, $payDate, $mode, $u);
+            if ($settle) $b['settled'] = true;
             return $b;
         }
         fail('বুকিং পাওয়া যায়নি।', 404);
     });
-    audit($u, $id === '' ? 'অনুষ্ঠান বুকিং' : 'অনুষ্ঠান বুকিং সম্পাদনা', ['name' => $rec['name'] . ', ' . $rec['eventDate'], 'amount' => $rec['amount']]);
-    out(['ok' => true, 'booking' => $rec, 'bookings' => array_values(array_filter(hread('bookings'), fn($b) => empty($b['deleted'])))]);
+    audit($u, 'অনুষ্ঠান বুকিং: টাকা জমা', ['name' => $rec['name'] . ', ' . $rec['eventDate'], 'amount' => $pay] + ($settle ? ['settled' => 'পুরো পরিশোধিত'] : []));
+    booking_after_pay($u, $entry);
+    out(['ok' => true, 'booking' => $rec, 'bookings' => bookings_live()]);
 }
 case 'booking_delete': {
     $u = auth(true);
@@ -1160,7 +1227,7 @@ case 'booking_delete': {
         fail('বুকিং পাওয়া যায়নি।', 404);
     });
     audit($u, 'অনুষ্ঠান বুকিং বাতিল', ['name' => $rec['name'] . ', ' . $rec['eventDate'], 'reason' => $reason]);
-    out(['ok' => true, 'bookings' => array_values(array_filter(hread('bookings'), fn($b) => empty($b['deleted'])))]);
+    out(['ok' => true, 'bookings' => bookings_live()]);
 }
 
 case 'school_staff_save': {

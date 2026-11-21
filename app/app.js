@@ -385,7 +385,17 @@ function deleteEntry(id) {
 /* ================= Tab 5: অনুষ্ঠান বহি =================
    The year's book of ceremonies held at the ashram, by the ceremony's date. Anyone (not the pranami collectors)
    adds a booking and sees the book, so a date can be checked; the admin edits or cancels. */
-let BK = null, bkYear = null;
+let BK = null, bkYear = null, bkFilter = "";
+/* payment state of a booking: green = fully paid, amber = part paid, red = nothing paid yet */
+const bkPaid = b => (b.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+function bkState(b) {
+  const total = Number(b.amount) || 0, paid = bkPaid(b), due = Math.max(0, total - paid);
+  if (b.settled || (total > 0 && paid >= total)) return {cls: "ok", paid, due: 0, total, label: "পরিশোধিত" + (paid ? " · " + tk(paid) : "")};
+  if (!total && !paid) return {cls: "none", paid, due, total, label: "প্রণামী ঠিক হয়নি"};
+  if (!total) return {cls: "part", paid, due, total, label: "জমা " + tk(paid)};
+  if (!paid) return {cls: "due", paid, due, total, label: "কিছুই জমা হয়নি · বাকি " + tk(due)};
+  return {cls: "part", paid, due, total, label: "জমা " + tk(paid) + " · বাকি " + tk(due)};
+}
 const yearOf = d => +String(d || "").slice(0, 4);
 function bkDefaultYear() {
   const t = D.today, y = yearOf(t);
@@ -403,22 +413,27 @@ function renderBooking() {
   $("bkYear").innerHTML = ys.map(y => `<option value="${y}"${y === bkYear ? " selected" : ""}>${bnd(y)}</option>`).join("");
   $("bkTitle").textContent = `অনুষ্ঠান বহিঃ ${bnd(bkYear)} সাল`;
   const q = $("bkSearch").value.trim().toLowerCase();
-  const list = bkRows(bkYear).filter(b => !q || [b.name, b.mobile, b.address, b.gotra, b.kusti, b.occasion, b.items].join(" ").toLowerCase().includes(q));
-  const tot = list.reduce((s, b) => s + (Number(b.amount) || 0), 0);
-  $("bkSum").textContent = `${bnd(list.length)}টি বুকিং` + (isAdmin() ? ` · মোট প্রণামী ${tk(tot)}` : "") + (q ? " (খোঁজার ফল)" : "");
+  document.querySelectorAll("#bkFilter button").forEach(x => x.setAttribute("aria-pressed", x.dataset.f === bkFilter));
+  const all = bkRows(bkYear).filter(b => !q || [b.name, b.mobile, b.address, b.gotra, b.kusti, b.occasion, b.items].join(" ").toLowerCase().includes(q));
+  const list = all.filter(b => { const c = bkState(b).cls; return !bkFilter || (bkFilter === "ok" ? c === "ok" : c === "due" || c === "part"); });
+  const st = all.map(bkState), tot = st.reduce((s, x) => s + x.total, 0), paid = st.reduce((s, x) => s + x.paid, 0), due = st.reduce((s, x) => s + x.due, 0);
+  const nDue = st.filter(x => x.cls === "due" || x.cls === "part").length;
+  $("bkSum").innerHTML = `${bnd(all.length)}টি বুকিং · <span class="bkc ok">পরিশোধিত ${bnd(st.filter(x => x.cls === "ok").length)}</span> · <span class="bkc part">বাকি আছে ${bnd(nDue)}</span>`
+    + (isAdmin() ? `<br>মোট প্রণামী ${tk(tot)} · জমা ${tk(paid)} · বাকি ${tk(due)}` : "") + (q ? " (খোঁজার ফল)" : "");
   if (!list.length) { $("bkList").innerHTML = `<div class="empty">${q ? "খুঁজে পাওয়া যায়নি।" : `${bnd(bkYear)} সালের কোনো বুকিং এখনো নেই।`}</div>`; return; }
   const today = D.today; let html = "", cur = "";
   for (const b of list) {
     const m = b.eventDate.slice(0, 7);
     if (m !== cur) { if (cur) html += `</div>`; cur = m; html += `<div class="card"><h3 class="sub">${monthName(m)}</h3>`; }
-    const past = b.eventDate < today;
-    html += `<div class="item${past ? " past" : ""}"${isAdmin() ? ` data-bk="${b.id}" style="cursor:pointer"` : ""}><div class="sn">${bnd(b.serial)}</div>
+    const past = b.eventDate < today, ps = bkState(b);
+    html += `<div class="item bk-${ps.cls}${past ? " past" : ""}"${isAdmin() ? ` data-bk="${b.id}" style="cursor:pointer"` : ""}><div class="sn">${bnd(b.serial)}</div>
       <div><div class="t">${fmtDate(b.eventDate)} · ${esc(b.occasion || "অনুষ্ঠান")}</div>
         <div class="s"><b>${esc(b.name)}</b>${b.mobile ? " · " + esc(b.mobile) : ""}${b.address ? " · " + esc(b.address) : ""}</div>
         <div class="s">${esc([b.kusti ? "কুষ্টি: " + b.kusti : "", b.gotra ? "গোত্র: " + b.gotra : "", b.people ? "লোকসংখ্যা: " + bnd(b.people) : ""].filter(Boolean).join(" · "))}</div>
         ${b.items ? `<div class="s">আইটেম: ${esc(b.items)}</div>` : ""}
-        <div class="s">বুকিং: ${fmtDate(b.bookingDate)}${D.names[b.by] && isAdmin() ? " · " + esc(D.names[b.by]) : ""}</div></div>
-      <div class="amt">${b.amount ? tk(b.amount) : ""}</div></div>`;
+        <div class="s">বুকিং: ${fmtDate(b.bookingDate)}${D.names[b.by] && isAdmin() ? " · " + esc(D.names[b.by]) : ""}</div>
+        <div class="bkrow"><span class="bkc ${ps.cls}">${ps.label}</span>${ps.cls !== "ok" ? `<button class="btn small" data-bkpay="${b.id}" type="button">টাকা জমা নিন</button>` : ""}</div></div>
+      <div class="amt">${b.amount ? tk(b.amount) : ""}${b.amount ? `<br><span class="s">মোট প্রণামী</span>` : ""}</div></div>`;
   }
   $("bkList").innerHTML = html + `</div>`;
 }
@@ -426,7 +441,39 @@ const bkRows = y => (BK || []).filter(b => yearOf(b.eventDate) === y).sort((a, b
 $("bkYear").onchange = () => { bkYear = +$("bkYear").value; renderBooking(); };
 $("bkSearch").addEventListener("input", () => renderBooking());
 $("bkAdd").onclick = () => bookingForm(null);
-$("bkList").addEventListener("click", e => { const t = e.target.closest("[data-bk]"); if (t) bookingForm(t.dataset.bk); });
+$("bkList").addEventListener("click", e => {
+  const p = e.target.closest("[data-bkpay]"); if (p) { e.stopPropagation(); payBooking(p.dataset.bkpay); return; }
+  const t = e.target.closest("[data-bk]"); if (t) bookingForm(t.dataset.bk);
+});
+document.querySelectorAll("#bkFilter button").forEach(x => x.onclick = () => { bkFilter = x.dataset.f; renderBooking(); });
+/* the money part of the booking form and the payment sheet: amount now, how, and the "fully paid" tick */
+function payFields(due, isNew) {
+  return `<div class="row2"><label>${isNew ? "আজ জমা (৳)" : "এখন জমা (৳)"}<input id="pyNow" inputmode="decimal" placeholder="${isNew ? "অগ্রিম না দিলে খালি" : ""}"></label>
+      <label>মাধ্যম<select id="pyMode">${modeOptions("নগদ")}</select></label></div>
+    <label class="chk"><input type="checkbox" id="pySettle"> পুরো প্রণামী পরিশোধিত</label>
+    <p class="note" id="pyNote">${due > 0 ? "বাকি " + tk(due) + "।" : ""} জমার টাকা আয়ের হিসাবে "পূজা-যজ্ঞ-উৎসব অনুদান" খাতে নিজে থেকেই উঠবে, আলাদা করে লিখতে হবে না।</p>`;
+}
+function wirePay(b, getDue) {
+  const now = b.querySelector("#pyNow"), tick = b.querySelector("#pySettle");
+  tick.addEventListener("change", () => { const d = getDue(); if (tick.checked && !now.value && d > 0) now.value = d; });
+}
+function payBooking(id) {
+  const x = BK.find(b => b.id === id); if (!x) return;
+  const ps = bkState(x);
+  openSheet("টাকা জমা", `<form class="form" id="pyForm"><p><b>${esc(x.name)}</b> · ${fmtDate(x.eventDate)} · ${esc(x.occasion || "অনুষ্ঠান")}<br>
+    মোট প্রণামী ${tk(ps.total)} · জমা হয়েছে ${tk(ps.paid)} · <b class="bkc ${ps.cls}">বাকি ${tk(ps.due)}</b></p>
+    ${payHistory(x)}${payFields(ps.due, false)}
+    <label>জমার তারিখ<input type="date" id="pyDate" value="${D.today}"></label>
+    <button class="btn wide">সংরক্ষণ করুন</button></form>`, b => {
+    b.querySelector("#pyNow").value = ps.due > 0 ? ps.due : "";
+    wirePay(b, () => ps.due);
+    b.querySelector("#pyForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      const j = await api("booking_pay", {id, pay: toEn(b.querySelector("#pyNow").value), mode: b.querySelector("#pyMode").value, payDate: b.querySelector("#pyDate").value, settled: b.querySelector("#pySettle").checked});
+      BK = j.bookings; closeSheet(); const s2 = bkState(j.booking);
+      toast(s2.cls === "ok" ? "জমা হয়েছে। প্রণামী পুরো পরিশোধিত।" : `জমা হয়েছে। বাকি ${tk(s2.due)}।`); renderBooking(); reload().catch(() => {}); }); };
+  });
+}
+const payHistory = x => (x.payments || []).length ? `<div class="note">এ পর্যন্ত জমা: ${(x.payments || []).map(p => `${fmtDate(p.date)} ${tk(p.amount)}${p.mode ? " (" + esc(p.mode) + ")" : ""}`).join(", ")}</div>` : "";
 function bookingForm(id) {
   const x = id ? BK.find(b => b.id === id) : null; if (id && !x) return;
   const v = k => esc(x ? x[k] ?? "" : "");
@@ -439,19 +486,27 @@ function bookingForm(id) {
     <label>মোবাইল নং<input id="bkM" type="tel" inputmode="numeric" maxlength="14" placeholder="01XXXXXXXXX" value="${v("mobile")}"></label>
     <div class="row2"><label>কুষ্টির নাম<input id="bkK" value="${v("kusti")}"></label><label>গোত্র<input id="bkG" value="${v("gotra")}"></label></div>
     <label>উপলক্ষ<input id="bkO" value="${v("occasion")}" placeholder="যেমন: অন্নপ্রাশন, শ্রাদ্ধ, বিবাহ, নামকীর্তন"></label>
-    <div class="row2"><label>প্রণামী (৳)<input id="bkP" inputmode="decimal" value="${x && x.amount ? esc(x.amount) : ""}"></label><label>লোকসংখ্যা<input id="bkL" inputmode="numeric" value="${x && x.people ? esc(x.people) : ""}"></label></div>
+    <label>লোকসংখ্যা<input id="bkL" inputmode="numeric" value="${x && x.people ? esc(x.people) : ""}"></label>
     <label>আইটেম<textarea id="bkI" rows="3" placeholder="যেমন: খিচুড়ি, লাবড়া, পায়েস">${v("items")}</textarea></label>
+    <h3 class="sub" style="margin-top:6px">প্রণামী</h3>
+    <label>মোট প্রণামী (৳)<input id="bkP" inputmode="decimal" value="${x && x.amount ? esc(x.amount) : ""}" placeholder="যত টাকা ঠিক হয়েছে"></label>
+    ${x ? payHistory(x) : ""}${x && bkState(x).cls === "ok" && x.settled ? "" : payFields(x ? bkState(x).due : 0, !x)}
     <button class="btn wide">${x ? "হালনাগাদ করুন" : "বুকিং সংরক্ষণ করুন"}</button>
     ${x ? `<button class="btn ghost wide" type="button" id="bkDel" style="margin-top:8px">বুকিং বাতিল করুন</button>` : ""}
-    <p class="note">প্রণামীর টাকা হাতে পেলে আয়/ব্যয় পাতায় জমা হিসেবেও লিখে রাখুন।</p></form>`, b => {
+    ${x && (x.payments || []).length ? `<p class="note">বাতিল করলেও জমা টাকা আয়ের হিসাবে থেকে যাবে। টাকা ফেরত দিলে দৈনিক খরচে লিখুন।</p>` : ""}</form>`, b => {
     const g = i => b.querySelector("#" + i).value;
+    const hasPay = !!b.querySelector("#pyNow");
+    if (hasPay) wirePay(b, () => Math.max(0, (Number(toEn(g("bkP"))) || 0) - (x ? bkPaid(x) : 0)));
     const same = () => { const d = g("bkE"), n = (BK || []).filter(o => o.eventDate === d && o.id !== id); const el = b.querySelector("#bkSame");
       el.hidden = !d || !n.length; el.textContent = n.length ? `এই তারিখে আগে থেকেই ${bnd(n.length)}টি বুকিং আছে: ${n.map(o => o.name + (o.occasion ? " (" + o.occasion + ")" : "")).join(", ")}` : ""; };
     b.querySelector("#bkE").addEventListener("input", same); same();
     b.querySelector("#bkForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
       const j = await api("booking_save", {id: id || "", bookingDate: g("bkB"), eventDate: g("bkE"), name: g("bkN"), address: g("bkA"), mobile: toEn(g("bkM")),
-        kusti: g("bkK"), gotra: g("bkG"), occasion: g("bkO"), amount: toEn(g("bkP")), people: toEn(g("bkL")), items: g("bkI")});
-      BK = j.bookings; bkYear = yearOf(j.booking.eventDate); closeSheet(); toast(x ? "হালনাগাদ হয়েছে।" : `বুকিং হয়েছে। ক্রমিক ${bnd(j.booking.serial)}।`); renderBooking(); }); };
+        kusti: g("bkK"), gotra: g("bkG"), occasion: g("bkO"), amount: toEn(g("bkP")), people: toEn(g("bkL")), items: g("bkI"),
+        pay: hasPay ? toEn(g("pyNow")) : "", mode: hasPay ? g("pyMode") : "", settled: hasPay ? b.querySelector("#pySettle").checked : !!(x && x.settled)});
+      BK = j.bookings; bkYear = yearOf(j.booking.eventDate); closeSheet(); const s2 = bkState(j.booking);
+      toast((x ? "হালনাগাদ হয়েছে। " : `বুকিং হয়েছে, ক্রমিক ${bnd(j.booking.serial)}। `) + (s2.cls === "ok" ? "প্রণামী পরিশোধিত।" : s2.due ? `বাকি ${tk(s2.due)}।` : ""));
+      renderBooking(); if (hasPay && toEn(g("pyNow"))) reload().catch(() => {}); }); };
     if (x) b.querySelector("#bkDel").onclick = ev => {
       const r = b.querySelector("#bkWhy");
       if (!r) { ev.target.insertAdjacentHTML("beforebegin", `<label>বাতিলের কারণ<input id="bkWhy" placeholder="যেমন: আয়োজক বাতিল করেছেন"></label>`); ev.target.textContent = "নিশ্চিত, বাতিল করুন"; ev.target.classList.add("danger"); return; }
@@ -464,11 +519,11 @@ $("bkPrint").onclick = () => {
   const y = bkYear || bkDefaultYear(), rows = bkRows(y), tot = rows.reduce((s, b) => s + (Number(b.amount) || 0), 0);
   showPrint(`<div class="psheet pwide"><div class="ph"><b>শ্রীশ্রী বাসুদেব যোগাশ্রম</b><span>নেহালপুর, হাটহাজারী, চট্টগ্রাম</span></div>
     <h2>অনুষ্ঠান বহিঃ ${bnd(y)} সাল</h2><p>মোট ${bnd(rows.length)}টি বুকিং</p>
-    <table><thead><tr><th>ক্রম</th><th>অনুষ্ঠানের তারিখ</th><th>উপলক্ষ</th><th>আয়োজন কর্তা ও ঠিকানা</th><th>মোবাইল</th><th>কুষ্টি / গোত্র</th><th class="n">লোক</th><th>আইটেম</th><th class="n">প্রণামী</th><th>বুকিং তারিখ</th></tr></thead><tbody>
+    <table><thead><tr><th>ক্রম</th><th>অনুষ্ঠানের তারিখ</th><th>উপলক্ষ</th><th>আয়োজন কর্তা ও ঠিকানা</th><th>মোবাইল</th><th>কুষ্টি / গোত্র</th><th class="n">লোক</th><th>আইটেম</th><th class="n">প্রণামী</th><th class="n">জমা</th><th class="n">বাকি</th><th>বুকিং তারিখ</th></tr></thead><tbody>
     ${rows.map(b => `<tr><td>${bnd(b.serial)}</td><td>${fmtDate(b.eventDate)}</td><td>${esc(b.occasion)}</td><td><b>${esc(b.name)}</b>${b.address ? "<br><small>" + esc(b.address) + "</small>" : ""}</td>
       <td>${esc(b.mobile || "")}</td><td>${esc(b.kusti || "")}${b.gotra ? "<br><small>" + esc(b.gotra) + "</small>" : ""}</td><td class="n">${b.people ? bnd(b.people) : ""}</td><td><small>${esc(b.items || "")}</small></td>
-      <td class="n">${b.amount ? tk(b.amount) : ""}</td><td>${fmtDate(b.bookingDate)}</td></tr>`).join("") || `<tr><td colspan="10">কোনো বুকিং নেই</td></tr>`}
-    ${isAdmin() && rows.length ? `<tr class="tot"><td colspan="8"><b>মোট প্রণামী</b></td><td class="n"><b>${tk(tot)}</b></td><td></td></tr>` : ""}</tbody></table>
+      <td class="n">${b.amount ? tk(b.amount) : ""}</td><td class="n">${bkPaid(b) ? tk(bkPaid(b)) : ""}</td><td class="n">${(s => s.cls === "ok" ? "পরিশোধিত" : s.due ? tk(s.due) : "")(bkState(b))}</td><td>${fmtDate(b.bookingDate)}</td></tr>`).join("") || `<tr><td colspan="12">কোনো বুকিং নেই</td></tr>`}
+    ${isAdmin() && rows.length ? `<tr class="tot"><td colspan="8"><b>মোট</b></td><td class="n"><b>${tk(tot)}</b></td><td class="n"><b>${tk(rows.reduce((s, b) => s + bkPaid(b), 0))}</b></td><td class="n"><b>${tk(rows.reduce((s, b) => s + bkState(b).due, 0))}</b></td><td></td></tr>` : ""}</tbody></table>
     <p class="pfoot">প্রিন্টের সময়: ${fmtDate(D.today)} ${new Date().toTimeString().slice(0, 5)}</p></div>`, `অনুষ্ঠান-বহি_${y}`, {landscape: true});
 };
 

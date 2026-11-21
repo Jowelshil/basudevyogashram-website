@@ -14,7 +14,7 @@
 <title>বাসুদেব যোগাশ্রম হিসাব</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=18">
+<link rel="stylesheet" href="app.css?v=19">
 </head>
 <body>
 
@@ -138,6 +138,11 @@
           <button class="btn ghost" id="bkPrint" type="button">তালিকা প্রিন্ট / PDF</button>
         </div>
         <input id="bkSearch" type="search" placeholder="নাম, মোবাইল, গোত্র বা উপলক্ষ দিয়ে খুঁজুন" style="margin-top:10px">
+        <div class="seg dashseg" id="bkFilter" style="margin-top:10px">
+          <button type="button" data-f="" aria-pressed="true">সব</button>
+          <button type="button" data-f="due" aria-pressed="false">বাকি আছে</button>
+          <button type="button" data-f="ok" aria-pressed="false">পরিশোধিত</button>
+        </div>
         <p class="muted" id="bkSum" style="margin:8px 0 0"></p>
       </div>
       <div id="bkList"></div>
@@ -332,6 +337,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=39"></script>
+<script src="app.js?v=40"></script>
 </body>
 </html>
