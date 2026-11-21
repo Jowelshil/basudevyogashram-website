@@ -208,9 +208,10 @@ tr.tot td{font-weight:700;border-bottom:0}
 
 /* print view */
 #printArea{display:none}
-body.printing>*:not(#printArea){display:none!important}
-body.printing #printArea{display:block;background:#fff;color:#111;min-height:100vh;padding:16px;padding-top:calc(16px + env(safe-area-inset-top))}
-.pbar{display:flex;gap:8px;justify-content:space-between;margin-bottom:14px}
+/* on screen the sheet covers the app (nothing is hidden, so the PDF maker can draw it); on paper only the sheet prints */
+body.printing{overflow:hidden}
+body.printing #printArea{display:block;position:fixed;inset:0;z-index:500;overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;color:#111;padding:16px;padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.pbar{display:flex;gap:8px;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap}.pbar-r{display:flex;gap:8px}
 .psheet{font-size:13px;max-width:800px;margin:0 auto}
 .psheet .ph{display:flex;flex-direction:column;align-items:center;border-bottom:2px solid #333;padding-bottom:6px;margin-bottom:10px}
 .psheet .ph b{font-family:var(--display,inherit);font-size:20px}
@@ -223,7 +224,7 @@ body.printing #printArea{display:block;background:#fff;color:#111;min-height:100
 .psheet .psign{display:flex;justify-content:space-between;margin-top:48px}
 .psheet .psign span{border-top:1px solid #333;padding-top:4px;min-width:38%;text-align:center}
 .psheet .pfoot{font-size:11px;color:#555;margin-top:14px}
-@media print{.pbar{display:none!important}body.printing #printArea{padding:0;min-height:0}.psheet tr{break-inside:avoid}@page{size:A4;margin:12mm}}
+@media print{body.printing>*:not(#printArea){display:none!important}body.printing{overflow:visible}.pbar{display:none!important}body.printing #printArea{position:static;overflow:visible;padding:0;min-height:0}.psheet tr{break-inside:avoid}@page{size:A4;margin:12mm}}
 #drBody .psheet{font-size:14px;background:#fff;color:#111;border:1px solid #ddd;border-radius:8px;padding:12px;margin-top:4px}
 #drBody .psheet .psign{margin-top:32px}
 .psheet .inc{color:#1d6b3a}.psheet .exp{color:#a02c2c}.psheet .con{color:#2d4a8a}

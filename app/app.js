@@ -876,9 +876,25 @@ function printDaily(uid) {
 function showPrint(html, title) {
   let box = $("printArea");
   if (!box) { box = document.createElement("div"); box.id = "printArea"; document.body.appendChild(box); }
-  box.innerHTML = `<div class="pbar"><button class="btn ghost" id="pClose">← ফিরে যান</button><button class="btn" id="pGo">প্রিন্ট / PDF সেভ</button></div>${html}`;
+  box.innerHTML = `<div class="pbar"><button class="btn ghost" id="pClose">← ফিরে যান</button><span class="pbar-r"><button class="btn ghost" id="pShare">PDF শেয়ার</button><button class="btn" id="pGo">প্রিন্ট</button></span></div>${html}`;
   const t0 = document.title; document.title = title; document.body.classList.add("printing"); window.scrollTo(0, 0);
   closePrint = () => { document.body.classList.remove("printing"); document.title = t0; box.innerHTML = ""; closePrint = null; };
+  let ready = null; // the PDF, once made: a second tap shares it at once (iPhone wants the share to follow a tap closely)
+  $("pShare").onclick = async ev => {
+    const btn = ev.currentTarget;
+    if (btn.disabled) return;
+    try {
+      if (!ready) {
+        btn.disabled = true; btn.textContent = "PDF তৈরি হচ্ছে…";
+        ready = await makePdf(box.querySelector(".psheet"), title);
+        btn.disabled = false; btn.textContent = "PDF শেয়ার";
+      }
+      const r = await sharePdf(ready);
+      if (r === "again") { btn.textContent = "PDF তৈরি, শেয়ার করতে চাপুন"; toast("PDF তৈরি হয়েছে। শেয়ার করতে আবার চাপুন।"); }
+      else if (r === "saved") toast("এই ব্রাউজারে সরাসরি শেয়ার হয় না, PDF ডাউনলোড হয়েছে। সেখান থেকে পাঠান।");
+      else btn.textContent = "PDF শেয়ার";
+    } catch (e) { btn.disabled = false; btn.textContent = "PDF শেয়ার"; toast("PDF তৈরি করা যায়নি: " + (e.message || e)); }
+  };
   $("pClose").onclick = () => closePrint();
   $("pGo").onclick = () => {
     if (window.Shell && typeof Shell.print === "function") Shell.print(title);
@@ -887,6 +903,49 @@ function showPrint(html, title) {
   };
 }
 let closePrint = null;
+
+/* ---- PDF to share (WhatsApp, Messenger, email, Drive …) ----
+   The sheet is drawn as an A4 PDF in the phone itself (html2pdf: html2canvas + jsPDF, loaded only when first needed),
+   so Bangla text comes out exactly as on screen. */
+function loadPdfLib() {
+  if (window.html2pdf) return Promise.resolve();
+  return loadPdfLib.p || (loadPdfLib.p = new Promise((ok, no) => {
+    const s = document.createElement("script"); s.src = "vendor/html2pdf.bundle.min.js?v=0.10.2";
+    s.onload = ok; s.onerror = () => { loadPdfLib.p = null; no(new Error("ইন্টারনেট সংযোগ দেখুন")); };
+    document.head.appendChild(s);
+  }));
+}
+const pdfName = t => (t || "হিসাব").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "_").slice(0, 80) + ".pdf";
+async function makePdf(el, title) {
+  await loadPdfLib();
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  const blob = await html2pdf().set({
+    margin: [10, 10, 12, 10], filename: pdfName(title),
+    image: {type: "jpeg", quality: 0.92},
+    html2canvas: {scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
+      // html2pdf hides its working copy (opacity 0); in the copy that gets drawn it must be visible, in sheet colours
+      onclone: doc => { const c = doc.querySelector(".html2pdf__container"); if (c) { c.style.background = "#fff"; c.style.color = "#111"; } }},
+    jsPDF: {unit: "mm", format: "a4", orientation: "portrait"},
+    pagebreak: {mode: ["css", "legacy"], avoid: ["tr", ".psign", ".ph"]}
+  }).from(el).outputPdf("blob");
+  return {blob, name: pdfName(title), title};
+}
+async function sharePdf({blob, name, title}) {
+  // Android app: the shell writes the file and opens Android's share list
+  if (window.Shell && typeof Shell.sharePdf === "function") {
+    const b64 = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = no; r.readAsDataURL(blob); });
+    Shell.sharePdf(b64, name, title); return "shared";
+  }
+  const file = new File([blob], name, {type: "application/pdf"});
+  if (navigator.canShare && navigator.canShare({files: [file]})) {
+    try { await navigator.share({files: [file], title}); return "shared"; }
+    catch (e) { if (e.name === "AbortError") return "shared"; if (e.name === "NotAllowedError") return "again"; throw e; }
+  }
+  if (inShell()) throw new Error("এই পুরনো অ্যাপে শেয়ার হয় না, নতুন অ্যাপ (APK) ইনস্টল করুন");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  return "saved";
+}
 
 /* ================= admin: reports ================= */
 function initReport() { fillCatSel(); const t = D.today; $("rMonth").value = t.slice(0, 7); $("rYear").value = t.slice(0, 4); $("rFrom").value = t.slice(0, 7) + "-01"; $("rTo").value = t; }
