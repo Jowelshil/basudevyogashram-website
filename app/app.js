@@ -876,7 +876,7 @@ function printDaily(uid) {
 function showPrint(html, title) {
   let box = $("printArea");
   if (!box) { box = document.createElement("div"); box.id = "printArea"; document.body.appendChild(box); }
-  box.innerHTML = `<div class="pbar"><button class="btn ghost" id="pClose">← ফিরে যান</button><span class="pbar-r"><button class="btn ghost" id="pShare">PDF শেয়ার</button><button class="btn" id="pGo">প্রিন্ট</button></span></div>${html}`;
+  box.innerHTML = `<div class="pbar"><button class="btn ghost" id="pClose">← ফিরে যান</button><span class="pbar-r"><button class="btn ghost icon-share" id="pShare" aria-label="PDF শেয়ার" title="PDF শেয়ার">${SHARE_ICON}</button><button class="btn" id="pGo">প্রিন্ট</button></span></div>${html}`;
   const t0 = document.title; document.title = title; document.body.classList.add("printing"); window.scrollTo(0, 0);
   closePrint = () => { document.body.classList.remove("printing"); document.title = t0; box.innerHTML = ""; closePrint = null; };
   let ready = null; // the PDF, once made: a second tap shares it at once (iPhone wants the share to follow a tap closely)
@@ -885,15 +885,15 @@ function showPrint(html, title) {
     if (btn.disabled) return;
     try {
       if (!ready) {
-        btn.disabled = true; btn.textContent = "PDF তৈরি হচ্ছে…";
+        btn.disabled = true; btn.classList.add("busy");
         ready = await makePdf(box.querySelector(".psheet"), title);
-        btn.disabled = false; btn.textContent = "PDF শেয়ার";
+        btn.disabled = false; btn.classList.remove("busy");
       }
       const r = await sharePdf(ready);
-      if (r === "again") { btn.textContent = "PDF তৈরি, শেয়ার করতে চাপুন"; toast("PDF তৈরি হয়েছে। শেয়ার করতে আবার চাপুন।"); }
+      if (r === "again") { btn.classList.add("ready"); toast("PDF তৈরি হয়েছে। শেয়ার করতে আবার চাপুন।"); }
       else if (r === "saved") toast("এই ব্রাউজারে সরাসরি শেয়ার হয় না, PDF ডাউনলোড হয়েছে। সেখান থেকে পাঠান।");
-      else btn.textContent = "PDF শেয়ার";
-    } catch (e) { btn.disabled = false; btn.textContent = "PDF শেয়ার"; toast("PDF তৈরি করা যায়নি: " + (e.message || e)); }
+      else btn.classList.remove("ready");
+    } catch (e) { btn.disabled = false; btn.classList.remove("busy", "ready"); toast("PDF তৈরি করা যায়নি: " + (e.message || e)); }
   };
   $("pClose").onclick = () => closePrint();
   $("pGo").onclick = () => {
@@ -903,6 +903,8 @@ function showPrint(html, title) {
   };
 }
 let closePrint = null;
+/* the usual share mark: a box with an arrow going up out of it */
+const SHARE_ICON = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10H6.5A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 17.5 10H16"/></svg>`;
 
 /* ---- PDF to share (WhatsApp, Messenger, email, Drive …) ----
    The sheet is drawn as an A4 PDF in the phone itself (html2pdf: html2canvas + jsPDF, loaded only when first needed),

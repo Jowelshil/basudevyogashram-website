@@ -230,3 +230,6 @@ body.printing #printArea{display:block;position:fixed;inset:0;z-index:500;overfl
 .psheet .inc{color:#1d6b3a}.psheet .exp{color:#a02c2c}.psheet .con{color:#2d4a8a}
 .preport .kpis{grid-template-columns:repeat(4,1fr)}.preport .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 #v-other .item .amt .chip{margin-top:4px;display:inline-block}
+.icon-share{width:48px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}
+.icon-share.busy svg{animation:sharepulse 1s ease-in-out infinite}.icon-share.ready{border-color:var(--accent,#d4621a);color:var(--accent,#d4621a)}
+@keyframes sharepulse{50%{opacity:.25}}
