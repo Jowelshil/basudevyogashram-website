@@ -14,7 +14,7 @@
 <title>বাসুদেব যোগাশ্রম হিসাব</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="app.css?v=17">
+<link rel="stylesheet" href="app.css?v=18">
 </head>
 <body>
 
@@ -129,7 +129,21 @@
       <div id="lifeList"></div>
     </section>
 
-    <!-- Tab 5: স্কুল ও কলেজ -->
+    <!-- Tab 5: অনুষ্ঠান বহি -->
+    <section class="view" id="v-booking" hidden>
+      <div class="card">
+        <div class="card-head"><h2 id="bkTitle">অনুষ্ঠান বহিঃ</h2><select id="bkYear" aria-label="সাল"></select></div>
+        <div class="row2" style="align-items:end">
+          <button class="btn" id="bkAdd" type="button">নতুন বুকিং</button>
+          <button class="btn ghost" id="bkPrint" type="button">তালিকা প্রিন্ট / PDF</button>
+        </div>
+        <input id="bkSearch" type="search" placeholder="নাম, মোবাইল, গোত্র বা উপলক্ষ দিয়ে খুঁজুন" style="margin-top:10px">
+        <p class="muted" id="bkSum" style="margin:8px 0 0"></p>
+      </div>
+      <div id="bkList"></div>
+    </section>
+
+    <!-- Tab 6: স্কুল ও কলেজ -->
     <section class="view" id="v-other" hidden>
       <h2 class="vh">স্কুল ও কলেজ</h2>
       <div class="seg dashseg" id="scSeg" style="margin:0" hidden>
@@ -283,6 +297,7 @@
     <button data-tab="monthly"><span class="ti">◷</span>মাসিক প্রণামী</button>
     <button data-tab="land"><span class="ti">▦</span>ভূমিদাতা</button>
     <button data-tab="life"><span class="ti">✦</span>আজীবন সদস্য</button>
+    <button data-tab="booking"><span class="ti">✿</span>অনুষ্ঠান</button>
     <button data-tab="other"><span class="ti">✎</span>স্কুল ও কলেজ</button>
   </nav>
 </div>
@@ -317,6 +332,6 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="app.js?v=38"></script>
+<script src="app.js?v=39"></script>
 </body>
 </html>

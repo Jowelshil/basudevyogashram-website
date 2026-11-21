@@ -191,7 +191,7 @@ $("setupForm").addEventListener("submit", e => { e.preventDefault(); guard(e.sub
     token = j.token; store.set("bya_token", token); await reload(); enterApp(); toast("অ্যাডমিন অ্যাকাউন্ট তৈরি হয়েছে। এখন ইউজার যোগ করুন।"); go("users"); }
   catch (err) { $("authMsg").textContent = err.message; }
 }); });
-function logoutLocal(msg) { SC = null; scTab = "cost"; extraYears.clear(); needYears.failed.clear(); token = null; me = null; enterApp.done = false; view = "ledger"; store.set("bya_token", null); showAuth(msg); }
+function logoutLocal(msg) { SC = null; scTab = "cost"; BK = null; bkYear = null; extraYears.clear(); needYears.failed.clear(); token = null; me = null; enterApp.done = false; view = "ledger"; store.set("bya_token", null); showAuth(msg); }
 $("logoutBtn").onclick = async () => { closeMenu(); try { await api("logout"); } catch (e) {} logoutLocal("লগআউট হয়েছে।"); };
 
 /* The server sends this year's accounts. An older year is fetched only when a screen needs it
@@ -244,7 +244,7 @@ function enterApp() {
 }
 
 /* ---------- navigation ---------- */
-const TABS = ["ledger", "monthly", "land", "life", "other"];
+const TABS = ["ledger", "monthly", "land", "life", "booking", "other"];
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { if (b.dataset.tab === "monthly") curArea = null; go(b.dataset.tab); });
 function go(v) {
   if (!isAdmin() && !TABS.includes(v) && v !== "password") v = "ledger";
@@ -258,7 +258,7 @@ function go(v) {
   render();
 }
 function render() {
-  ({ledger: renderLedger, monthly: renderMonthly, land: renderLand, life: renderLife, other: renderSchool, dash: renderDash, daily: renderDaily,
+  ({ledger: renderLedger, monthly: renderMonthly, land: renderLand, life: renderLife, booking: renderBooking, other: renderSchool, dash: renderDash, daily: renderDaily,
     report: renderReport, invite: renderInvite, users: renderUsers, sms: loadSms, records: renderRecords}[view] || (() => {}))();
 }
 document.querySelector(".brand").onclick = () => go(homeView());
@@ -382,7 +382,97 @@ function deleteEntry(id) {
   });
 }
 
-/* ================= Tab 5: স্কুল ও কলেজ =================
+/* ================= Tab 5: অনুষ্ঠান বহি =================
+   The year's book of ceremonies held at the ashram, by the ceremony's date. Anyone (not the pranami collectors)
+   adds a booking and sees the book, so a date can be checked; the admin edits or cancels. */
+let BK = null, bkYear = null;
+const yearOf = d => +String(d || "").slice(0, 4);
+function bkDefaultYear() {
+  const t = D.today, y = yearOf(t);
+  return +t.slice(5, 7) >= 11 ? y + 1 : y;   // from November the coming year's book is the one in use
+}
+function renderBooking() {
+  if (!BK) {
+    $("bkList").innerHTML = `<div class="empty">আনা হচ্ছে…</div>`;
+    if (!renderBooking.busy) { renderBooking.busy = true; api("booking_list").then(j => { BK = j.bookings; }).catch(e => { toast(e.message); BK = []; })
+      .finally(() => { renderBooking.busy = false; if (view === "booking") renderBooking(); }); }
+    return;
+  }
+  if (!bkYear) bkYear = bkDefaultYear();
+  const ys = [...new Set([yearOf(D.today), yearOf(D.today) + 1, bkYear, ...BK.map(b => yearOf(b.eventDate))])].sort((a, b) => b - a);
+  $("bkYear").innerHTML = ys.map(y => `<option value="${y}"${y === bkYear ? " selected" : ""}>${bnd(y)}</option>`).join("");
+  $("bkTitle").textContent = `অনুষ্ঠান বহিঃ ${bnd(bkYear)} সাল`;
+  const q = $("bkSearch").value.trim().toLowerCase();
+  const list = bkRows(bkYear).filter(b => !q || [b.name, b.mobile, b.address, b.gotra, b.kusti, b.occasion, b.items].join(" ").toLowerCase().includes(q));
+  const tot = list.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  $("bkSum").textContent = `${bnd(list.length)}টি বুকিং` + (isAdmin() ? ` · মোট প্রণামী ${tk(tot)}` : "") + (q ? " (খোঁজার ফল)" : "");
+  if (!list.length) { $("bkList").innerHTML = `<div class="empty">${q ? "খুঁজে পাওয়া যায়নি।" : `${bnd(bkYear)} সালের কোনো বুকিং এখনো নেই।`}</div>`; return; }
+  const today = D.today; let html = "", cur = "";
+  for (const b of list) {
+    const m = b.eventDate.slice(0, 7);
+    if (m !== cur) { if (cur) html += `</div>`; cur = m; html += `<div class="card"><h3 class="sub">${monthName(m)}</h3>`; }
+    const past = b.eventDate < today;
+    html += `<div class="item${past ? " past" : ""}"${isAdmin() ? ` data-bk="${b.id}" style="cursor:pointer"` : ""}><div class="sn">${bnd(b.serial)}</div>
+      <div><div class="t">${fmtDate(b.eventDate)} · ${esc(b.occasion || "অনুষ্ঠান")}</div>
+        <div class="s"><b>${esc(b.name)}</b>${b.mobile ? " · " + esc(b.mobile) : ""}${b.address ? " · " + esc(b.address) : ""}</div>
+        <div class="s">${esc([b.kusti ? "কুষ্টি: " + b.kusti : "", b.gotra ? "গোত্র: " + b.gotra : "", b.people ? "লোকসংখ্যা: " + bnd(b.people) : ""].filter(Boolean).join(" · "))}</div>
+        ${b.items ? `<div class="s">আইটেম: ${esc(b.items)}</div>` : ""}
+        <div class="s">বুকিং: ${fmtDate(b.bookingDate)}${D.names[b.by] && isAdmin() ? " · " + esc(D.names[b.by]) : ""}</div></div>
+      <div class="amt">${b.amount ? tk(b.amount) : ""}</div></div>`;
+  }
+  $("bkList").innerHTML = html + `</div>`;
+}
+const bkRows = y => (BK || []).filter(b => yearOf(b.eventDate) === y).sort((a, b) => a.eventDate.localeCompare(b.eventDate) || a.serial - b.serial);
+$("bkYear").onchange = () => { bkYear = +$("bkYear").value; renderBooking(); };
+$("bkSearch").addEventListener("input", () => renderBooking());
+$("bkAdd").onclick = () => bookingForm(null);
+$("bkList").addEventListener("click", e => { const t = e.target.closest("[data-bk]"); if (t) bookingForm(t.dataset.bk); });
+function bookingForm(id) {
+  const x = id ? BK.find(b => b.id === id) : null; if (id && !x) return;
+  const v = k => esc(x ? x[k] ?? "" : "");
+  openSheet(x ? "বুকিং সম্পাদনা" : "নতুন অনুষ্ঠান বুকিং", `<form class="form" id="bkForm" autocomplete="off">
+    <div class="row2"><label>বুকিং তারিখ<input type="date" id="bkB" value="${x ? v("bookingDate") : D.today}" required></label>
+      <label>অনুষ্ঠানের তারিখ<input type="date" id="bkE" value="${v("eventDate")}" required></label></div>
+    <p class="note" id="bkSame" hidden></p>
+    <label>আয়োজন কর্তার নাম<input id="bkN" value="${v("name")}" required></label>
+    <label>ঠিকানা<input id="bkA" value="${v("address")}"></label>
+    <label>মোবাইল নং<input id="bkM" type="tel" inputmode="numeric" maxlength="14" placeholder="01XXXXXXXXX" value="${v("mobile")}"></label>
+    <div class="row2"><label>কুষ্টির নাম<input id="bkK" value="${v("kusti")}"></label><label>গোত্র<input id="bkG" value="${v("gotra")}"></label></div>
+    <label>উপলক্ষ<input id="bkO" value="${v("occasion")}" placeholder="যেমন: অন্নপ্রাশন, শ্রাদ্ধ, বিবাহ, নামকীর্তন"></label>
+    <div class="row2"><label>প্রণামী (৳)<input id="bkP" inputmode="decimal" value="${x && x.amount ? esc(x.amount) : ""}"></label><label>লোকসংখ্যা<input id="bkL" inputmode="numeric" value="${x && x.people ? esc(x.people) : ""}"></label></div>
+    <label>আইটেম<textarea id="bkI" rows="3" placeholder="যেমন: খিচুড়ি, লাবড়া, পায়েস">${v("items")}</textarea></label>
+    <button class="btn wide">${x ? "হালনাগাদ করুন" : "বুকিং সংরক্ষণ করুন"}</button>
+    ${x ? `<button class="btn ghost wide" type="button" id="bkDel" style="margin-top:8px">বুকিং বাতিল করুন</button>` : ""}
+    <p class="note">প্রণামীর টাকা হাতে পেলে আয়/ব্যয় পাতায় জমা হিসেবেও লিখে রাখুন।</p></form>`, b => {
+    const g = i => b.querySelector("#" + i).value;
+    const same = () => { const d = g("bkE"), n = (BK || []).filter(o => o.eventDate === d && o.id !== id); const el = b.querySelector("#bkSame");
+      el.hidden = !d || !n.length; el.textContent = n.length ? `এই তারিখে আগে থেকেই ${bnd(n.length)}টি বুকিং আছে: ${n.map(o => o.name + (o.occasion ? " (" + o.occasion + ")" : "")).join(", ")}` : ""; };
+    b.querySelector("#bkE").addEventListener("input", same); same();
+    b.querySelector("#bkForm").onsubmit = ev => { ev.preventDefault(); guard(ev.submitter, async () => {
+      const j = await api("booking_save", {id: id || "", bookingDate: g("bkB"), eventDate: g("bkE"), name: g("bkN"), address: g("bkA"), mobile: toEn(g("bkM")),
+        kusti: g("bkK"), gotra: g("bkG"), occasion: g("bkO"), amount: toEn(g("bkP")), people: toEn(g("bkL")), items: g("bkI")});
+      BK = j.bookings; bkYear = yearOf(j.booking.eventDate); closeSheet(); toast(x ? "হালনাগাদ হয়েছে।" : `বুকিং হয়েছে। ক্রমিক ${bnd(j.booking.serial)}।`); renderBooking(); }); };
+    if (x) b.querySelector("#bkDel").onclick = ev => {
+      const r = b.querySelector("#bkWhy");
+      if (!r) { ev.target.insertAdjacentHTML("beforebegin", `<label>বাতিলের কারণ<input id="bkWhy" placeholder="যেমন: আয়োজক বাতিল করেছেন"></label>`); ev.target.textContent = "নিশ্চিত, বাতিল করুন"; ev.target.classList.add("danger"); return; }
+      guard(ev.target, async () => { const j = await api("booking_delete", {id, reason: r.value.trim()}); BK = j.bookings; closeSheet(); toast("বুকিং বাতিল হয়েছে।"); renderBooking(); });
+    };
+  });
+}
+$("bkPrint").onclick = () => {
+  if (!BK) return;
+  const y = bkYear || bkDefaultYear(), rows = bkRows(y), tot = rows.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  showPrint(`<div class="psheet pwide"><div class="ph"><b>শ্রীশ্রী বাসুদেব যোগাশ্রম</b><span>নেহালপুর, হাটহাজারী, চট্টগ্রাম</span></div>
+    <h2>অনুষ্ঠান বহিঃ ${bnd(y)} সাল</h2><p>মোট ${bnd(rows.length)}টি বুকিং</p>
+    <table><thead><tr><th>ক্রম</th><th>অনুষ্ঠানের তারিখ</th><th>উপলক্ষ</th><th>আয়োজন কর্তা ও ঠিকানা</th><th>মোবাইল</th><th>কুষ্টি / গোত্র</th><th class="n">লোক</th><th>আইটেম</th><th class="n">প্রণামী</th><th>বুকিং তারিখ</th></tr></thead><tbody>
+    ${rows.map(b => `<tr><td>${bnd(b.serial)}</td><td>${fmtDate(b.eventDate)}</td><td>${esc(b.occasion)}</td><td><b>${esc(b.name)}</b>${b.address ? "<br><small>" + esc(b.address) + "</small>" : ""}</td>
+      <td>${esc(b.mobile || "")}</td><td>${esc(b.kusti || "")}${b.gotra ? "<br><small>" + esc(b.gotra) + "</small>" : ""}</td><td class="n">${b.people ? bnd(b.people) : ""}</td><td><small>${esc(b.items || "")}</small></td>
+      <td class="n">${b.amount ? tk(b.amount) : ""}</td><td>${fmtDate(b.bookingDate)}</td></tr>`).join("") || `<tr><td colspan="10">কোনো বুকিং নেই</td></tr>`}
+    ${isAdmin() && rows.length ? `<tr class="tot"><td colspan="8"><b>মোট প্রণামী</b></td><td class="n"><b>${tk(tot)}</b></td><td></td></tr>` : ""}</tbody></table>
+    <p class="pfoot">প্রিন্টের সময়: ${fmtDate(D.today)} ${new Date().toTimeString().slice(0, 5)}</p></div>`, `অনুষ্ঠান-বহি_${y}`, {landscape: true});
+};
+
+/* ================= Tab 6: স্কুল ও কলেজ =================
    School costs and salaries are ordinary দৈনিক খরচ entries of the ashram ledger (r.school = cost | salary),
    so they are in every ashram total and report. The staff list with salaries is admin only. */
 let SC = null, scTab = "cost", scDay = null, scMonth = null;
@@ -873,12 +963,15 @@ function printDaily(uid) {
   showPrint(html, `দৈনিক-এন্ট্রি_${who}_${d}`);
 }
 /* full-screen print view: the app hides behind it, the bar is not printed */
-function showPrint(html, title) {
+function showPrint(html, title, opt = {}) {
   let box = $("printArea");
   if (!box) { box = document.createElement("div"); box.id = "printArea"; document.body.appendChild(box); }
   box.innerHTML = `<div class="pbar"><button class="btn ghost" id="pClose">← ফিরে যান</button><span class="pbar-r"><button class="btn ghost icon-share" id="pShare" aria-label="PDF শেয়ার" title="PDF শেয়ার">${SHARE_ICON}</button><button class="btn" id="pGo">প্রিন্ট</button></span></div>${html}`;
   const t0 = document.title; document.title = title; document.body.classList.add("printing"); window.scrollTo(0, 0);
-  closePrint = () => { document.body.classList.remove("printing"); document.title = t0; box.innerHTML = ""; closePrint = null; };
+  document.body.classList.toggle("print-wide", !!opt.landscape);
+  let pg = $("pageSize"); if (!pg) { pg = document.createElement("style"); pg.id = "pageSize"; document.head.appendChild(pg); }
+  pg.textContent = opt.landscape ? "@page{size:A4 landscape;margin:10mm}" : "";
+  closePrint = () => { document.body.classList.remove("printing", "print-wide"); pg.textContent = ""; document.title = t0; box.innerHTML = ""; closePrint = null; };
   let ready = null; // the PDF, once made: a second tap shares it at once (iPhone wants the share to follow a tap closely)
   $("pShare").onclick = async ev => {
     const btn = ev.currentTarget;
@@ -886,7 +979,7 @@ function showPrint(html, title) {
     try {
       if (!ready) {
         btn.disabled = true; btn.classList.add("busy");
-        ready = await makePdf(box.querySelector(".psheet"), title);
+        ready = await makePdf(box.querySelector(".psheet"), title, opt.landscape);
         btn.disabled = false; btn.classList.remove("busy");
       }
       const r = await sharePdf(ready);
@@ -918,7 +1011,7 @@ function loadPdfLib() {
   }));
 }
 const pdfName = t => (t || "হিসাব").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "_").slice(0, 80) + ".pdf";
-async function makePdf(el, title) {
+async function makePdf(el, title, landscape) {
   await loadPdfLib();
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
   const blob = await html2pdf().set({
@@ -927,7 +1020,7 @@ async function makePdf(el, title) {
     html2canvas: {scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
       // html2pdf hides its working copy (opacity 0); in the copy that gets drawn it must be visible, in sheet colours
       onclone: doc => { const c = doc.querySelector(".html2pdf__container"); if (c) { c.style.background = "#fff"; c.style.color = "#111"; } }},
-    jsPDF: {unit: "mm", format: "a4", orientation: "portrait"},
+    jsPDF: {unit: "mm", format: "a4", orientation: landscape ? "landscape" : "portrait"},
     pagebreak: {mode: ["css", "legacy"], avoid: ["tr", ".psign", ".ph"]}
   }).from(el).outputPdf("blob");
   return {blob, name: pdfName(title), title};

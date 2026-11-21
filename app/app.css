@@ -81,7 +81,7 @@ h3.sub{font-family:var(--body);font-weight:700;font-size:1rem;margin:4px 0 6px}
 .card-head h2{font-size:1.2rem}
 .card-head input{width:auto}
 .search{background:var(--surface)}
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(6,1fr);background:var(--surface);border-top:1px solid var(--line);
   padding:4px max(4px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px))}
 .tabs button{background:none;border:0;display:grid;justify-items:center;gap:0;padding:6px 2px;font-size:.72rem;font-weight:600;color:var(--muted);cursor:pointer;border-radius:10px;line-height:1.25}
 .tabs .ti{font-size:1.25rem;line-height:1.2}
@@ -233,3 +233,5 @@ body.printing #printArea{display:block;position:fixed;inset:0;z-index:500;overfl
 .icon-share{width:48px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}
 .icon-share.busy svg{animation:sharepulse 1s ease-in-out infinite}.icon-share.ready{border-color:var(--accent,#d4621a);color:var(--accent,#d4621a)}
 @keyframes sharepulse{50%{opacity:.25}}
+.psheet.pwide{max-width:1120px;font-size:12px}.psheet.pwide th,.psheet.pwide td{padding:3px 5px}
+#v-booking .item.past{opacity:.6}

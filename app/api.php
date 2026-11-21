@@ -1113,6 +1113,56 @@ case 'school_salary_pay': {
     audit($u, 'স্কুল: বেতন পরিশোধ', ['id' => $rec['id'], 'name' => $rec['name'], 'month' => $month, 'amount' => $amount]);
     out(['ok' => true, 'entry' => $rec] + school_data($u));
 }
+/* ----- অনুষ্ঠান বহি: bookings of the year's pujas and ceremonies held at the ashram -----
+   Everyone except the pranami collectors can see the book and add a booking (so a date can be checked);
+   changing or removing one is for the admin, and every change is in the audit log. */
+case 'booking_list': {
+    $u = auth(); school_guard($u);
+    out(['ok' => true, 'bookings' => array_values(array_filter(hread('bookings'), fn($b) => empty($b['deleted'])))]);
+}
+case 'booking_save': {
+    $u = auth(); school_guard($u);
+    $id = str_in($IN, 'id', 20);
+    if ($id !== '' && $u['role'] !== 'admin') fail('বুকিং বদলাতে অ্যাডমিন লাগবে।', 403);
+    $ev = str_in($IN, 'eventDate', 10); $bk = str_in($IN, 'bookingDate', 10);
+    if (!valid_date($ev)) fail('অনুষ্ঠানের তারিখ দিন।');
+    if ($bk === '') $bk = date('Y-m-d'); elseif (!valid_date($bk)) fail('বুকিং তারিখ ঠিক নেই।');
+    $name = str_in($IN, 'name', 100); if ($name === '') fail('আয়োজন কর্তার নাম লিখুন।');
+    $mobRaw = str_in($IN, 'mobile', 20); $mobile = norm_mobile($mobRaw);
+    if ($mobRaw !== '' && $mobile === '') fail('মোবাইল নম্বর ঠিক নেই। ১১ অঙ্কের নম্বর দিন (01XXXXXXXXX)।');
+    $people = (int)strtr(str_in($IN, 'people', 8), ['০'=>'0','১'=>'1','২'=>'2','৩'=>'3','৪'=>'4','৫'=>'5','৬'=>'6','৭'=>'7','৮'=>'8','৯'=>'9']);
+    $f = ['bookingDate' => $bk, 'eventDate' => $ev, 'name' => $name, 'address' => str_in($IN, 'address', 200), 'mobile' => $mobile,
+        'kusti' => str_in($IN, 'kusti', 100), 'gotra' => str_in($IN, 'gotra', 60), 'occasion' => str_in($IN, 'occasion', 120),
+        'amount' => amount_in($IN, 'amount', false), 'people' => max(0, $people), 'items' => str_in($IN, 'items', 600)];
+    $rec = hmutate('bookings', function (&$all) use ($id, $f, $u) {
+        if ($id === '') {
+            $y = substr($f['eventDate'], 0, 4); $max = 0;
+            foreach ($all as $b) if (substr($b['eventDate'], 0, 4) === $y) $max = max($max, (int)($b['serial'] ?? 0));
+            $r = ['id' => new_id(), 'serial' => $max + 1] + $f + ['by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s')];
+            $all[] = $r; return $r;
+        }
+        foreach ($all as &$b) if ($b['id'] === $id && empty($b['deleted'])) {
+            $old = array_intersect_key($b, $f);
+            $b = array_merge($b, $f); $b['history'][] = ['at' => date('Y-m-d H:i:s'), 'by' => $u['id'], 'old' => $old];
+            return $b;
+        }
+        fail('বুকিং পাওয়া যায়নি।', 404);
+    });
+    audit($u, $id === '' ? 'অনুষ্ঠান বুকিং' : 'অনুষ্ঠান বুকিং সম্পাদনা', ['name' => $rec['name'] . ', ' . $rec['eventDate'], 'amount' => $rec['amount']]);
+    out(['ok' => true, 'booking' => $rec, 'bookings' => array_values(array_filter(hread('bookings'), fn($b) => empty($b['deleted'])))]);
+}
+case 'booking_delete': {
+    $u = auth(true);
+    $id = str_in($IN, 'id', 20); $reason = str_in($IN, 'reason', 200);
+    if ($reason === '') fail('বাতিলের কারণ লিখুন।');
+    $rec = hmutate('bookings', function (&$all) use ($id, $u, $reason) {
+        foreach ($all as &$b) if ($b['id'] === $id && empty($b['deleted'])) { $b['deleted'] = true; $b['deletedAt'] = date('Y-m-d H:i:s'); $b['deletedBy'] = $u['id']; $b['deleteReason'] = $reason; return $b; }
+        fail('বুকিং পাওয়া যায়নি।', 404);
+    });
+    audit($u, 'অনুষ্ঠান বুকিং বাতিল', ['name' => $rec['name'] . ', ' . $rec['eventDate'], 'reason' => $reason]);
+    out(['ok' => true, 'bookings' => array_values(array_filter(hread('bookings'), fn($b) => empty($b['deleted'])))]);
+}
+
 case 'school_staff_save': {
     $u = auth(true);
     $id = str_in($IN, 'id', 20); $name = str_in($IN, 'name', 100); $type = str_in($IN, 'type', 10);
@@ -1163,6 +1213,7 @@ case 'restore': {
     if (!empty($b['sms']) && is_array($b['sms'])) hwrite('sms', $b['sms']);
     if (!empty($b['events']) && is_array($b['events'])) hwrite('events', $b['events']);
     if (isset($b['schoolStaff']) && is_array($b['schoolStaff'])) hwrite('school-staff', array_values($b['schoolStaff']));
+    if (isset($b['bookings']) && is_array($b['bookings'])) hwrite('bookings', array_values($b['bookings']));
     $n = array_sum(array_map(fn($r) => is_array($r) ? count($r) : 0, $b['ledger']));
     audit($u, 'ব্যাকআপ থেকে পুনরুদ্ধার', ['name' => ($b['created'] ?? '') . ' এর ব্যাকআপ, ' . $n . 'টি এন্ট্রি', 'saved' => basename($snap)]);
     out(['ok' => true, 'entries' => $n, 'people' => count($b['people'])]);
@@ -1276,7 +1327,7 @@ case 'export': {
     if ($job['what'] === 'backup') {
         /* everything needed to rebuild the ledger; password hashes and login sessions are left out */
         $b = ['app' => 'basudev-hisab', 'version' => 1, 'created' => date('Y-m-d H:i:s'),
-              'users' => array_map('public_user', hread('users')), 'areas' => areas_list(), 'cats' => cats_list(), 'events' => hread('events'), 'people' => hread('people'), 'schoolStaff' => hread('school-staff'), 'sms' => sms_cfg(), 'ledger' => []];
+              'users' => array_map('public_user', hread('users')), 'areas' => areas_list(), 'cats' => cats_list(), 'events' => hread('events'), 'people' => hread('people'), 'schoolStaff' => hread('school-staff'), 'bookings' => hread('bookings'), 'sms' => sms_cfg(), 'ledger' => []];
         foreach (glob(hdir() . '/ledger-*.json') ?: [] as $f) $b['ledger'][basename($f, '.json')] = hread(basename($f, '.json'));
         $f = hdir() . '/audit.log';
         $b['audit'] = file_exists($f) ? array_map(fn($l) => json_decode($l, true), file($f, FILE_IGNORE_NEW_LINES) ?: []) : [];
