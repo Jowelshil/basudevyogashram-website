@@ -4,7 +4,7 @@
   --saffron:#D9600F; --saffron-soft:#FBE3CF; --indigo:#1F2A5C; --on-indigo:#FFF4E2; --gold:#B88A1E;
   --inc:#1F7A4D; --inc-soft:#DDEFE4; --exp:#B3362B; --exp-soft:#F6E0DC; --con:#4E5C9A; --con-soft:#E2E5F3;
   --display:"Tiro Bangla","Noto Serif Bengali",serif;
-  --body:"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif;
+  --body:"Noto Sans Bengali",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#17130F; --surface:#221C17; --ink:#F3E9DC; --muted:#C2AE9C; --line:#3A3027;

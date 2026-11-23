@@ -13,7 +13,7 @@
   --gold:#B88A1E;
   --line:#E8D9C6;
   --display:"Tiro Bangla","Noto Serif Bengali",serif;
-  --body:"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif;
+  --body:"Noto Sans Bengali",system-ui,sans-serif;
   --maxw:1120px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
@@ -422,7 +422,7 @@ footer .wrap{padding-block:22px;display:flex;justify-content:space-between;gap:1
 
 /* phone numbers: English digits in a clear Latin face */
 .big,.guru-phone,.book-alt b,.invite b,.how span{font-variant-numeric:tabular-nums}
-.big,.guru-phone{font-family:"Hind Siliguri",system-ui,sans-serif;letter-spacing:.02em}
+.big,.guru-phone{font-family:"Noto Sans Bengali",system-ui,sans-serif;letter-spacing:.02em}
 .guru-phone{font-weight:600}
 .office b{font-weight:600}
 

@@ -1,6 +1,6 @@
 :root{--bg:#f6f1e8;--surface:#fff;--ink:#2a1f1a;--muted:#6e5b4e;--saffron:#d9600f;--saffron-soft:#fbe3cf;--indigo:#1f2a5c;--line:#e6d7c3;--ok:#1d7a46;--err:#b42318;color-scheme:light}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif;font-size:16px;line-height:1.6}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Bengali",system-ui,sans-serif;font-size:16px;line-height:1.6}
 a{color:var(--saffron)}
 h1{font-size:26px;margin:0 0 6px;color:var(--indigo)}
 h2{font-size:20px;margin:24px 0 10px;color:var(--indigo)}

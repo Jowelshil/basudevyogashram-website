@@ -29,7 +29,7 @@ $kinds = ['chandi' => ['c', 'চণ্ডীযজ্ঞ'], 'guru' => ['g', 'গ
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"PlaceOfWorship","name":"শ্রীশ্রী বাসুদেব যোগাশ্রম","alternateName":["Sri Sri Basudev Yogashram","Basudev Yogashram","Basudev Anath Ashram","বাসুদেব অনাথ আশ্রম"],"url":"https://basudevyogashram.org/","image":"https://basudevyogashram.org/images/guru-parampara.jpg","foundingDate":"1965","address":{"@type":"PostalAddress","streetAddress":"Nehalpur, Nandirhat","addressLocality":"Hathazari","addressRegion":"Chattogram","addressCountry":"BD"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="assets/site.css?v=<?= @filemtime(__DIR__.'/assets/site.css') ?>">
 
 <style>body{margin:0}</style>

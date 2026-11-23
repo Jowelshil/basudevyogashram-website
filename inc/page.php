@@ -9,7 +9,7 @@ function page_head(string $title, string $desc = ''): void { ?>
 <?php if ($desc): ?><meta name="description" content="<?= e($desc) ?>"><?php endif; ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="assets/site.css?v=<?= @filemtime(__DIR__ . '/../assets/site.css') ?>">
 <style>body{margin:0}</style>
 </head>
