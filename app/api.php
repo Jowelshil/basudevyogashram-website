@@ -405,7 +405,7 @@ function booking_cat(): string {
 function booking_payment(array &$b, float $amount, string $date, string $mode, array $u): array {
     $rec = school_ledger_add(['id' => new_id(), 'date' => $date, 'kind' => 'income', 'category' => booking_cat(), 'amount' => $amount,
         'name' => $b['name'], 'mobile' => $b['mobile'], 'address' => $b['address'], 'project' => '', 'ref' => '', 'mode' => $mode,
-        'note' => 'অনুষ্ঠান বুকিং ক্রমিক ' . bn_digits((string)$b['serial']) . ' (' . bn_digits(substr($b['eventDate'], 0, 4)) . '), ' . ($b['occasion'] ?: 'অনুষ্ঠান') . ', ' . bn_date($b['eventDate']),
+        'note' => 'অনুষ্ঠান বুকিং: ' . ($b['occasion'] ?: 'অনুষ্ঠান') . ', অনুষ্ঠানের তারিখ ' . bn_date($b['eventDate']),
         'personId' => '', 'month' => '', 'booking' => $b['id'], 'by' => $u['id'], 'createdAt' => date('Y-m-d H:i:s'), 'sms' => ['status' => 'pending']]);
     $b['payments'][] = ['entry' => $rec['id'], 'amount' => $rec['amount'], 'date' => $date, 'mode' => $mode, 'by' => $u['id'], 'at' => date('Y-m-d H:i:s')];
     return $rec;
