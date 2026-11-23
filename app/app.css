@@ -122,7 +122,11 @@ h3.sub{font-family:var(--body);font-weight:700;font-size:1rem;margin:4px 0 6px}
 .sticky-sub{position:sticky;top:calc(64px + env(safe-area-inset-top,0px));background:var(--bg);z-index:5;padding-block:4px}
 
 /* 12-month grid */
-.mgrid-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.mgrid-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  /* the grid scrolls inside its own box so the month row (and the name column) stay in view */
+  max-height:calc(100vh - 190px);max-height:calc(100dvh - 190px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:260px}
+.mgrid thead th{position:sticky;top:0;z-index:2;background:var(--surface);box-shadow:0 1px 0 var(--line)}
+.mgrid thead th.pin{z-index:3}
 table{border-collapse:collapse;width:100%;font-size:.88rem}
 th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
 th{font-size:.75rem;color:var(--muted);font-weight:700;white-space:nowrap;background:var(--surface)}
