@@ -307,10 +307,12 @@ $("ledgerForm").addEventListener("submit", e => { e.preventDefault(); guard($("s
 }); });
 $("dayPick").addEventListener("input", renderLedger);
 
-function entryRow(r, {who = false, ops = false} = {}) {
+/* sn: the row's place in the list being shown (1, 2, 3 …); a list never starts in the middle because
+   other users' entries of the same day are elsewhere */
+function entryRow(r, {who = false, ops = false, sn = null} = {}) {
   const sms = r.kind === "income" && r.mobile ? (r.sms?.status === "sent" ? '<span class="chip ok">SMS গেছে</span>' : r.sms?.status === "failed" ? '<span class="chip bad">SMS যায়নি</span>' : '<span class="chip wait">SMS বাকি</span>') : "";
   return `<div class="item">
-    <div class="sn">${bnd(r.serial || "")}</div>
+    <div class="sn">${bnd(sn ?? r.serial ?? "")}</div>
     <div><div class="t">${esc(r.name || r.category)}</div>
       <div class="s"><span class="chip ${r.kind}">${KLABEL[r.kind]}</span> ${esc(r.category)}${r.project ? " · " + esc(r.project) : ""}${r.month ? " · " + monthName(r.month) : ""}</div>
       <div class="s">${[r.mobile, r.address, r.ref ? "রসিদ " + r.ref : "", r.mode, r.note].filter(Boolean).map(esc).join(" · ")}</div>
@@ -344,7 +346,7 @@ function renderLedger() {
   const pend = list.filter(r => r.kind === "income" && r.mobile && r.sms?.status !== "sent").length;
   $("smsBox").innerHTML = D.sms.enabled && pend ? `<div class="smsbar"><span>${bnd(pend)} জন দাতার SMS বাকি</span><button class="btn small" id="smsDayBtn">দিন শেষ: SMS পাঠান</button></div>` : "";
   if ($("smsDayBtn")) $("smsDayBtn").onclick = e => guard(e.target, async () => { const j = await api("sms_day", {date: d}); toast(`${bnd(j.sent)}টি SMS গেছে` + (j.failed ? `, ${bnd(j.failed)}টি যায়নি` : "")); await reload(); render(); });
-  $("dayList").innerHTML = list.length ? list.map(r => entryRow(r, {who: isAdmin(), ops: isAdmin()})).join("") : `<div class="empty">এই তারিখে কোনো এন্ট্রি নেই।</div>`;
+  $("dayList").innerHTML = list.length ? list.map((r, i) => entryRow(r, {who: isAdmin(), ops: isAdmin(), sn: i + 1})).join("") : `<div class="empty">এই তারিখে কোনো এন্ট্রি নেই।</div>`;
 }
 $("dayList").addEventListener("click", e => {
   const t = e.target.closest("button"); if (!t) return;
@@ -575,7 +577,7 @@ function scCost() {
     </form></div>
     <div class="card"><div class="card-head"><h2>${d === D.today ? "আজ" : fmtDate(d)}</h2><input type="date" id="scDayPick" value="${d}"></div>
       <div class="daybox" style="margin-bottom:8px"><div class="bx exp"><span>এই দিনের স্কুল খরচ${isAdmin() ? "" : " (আপনার এন্ট্রি)"}</span><b>${tk(tot)}</b></div></div>
-      <div id="scList">${list.length ? list.map(r => entryRow(r, {who: isAdmin(), ops: isAdmin()})).join("") : `<div class="empty">এই তারিখে স্কুলের কোনো খরচ নেই।</div>`}</div></div>${month}`;
+      <div id="scList">${list.length ? list.map((r, i) => entryRow(r, {who: isAdmin(), ops: isAdmin(), sn: i + 1})).join("") : `<div class="empty">এই তারিখে স্কুলের কোনো খরচ নেই।</div>`}</div></div>${month}`;
   if (keep) { $("scAmt").value = keep.a; $("scCat").value = keep.c; $("scName").value = keep.n; $("scRef").value = keep.r; $("scMode").value = keep.m; $("scNote").value = keep.t; $("scDate").value = keep.d; }
 }
 $("scBody").addEventListener("submit", e => {
@@ -986,7 +988,7 @@ function renderDaily() {
     return `<div class="card"><div class="card-head"><h2>${esc(D.names[uid] || "অজানা ইউজার")}</h2><span class="muted">${bnd(l.length)}টি হিসাব${pp.length ? ", " + bnd(pp.length) + " জন নতুন নাম" : ""}</span></div>
       <div class="ops" style="margin:-4px 0 8px"><button class="btn ghost small" data-print="${esc(uid)}">প্রিন্ট / PDF</button></div>
       <div class="daysum"><span>জমা <b class="inc">${tk(s.income)}</b></span><span>দৈনিক খরচ <b class="exp">${tk(s.daily)}</b></span><span>নির্মাণ <b class="con">${tk(s.construction)}</b></span></div>
-      ${l.map(r => entryRow(r, {ops: true}) .replace('<div class="s">', `<div class="s">${r.date !== d ? "হিসাবের তারিখ " + fmtDate(r.date) + " · " : ""}এন্ট্রির সময় ${esc((r.createdAt || "").slice(11, 16))} · `)).join("")}
+      ${l.map((r, i) => entryRow(r, {ops: true, sn: i + 1}) .replace('<div class="s">', `<div class="s">${r.date !== d ? "হিসাবের তারিখ " + fmtDate(r.date) + " · " : ""}এন্ট্রির সময় ${esc((r.createdAt || "").slice(11, 16))} · `)).join("")}
       ${imp ? `<p class="note">ফাইল থেকে ইমপোর্ট: ${bnd(imp)} জন</p>` : ""}
       ${pp.length ? `<h3 class="sub" style="margin-top:10px">তালিকায় নতুন যোগ</h3>` + pp.map(p => `<div class="item"><div class="sn"></div><div><div class="t">${esc(p.name)}</div><div class="s">${LIST_LABEL[p.list]} · ${esc([p.area, p.address, p.mobile].filter(Boolean).join(" · "))}</div></div><div class="amt">${p.amount ? tk(p.amount) : ""}</div></div>`).join("") : ""}</div>`;
   }).join("");
